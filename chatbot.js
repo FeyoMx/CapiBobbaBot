@@ -14,15 +14,15 @@ const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const ADMIN_WHATSAPP_NUMBER = process.env.ADMIN_WHATSAPP_NUMBER;
+const ADMIN_WHATSAPP_NUMBERS = process.env.ADMIN_WHATSAPP_NUMBERS; // Plural
 const WHATSAPP_API_VERSION = process.env.WHATSAPP_API_VERSION || 'v18.0';
 
 // Validamos que las variables de entorno críticas estén definidas
-if (!VERIFY_TOKEN || !WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY || !ADMIN_WHATSAPP_NUMBER) {
+if (!VERIFY_TOKEN || !WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY || !ADMIN_WHATSAPP_NUMBERS) {
   console.error(
     'Error: Faltan variables de entorno críticas. ' +
-    'Asegúrate de que VERIFY_TOKEN, WHATSAPP_TOKEN, PHONE_NUMBER_ID, GEMINI_API_KEY y ADMIN_WHATSAPP_NUMBER ' +
-    'estén en tu archivo .env'
+    'Asegúrate de que VERIFY_TOKEN, WHATSAPP_TOKEN, PHONE_NUMBER_ID, GEMINI_API_KEY y ADMIN_WHATSAPP_NUMBERS ' +
+    'estén en tu archivo .env (separados por coma si son varios)'
   );
   process.exit(1); // Detiene la aplicación si falta configuración
 }
@@ -501,16 +501,26 @@ function sendTextMessage(to, text) {
 }
 
 /**
- * Envía una notificación al número de WhatsApp del administrador.
+ * Envía una notificación a todos los números de WhatsApp de los administradores.
  * @param {string} text El mensaje de notificación.
  */
 function notifyAdmin(text) {
-  if (!ADMIN_WHATSAPP_NUMBER) {
-    console.log('No se ha configurado un número de administrador para notificaciones.');
+  if (!ADMIN_WHATSAPP_NUMBERS) {
+    console.log('No se han configurado números de administrador para notificaciones.');
     return;
   }
-  console.log(`Enviando notificación al administrador: ${text}`);
-  sendTextMessage(ADMIN_WHATSAPP_NUMBER, text);
+
+  // Separa la cadena de números en un array y elimina espacios en blanco
+  const adminNumbers = ADMIN_WHATSAPP_NUMBERS.split(',').map(num => num.trim());
+
+  console.log(`Enviando notificación a los administradores: ${adminNumbers.join(', ')}`);
+
+  // Envía el mensaje a cada número del array
+  for (const number of adminNumbers) {
+    if (number) { // Asegura no procesar strings vacíos si hay comas extra
+      sendTextMessage(number, text);
+    }
+  }
 }
 
 /**
