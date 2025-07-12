@@ -6,6 +6,7 @@ const bodyParser = require('body-parser');
 const axios = require('axios');
 const fs = require('fs');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { BUSINESS_CONTEXT } = require('./business_data'); // Importa el contexto del negocio
 
 // --- CONFIGURACIÓN ---
 // Lee las variables de entorno de forma segura. ¡No dejes tokens en el código!
@@ -13,13 +14,15 @@ const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const ADMIN_WHATSAPP_NUMBER = process.env.ADMIN_WHATSAPP_NUMBER;
 const WHATSAPP_API_VERSION = process.env.WHATSAPP_API_VERSION || 'v18.0';
 
 // Validamos que las variables de entorno críticas estén definidas
-if (!VERIFY_TOKEN || !WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY) {
+if (!VERIFY_TOKEN || !WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY || !ADMIN_WHATSAPP_NUMBER) {
   console.error(
     'Error: Faltan variables de entorno críticas. ' +
-    'Asegúrate de que VERIFY_TOKEN, WHATSAPP_TOKEN, PHONE_NUMBER_ID y GEMINI_API_KEY estén en tu archivo .env'
+    'Asegúrate de que VERIFY_TOKEN, WHATSAPP_TOKEN, PHONE_NUMBER_ID, GEMINI_API_KEY y ADMIN_WHATSAPP_NUMBER ' +
+    'estén en tu archivo .env'
   );
   process.exit(1); // Detiene la aplicación si falta configuración
 }
@@ -207,59 +210,6 @@ function findTextCommandHandler(text) {
 // --- ACCIONES DEL BOT (Las respuestas de tu negocio) ---
 
 /**
- * Contiene la información clave del negocio para dar contexto a la IA.
- * ¡Aquí es donde "entrenas" a Gemini con tus datos!
- */
-const BUSINESS_CONTEXT = `
-**Menú de CapiBoba:**
-- Bebidas Base Agua 
-- Blueberry: $75.00
-- Guanábana: $75.00
-- Piña colada: $75.00
-- Fresa: $75.00 
-- Sandia: $ 75.00
-- Mango: $75.00
-- Maracuya: $75.00
-- Tamarindo: $75.00
-- Bebidas Base Leche
-- Taro: $75.00
-- Chai: $75.00
-- Cookies&cream: $75.00
-- Pay de limon: $75.00
-- Crema irlandesa: $75.00
-- Mazapan: $75.00
-- Mocha: $75.00
-- Chocolate Mexicano: $75.00
-- Matcha: $75.00
-- Bebidas de temporada
-- Chamoyada: $80.00
-- Fresas con crema: $75.00
-- Toppings
-- Perlas explosivas de frutos rojos: $10.00
-- Perlas explosivas de litchi: $10.00
-- Perlas explosivas de manzana verde: $10.00
-- Tapioca extra: $10.00
-- Jelly Arcoiris: $10.00
-- Perlas Cristal: $10.00
-
-**Como Pedir?**
-- la manera mas rapida de hacerlo es en nuestro menu https://menu-capibobba.web.app/ ahi seleccionas tus bebidas y toppings
-**Promociones Actuales:**
-- Combo día Lluvioso: 2 bebidas calientes del mismo sabor por $110.
-- Combo Amigos: 2 Frappe base agua del mismo sabor por $130.
-
-**Información de Pago y Horarios:**
-- Horario: Lunes a Viernes de 6:00 PM a 10:00 PM. Sábados y Domingos de 12:00 PM a 10:00 PM.
-- Solo servicio a domicilio: Servicio a domicilio GRATIS en fraccionamientos aledaños a Viñedos.
-- Ubicacion : No tenemos local fisico solo servicio a domicilio.
-- Pago en efectivo o transferencia
-- Para transferencias, puedes usar la siguiente cuenta:
-- Banco: MERCADO PAGO W
-- Número de Cuenta: 722969010305501833
-- A nombre de: Maria Elena Martinez Flores
-- Por favor, envía tu comprobante de pago a este mismo chat para confirmar tu pedido.`;
-
-/**
  * Envía el menú principal con botones.
  * @param {string} to Número del destinatario.
  */
@@ -328,6 +278,7 @@ function handleShowLocation(to, text) {
  */
 function handleContactAgent(to, text) {
   sendTextMessage(to, 'Entendido. Un agente se pondrá en contacto contigo en breve.');
+  notifyAdmin(`🔔 ¡Atención! El cliente ${to} solicita hablar con un agente.`);
 }
 
 /**
@@ -381,8 +332,9 @@ async function handleAddressResponse(from, address) {
   };
   await sendMessage(from, payload);
 
-  // Actualiza el estado del usuario para esperar la respuesta del botón.
-  userStates.set(from, { step: 'awaiting_access_code_info', address: address });
+  // Actualiza el estado del usuario preservando el estado anterior (como orderText).
+  const currentState = userStates.get(from) || {};
+  userStates.set(from, { ...currentState, step: 'awaiting_access_code_info', address: address });
   saveUserState();
 }
 
@@ -438,6 +390,13 @@ async function handlePaymentMethodResponse(from, buttonId) {
 
     await sendTextMessage(from, finalMessage);
     console.log(`Pedido finalizado para ${from}. Dirección: ${address}. Pago: Transferencia.`);
+
+    // Notificar al administrador
+    const orderSummary = userState.orderText.split('\n').slice(1, -2).join('\n'); // Extraer solo los items
+    const total = userState.orderText.match(/Total a pagar: (\$\d+\.\d{2})/)[1];
+    const adminNotification = `🎉 ¡Nuevo pedido por Transferencia!\n\n*Cliente:* ${from}\n*Dirección:* ${address}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}\n\n*Nota:* Esperando comprobante.`;
+    notifyAdmin(adminNotification);
+
     userStates.delete(from); // Limpiamos el estado del usuario
     saveUserState();
   } else { // 'payment_cash'
@@ -474,6 +433,12 @@ async function handleCashDenominationResponse(from, denomination) {
   finalMessage += `\nLlevaremos cambio para tu pago de *${denomination}*.\n\n¡Gracias por tu preferencia!`;
 
   await sendTextMessage(from, finalMessage);
+
+  // Notificar al administrador
+  const orderSummary = userState.orderText.split('\n').slice(1, -2).join('\n');
+  const total = userState.orderText.match(/Total a pagar: (\$\d+\.\d{2})/)[1];
+  const adminNotification = `🎉 ¡Nuevo pedido en Efectivo!\n\n*Cliente:* ${from}\n*Dirección:* ${address}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}\n*Paga con:* ${denomination}`;
+  notifyAdmin(adminNotification);
 
   console.log(`Pedido finalizado para ${from}. Dirección: ${address}. Pago: Efectivo (${sanitizedDenomination}).`);
   userStates.delete(from);
@@ -533,6 +498,19 @@ function defaultHandler(to) {
 function sendTextMessage(to, text) {
   const payload = { type: 'text', text: { body: text } };
   sendMessage(to, payload);
+}
+
+/**
+ * Envía una notificación al número de WhatsApp del administrador.
+ * @param {string} text El mensaje de notificación.
+ */
+function notifyAdmin(text) {
+  if (!ADMIN_WHATSAPP_NUMBER) {
+    console.log('No se ha configurado un número de administrador para notificaciones.');
+    return;
+  }
+  console.log(`Enviando notificación al administrador: ${text}`);
+  sendTextMessage(ADMIN_WHATSAPP_NUMBER, text);
 }
 
 /**
