@@ -1,0 +1,567 @@
+// chatbot.js
+require('dotenv').config(); // Carga las variables de entorno desde el archivo .env
+
+const express = require('express');
+const bodyParser = require('body-parser');
+const axios = require('axios');
+const fs = require('fs');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+// --- CONFIGURACIÓN ---
+// Lee las variables de entorno de forma segura. ¡No dejes tokens en el código!
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const WHATSAPP_API_VERSION = process.env.WHATSAPP_API_VERSION || 'v18.0';
+
+// Validamos que las variables de entorno críticas estén definidas
+if (!VERIFY_TOKEN || !WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY) {
+  console.error(
+    'Error: Faltan variables de entorno críticas. ' +
+    'Asegúrate de que VERIFY_TOKEN, WHATSAPP_TOKEN, PHONE_NUMBER_ID y GEMINI_API_KEY estén en tu archivo .env'
+  );
+  process.exit(1); // Detiene la aplicación si falta configuración
+}
+
+const app = express();
+app.use(bodyParser.json());
+
+const PORT = process.env.PORT || 3000;
+
+// --- ENDPOINTS ---
+
+// Endpoint para la verificación del Webhook (solo se usa una vez por Meta)
+app.get('/webhook', (req, res) => {
+  console.log("GET /webhook - Verificando webhook...");
+
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  // Valida que el modo y el token sean correctos
+  if (mode && token) {
+    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+      console.log('WEBHOOK_VERIFIED');
+      res.status(200).send(challenge);
+    } else {
+      // Si no coinciden, responde con '403 Forbidden'
+      console.log('Verification failed. Tokens do not match.');
+      res.sendStatus(403);
+    }
+  } else {
+      res.sendStatus(400);
+  }
+});
+
+// Endpoint para recibir mensajes de WhatsApp
+app.post('/webhook', (req, res) => {
+  const body = req.body;
+  console.log('POST /webhook - Mensaje recibido:');
+  console.log(JSON.stringify(body, null, 2));
+
+  try {
+    // Aseguramos que el objeto y la entrada existan
+    if (body.object === 'whatsapp_business_account' && body.entry) {
+      const change = body.entry[0]?.changes?.[0];
+      if (change?.value) {
+        if (change.value.messages) {
+          // Es un mensaje nuevo de un usuario, lo procesamos para responder.
+          const message = change.value.messages[0];
+          processMessage(message);
+        } else if (change.value.statuses) {
+          // Es una actualización de estado (sent, delivered, read).
+          // Por ahora, solo lo registramos en consola y no hacemos nada más.
+          const status = change.value.statuses[0];
+          console.log(`Estado del mensaje ${status.id} actualizado a: ${status.status}`);
+        }
+      }
+    }
+
+    // Responde a Meta para confirmar la recepción
+    res.sendStatus(200);
+  } catch (error) {
+    console.error('Error al procesar el webhook:', error);
+    // Informa a Meta que hubo un error en el servidor
+    res.sendStatus(500);
+  }
+});
+
+// --- LÓGICA DEL BOT ---
+
+// --- GESTIÓN DE ESTADO PERSISTENTE ---
+// Esto guarda el estado de la conversación en un archivo para que no se pierda si el servidor se reinicia.
+// En un entorno de producción en la nube, no se debe usar el sistema de archivos local porque es efímero.
+// El estado se mantendrá en memoria. Si se necesita persistencia, se debe usar una base de datos como Redis o PostgreSQL.
+
+let userStates = new Map();
+
+function saveUserState() {
+  // No hacemos nada aquí para evitar escribir en el sistema de archivos efímero.
+  // En un futuro, aquí iría la lógica para guardar en una base de datos externa.
+}
+
+/**
+ * Procesa el mensaje entrante y lo dirige al manejador correcto.
+ * @param {object} message El objeto de mensaje de la API de WhatsApp.
+ */
+function processMessage(message) {
+  const from = message.from; // Número de teléfono del remitente
+
+  // Primero, revisamos si el usuario está en medio de un flujo de conversación (como un pedido).
+  const userState = userStates.get(from);
+  if (userState) {
+    if (userState.step === 'awaiting_address' && message.type === 'text') {
+      handleAddressResponse(from, message.text.body);
+      return; // Detenemos el procesamiento para no interpretar la dirección como un comando.
+    }
+    if (userState.step === 'awaiting_access_code_info' && message.type === 'interactive' && message.interactive.type === 'button_reply') {
+      handleAccessCodeResponse(from, message.interactive.button_reply.id);
+      return; // Detenemos el procesamiento.
+    }
+    if (userState.step === 'awaiting_payment_method' && message.type === 'interactive' && message.interactive.type === 'button_reply') {
+      handlePaymentMethodResponse(from, message.interactive.button_reply.id);
+      return; // Detenemos el procesamiento.
+    }
+    if (userState.step === 'awaiting_cash_denomination' && message.type === 'text') {
+      handleCashDenominationResponse(from, message.text.body);
+      return; // Detenemos el procesamiento.
+    }
+  }
+
+  if (message.type === 'text') {
+    const messageBody = message.text.body; // Mantenemos el texto original para el pedido
+    const lowerCaseMessage = messageBody.toLowerCase().trim();
+
+    // Busca un manejador para el comando de texto
+    const handler = textCommandHandlers[lowerCaseMessage] || findTextCommandHandler(lowerCaseMessage);
+    if (handler) {
+      // Pasamos el texto original del mensaje por si el manejador lo necesita (ej. para un pedido)
+      handler(from, messageBody);
+    } else {
+      // Si no es un comando conocido, se lo pasamos a Gemini
+      handleFreeformQuery(from, messageBody);
+    }
+  } else if (message.type === 'interactive' && message.interactive.type === 'button_reply') {
+    const buttonId = message.interactive.button_reply.id;
+    // Busca un manejador para el ID del botón y lo llama. Si no lo encuentra, usa el manejador por defecto.
+    const handler = buttonCommandHandlers[buttonId] || defaultHandler;
+    handler(from);
+  }
+}
+
+// --- MANEJADORES DE COMANDOS ---
+
+// Manejadores para comandos de texto exactos. Aquí "entrenas" al bot.
+const textCommandHandlers = {
+  // Los saludos ahora se manejan de forma más flexible en findTextCommandHandler
+  'ayuda': sendMainMenu,
+  'menu': handleShowMenu,
+  'promociones': handleShowPromotions,
+  'horario': handleShowHours,
+  'ubicacion': handleShowLocation
+};
+
+// Manejadores para respuestas de botones.
+const buttonCommandHandlers = {
+  'ver_menu': handleShowMenu,
+  'ver_promociones': handleShowPromotions,
+  'contactar_agente': handleContactAgent
+};
+
+/**
+ * Comprueba si un texto es un saludo común.
+ * @param {string} text El texto a comprobar en minúsculas.
+ * @returns {boolean}
+ */
+function isGreeting(text) {
+  const greetings = ['hola', 'buenas', 'buenos dias', 'buen dia', 'hey', 'que tal'];
+  return greetings.some(greeting => text.startsWith(greeting));
+}
+
+/**
+ * Busca un manejador de comandos que coincida parcialmente (ej. "quiero ver el menu").
+ * @param {string} text El texto del mensaje del usuario.
+ * @returns {Function|null} La función manejadora o null si no se encuentra.
+ */
+function findTextCommandHandler(text) {
+    // Damos prioridad a la detección de pedidos del menú web
+    if (text.includes('total a pagar:') && text.includes('subtotal:')) {
+        return handleNewOrderFromMenu;
+    }
+
+    // Damos prioridad a los saludos para mostrar el menú principal
+    if (isGreeting(text)) {
+      return sendMainMenu;
+    }
+
+    // Lógica para otros comandos
+    if (text.includes('menu')) return handleShowMenu;
+    if (text.includes('promo')) return handleShowPromotions;
+    if (text.includes('hora') || text.includes('atienden')) return handleShowHours;
+    if (text.includes('ubicacion') || text.includes('donde estan')) return handleShowLocation;
+    // Si ninguna de las palabras clave coincide, no devolvemos nada para que lo maneje Gemini.
+    return null;
+}
+
+// --- ACCIONES DEL BOT (Las respuestas de tu negocio) ---
+
+/**
+ * Contiene la información clave del negocio para dar contexto a la IA.
+ * ¡Aquí es donde "entrenas" a Gemini con tus datos!
+ */
+const BUSINESS_CONTEXT = `
+**Menú de CapiBoba:**
+- Bebidas Base Agua 
+- Blueberry: $75.00
+- Guanábana: $75.00
+- Piña colada: $75.00
+- Fresa: $75.00 
+- Sandia: $ 75.00
+- Mango: $75.00
+- Maracuya: $75.00
+- Tamarindo: $75.00
+- Bebidas Base Leche
+- Taro: $75.00
+- Chai: $75.00
+- Cookies&cream: $75.00
+- Pay de limon: $75.00
+- Crema irlandesa: $75.00
+- Mazapan: $75.00
+- Mocha: $75.00
+- Chocolate Mexicano: $75.00
+- Matcha: $75.00
+- Bebidas de temporada
+- Chamoyada: $80.00
+- Fresas con crema: $75.00
+- Toppings
+- Perlas explosivas de frutos rojos: $10.00
+- Perlas explosivas de litchi: $10.00
+- Perlas explosivas de manzana verde: $10.00
+- Tapioca extra: $10.00
+- Jelly Arcoiris: $10.00
+- Perlas Cristal: $10.00
+
+**Como Pedir?**
+- la manera mas rapida de hacerlo es en nuestro menu https://menu-capibobba.web.app/ ahi seleccionas tus bebidas y toppings
+**Promociones Actuales:**
+- Combo día Lluvioso: 2 bebidas calientes del mismo sabor por $110.
+- Combo Amigos: 2 Frappe base agua del mismo sabor por $130.
+
+**Información de Pago y Horarios:**
+- Horario: Lunes a Viernes de 6:00 PM a 10:00 PM. Sábados y Domingos de 12:00 PM a 10:00 PM.
+- Solo servicio a domicilio: Servicio a domicilio GRATIS en fraccionamientos aledaños a Viñedos.
+- Ubicacion : No tenemos local fisico solo servicio a domicilio.
+- Pago en efectivo o transferencia
+- Para transferencias, puedes usar la siguiente cuenta:
+- Banco: MERCADO PAGO W
+- Número de Cuenta: 722969010305501833
+- A nombre de: Maria Elena Martinez Flores
+- Por favor, envía tu comprobante de pago a este mismo chat para confirmar tu pedido.`;
+
+/**
+ * Envía el menú principal con botones.
+ * @param {string} to Número del destinatario.
+ */
+function sendMainMenu(to, text) {
+  const payload = {
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      header: { type: 'text', text: '🧋CapiBobba🧋' },
+      body: {
+        text: '¡Hola! Soy el asistente virtual de CapiBobba. ¿Cómo puedo ayudarte hoy?'
+      },
+      footer: {
+        text: 'Selecciona una opción'
+      },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: 'ver_menu', title: 'Ver Menú 📜' } },
+          { type: 'reply', reply: { id: 'ver_promociones', title: 'Promociones ✨' } },
+          { type: 'reply', reply: { id: 'contactar_agente', title: 'Hablar con alguien 🧑‍' } }
+        ]
+      }
+    }
+  };
+  sendMessage(to, payload);
+}
+
+/**
+ * Maneja la solicitud para ver el menú.
+ * @param {string} to Número del destinatario.
+ */
+function handleShowMenu(to, text) {
+  sendTextMessage(to, `¡Claro! Aquí está nuestro delicioso menú: https://menu-capibobba.web.app/`);
+}
+
+/**
+ * Maneja la solicitud para ver las promociones.
+ * @param {string} to Número del destinatario.
+ */
+function handleShowPromotions(to, text) {
+  const promoText = `¡Nuestras promos de hoy! ✨\n\n- *Combo dia Lluvioso:* 2 bebidas calientes del mismo sabor x $110.\n- *Combo Amigos:* 2 Frappe base agua del mismo sabor por $130.`;
+  sendTextMessage(to, promoText);
+}
+
+/**
+ * Maneja la solicitud de horario.
+ * @param {string} to Número del destinatario.
+ */
+function handleShowHours(to, text) {
+  const hoursText = `Nuestro horario de atención es:\nLunes a Viernes: 6:00 PM - 10:00 PM\nSábados y Domingos: 12:00 PM - 10:00 PM`;
+  sendTextMessage(to, hoursText);
+}
+
+/**
+ * Maneja la solicitud de ubicación.
+ * @param {string} to Número del destinatario.
+ */
+function handleShowLocation(to, text) {
+  const locationText = `Tenemos servicio a domicilio GRATIS en los fraccionamientos aledaños a Viñedos!`;
+  sendTextMessage(to, locationText);
+}
+
+/**
+ * Maneja la solicitud para contactar a un agente.
+ * @param {string} to Número del destinatario.
+ */
+function handleContactAgent(to, text) {
+  sendTextMessage(to, 'Entendido. Un agente se pondrá en contacto contigo en breve.');
+}
+
+/**
+ * Maneja la recepción de un nuevo pedido desde el menú web.
+ * @param {string} to Número del destinatario.
+ * @param {string} orderText El texto completo del pedido del cliente.
+ */
+async function handleNewOrderFromMenu(to, orderText) {
+  const totalMatch = orderText.match(/Total a pagar: \$(\d+\.\d{2})/);
+  const total = totalMatch ? totalMatch[1] : null;
+
+  let confirmationText = `¡Gracias por tu pedido! ✨\n\nHemos recibido tu orden y ya está en proceso de confirmación.`;
+
+  if (total) {
+    confirmationText += `\n\nConfirmamos un total de *$${total}*. En un momento te enviaremos los detalles para el pago.`;
+  }
+
+  // 1. Envía el mensaje de confirmación inicial.
+  await sendTextMessage(to, confirmationText);
+
+  // 2. Envía la pregunta de seguimiento para la dirección.
+  const addressRequestText = `Para continuar, por favor, indícanos tu dirección completa (calle, número, colonia y alguna referencia). 🏠`;
+  await sendTextMessage(to, addressRequestText);
+
+  // 3. Pone al usuario en el estado de "esperando dirección".
+  userStates.set(to, { step: 'awaiting_address', orderText: orderText });
+  saveUserState();
+}
+
+/**
+ * Maneja la respuesta del usuario cuando se le pide la dirección.
+ * @param {string} from El número del remitente.
+ * @param {string} address El texto de la dirección proporcionada.
+ */
+async function handleAddressResponse(from, address) {
+  console.log(`Dirección recibida de ${from}: ${address}`);
+
+  // Pregunta si se necesita código de acceso con botones.
+  const payload = {
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: { text: '¡Perfecto! Gracias por tu dirección.\n\n¿Tu domicilio está en una privada y se necesita código de acceso para entrar?' },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: 'access_code_yes', title: 'Sí, se necesita' } },
+          { type: 'reply', reply: { id: 'access_code_no', title: 'No, no se necesita' } }
+        ]
+      }
+    }
+  };
+  await sendMessage(from, payload);
+
+  // Actualiza el estado del usuario para esperar la respuesta del botón.
+  userStates.set(from, { step: 'awaiting_access_code_info', address: address });
+  saveUserState();
+}
+
+/**
+ * Maneja la respuesta del usuario sobre el código de acceso.
+ * @param {string} from El número del remitente.
+ * @param {string} buttonId El ID del botón presionado ('access_code_yes' o 'access_code_no').
+ */
+async function handleAccessCodeResponse(from, buttonId) {
+  const userState = userStates.get(from);
+  
+  // Guardamos la información del código de acceso en el estado
+  userState.accessCodeInfo = buttonId;
+
+  // Ahora, en lugar de finalizar, preguntamos por el método de pago
+  const payload = {
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: { text: '¡Excelente! Por último, ¿cómo prefieres realizar tu pago?' },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: 'payment_cash', title: 'Efectivo 💵' } },
+          { type: 'reply', reply: { id: 'payment_transfer', title: 'Transferencia 💳' } }
+        ]
+      }
+    }
+  };
+  await sendMessage(from, payload);
+
+  // Actualiza el estado del usuario para esperar la respuesta del método de pago.
+  userStates.set(from, { ...userState, step: 'awaiting_payment_method' });
+  saveUserState();
+}
+
+/**
+ * Maneja la respuesta del usuario sobre el método de pago.
+ * @param {string} from El número del remitente.
+ * @param {string} buttonId El ID del botón presionado ('payment_cash' o 'payment_transfer').
+ */
+async function handlePaymentMethodResponse(from, buttonId) {
+  if (buttonId === 'payment_transfer') {
+    const bankDetails = `Para transferencias, puedes usar la siguiente cuenta:\n- Banco: MERCADO PAGO W\n- Número de Cuenta: 722969010305501833\n- A nombre de: Maria Elena Martinez Flores\n\nPor favor, envía tu comprobante de pago a este mismo chat para confirmar tu pedido.`;
+    await sendTextMessage(from, bankDetails);
+
+    const userState = userStates.get(from);
+    const address = userState.address;
+    let finalMessage = `¡Pedido completo y confirmado! 🛵\n\nTu orden será enviada a:\n*${address}*.\n\n`;
+    finalMessage += userState.accessCodeInfo === 'access_code_yes' 
+      ? `Un agente te contactará para el código de acceso.\n\n`
+      : `Hemos registrado que no se necesita código de acceso.\n\n`;
+    finalMessage += `Esperamos tu comprobante de pago. ¡Gracias por tu preferencia!`;
+
+    await sendTextMessage(from, finalMessage);
+    console.log(`Pedido finalizado para ${from}. Dirección: ${address}. Pago: Transferencia.`);
+    userStates.delete(from); // Limpiamos el estado del usuario
+    saveUserState();
+  } else { // 'payment_cash'
+    await sendTextMessage(from, 'Has elegido pagar en efectivo. ¿Con qué billete pagarás? (ej. $200, $500) para que podamos llevar tu cambio exacto.');
+    const userState = userStates.get(from);
+    userStates.set(from, { ...userState, step: 'awaiting_cash_denomination' });
+    saveUserState();
+  }
+}
+
+/**
+ * Maneja la respuesta del usuario sobre la denominación del billete.
+ * @param {string} from El número del remitente.
+ * @param {string} denomination El texto con la denominación del billete.
+ */
+async function handleCashDenominationResponse(from, denomination) {
+  // Mejora: Validar la entrada del usuario para asegurar que sea un número.
+  const sanitizedDenomination = denomination.trim().replace('$', '');
+  if (isNaN(sanitizedDenomination) || parseFloat(sanitizedDenomination) <= 0) {
+    await sendTextMessage(from, 'Por favor, ingresa un monto válido para el pago en efectivo (ej. 200, 500).');
+    return; // No continuamos si la entrada no es válida.
+  }
+
+  const userState = userStates.get(from);
+  const address = userState.address;
+  let finalMessage = `¡Pedido completo y confirmado! 🛵\n\nTu orden será enviada a:\n*${address}*.\n\n`;
+
+  if (userState.accessCodeInfo === 'access_code_yes') {
+    finalMessage += `Un agente te contactará para el código de acceso cuando el repartidor esté en camino.\n\n`;
+  } else {
+    finalMessage += `Hemos registrado que no se necesita código de acceso.`;
+  }
+  
+  finalMessage += `\nLlevaremos cambio para tu pago de *${denomination}*.\n\n¡Gracias por tu preferencia!`;
+
+  await sendTextMessage(from, finalMessage);
+
+  console.log(`Pedido finalizado para ${from}. Dirección: ${address}. Pago: Efectivo (${sanitizedDenomination}).`);
+  userStates.delete(from);
+  saveUserState();
+}
+/**
+ * Maneja preguntas de formato libre usando la API de Gemini.
+ * @param {string} to Número del destinatario.
+ * @param {string} userQuery La pregunta del usuario.
+ */
+async function handleFreeformQuery(to, userQuery) {
+  try {
+    // Inicializa el modelo de IA Generativa 
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+
+    // ¡Importante! Aquí le das contexto al bot para que sepa cómo comportarse.
+    const prompt = `
+    Eres "Capi", un asistente virtual experto y amigable de la bubble tea shop "CapiBoba".
+    Tu ÚNICA fuente de información es el siguiente contexto del negocio. No debes inventar productos, precios o promociones que no estén en esta lista.
+    Si te preguntan por una bebida, recomienda únicamente las que están en el menú.
+
+    --- CONTEXTO DEL NEGOCIO ---
+    ${BUSINESS_CONTEXT}
+    --- FIN DEL CONTEXTO ---
+
+    Basándote ESTRICTAMENTE en la información del contexto, responde la siguiente pregunta del cliente de forma breve y servicial.
+    Si la pregunta no se puede responder con la información proporcionada, responde amablemente que no tienes esa información y sugiere que pregunten por el menú o las promociones.
+
+    Pregunta del cliente: "${userQuery}"`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const geminiText = response.text();
+
+    sendTextMessage(to, geminiText);
+  } catch (error) {
+    console.error('Error al contactar la API de Gemini:', error);
+    // En caso de error con Gemini, envía una respuesta por defecto.
+    defaultHandler(to);
+  }
+}
+
+/**
+ * Maneja los mensajes no reconocidos.
+ * @param {string} to Número del destinatario.
+ */
+function defaultHandler(to) {
+  sendTextMessage(to, `No entendí tu mensaje. Escribe "hola" o "ayuda" para ver las opciones disponibles.`);
+}
+
+/**
+ * Envía un mensaje de texto simple.
+ * @param {string} to El número de teléfono del destinatario.
+ * @param {string} text El texto a enviar.
+ */
+function sendTextMessage(to, text) {
+  const payload = { type: 'text', text: { body: text } };
+  sendMessage(to, payload);
+}
+
+/**
+ * Envía un mensaje a través de la API de WhatsApp.
+ * @param {string} to El número de teléfono del destinatario.
+ * @param {object} payload El objeto de mensaje a enviar (puede ser texto, interactivo, etc.).
+ */
+async function sendMessage(to, payload) {
+  const url = `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`;
+  const data = {
+    messaging_product: 'whatsapp',
+    to: to,
+    ...payload, // El payload contiene el tipo de mensaje y su contenido
+  };
+  const headers = {
+    'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+    'Content-Type': 'application/json',
+  };
+
+  try {
+    console.log(`Enviando mensaje a ${to}:`, JSON.stringify(payload, null, 2));
+    await axios.post(url, data, { headers });
+    console.log('Mensaje enviado exitosamente.');
+  } catch (error) {
+    console.error('Error al enviar el mensaje:', error.response ? error.response.data : error.message);
+  }
+}
+
+// Inicia el servidor
+app.listen(PORT, () => {
+  console.log(`Servidor escuchando en el puerto ${PORT}`);
+});
