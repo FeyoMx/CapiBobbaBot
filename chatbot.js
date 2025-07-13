@@ -290,6 +290,11 @@ async function handleNewOrderFromMenu(to, orderText) {
   const totalMatch = orderText.match(/Total a pagar: \$(\d+\.\d{2})/);
   const total = totalMatch ? totalMatch[1] : null;
 
+  // Notificar a los administradores que se ha iniciado un nuevo pedido.
+  const orderSummary = orderText.split('\n').slice(1, -2).join('\n'); // Extraer solo los items
+  const initialAdminNotification = `🔔 ¡Nuevo pedido iniciado!\n\n*Cliente:* ${to}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total ? '$' + total : 'No especificado'}\n\n*Nota:* Esperando dirección y método de pago.`;
+  notifyAdmin(initialAdminNotification);
+
   let confirmationText = `¡Gracias por tu pedido! ✨\n\nHemos recibido tu orden y ya está en proceso de confirmación.`;
 
   if (total) {
