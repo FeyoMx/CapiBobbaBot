@@ -215,8 +215,8 @@ function isGreeting(text) {
  * @returns {Function|null} La función manejadora o null si no se encuentra.
  */
 function findTextCommandHandler(text) {
-    // Damos prioridad a la detección de pedidos del menú web
-    if (text.includes('total a pagar:') && text.includes('subtotal:')) {
+    // Damos prioridad a la detección de pedidos del menú web, ahora buscando el texto correcto.
+    if (text.includes('total del pedido:')) {
         return handleNewOrderFromMenu;
     }
 
@@ -326,8 +326,8 @@ function handleContactAgent(to, text) {
  * @param {string} text El texto completo del mensaje del usuario.
  */
 function handleInitiateOrder(to, text) {
-  // Comprueba si el texto del mensaje ya contiene un pedido formateado.
-  if (text.includes('total a pagar:') && text.includes('subtotal:')) {
+  // Comprueba si el texto del mensaje ya contiene un pedido formateado con el texto correcto.
+  if (text.toLowerCase().includes('total del pedido:')) {
     handleNewOrderFromMenu(to, text);
   } else {
     // Si solo es la intención, guía al usuario.
@@ -341,7 +341,7 @@ function handleInitiateOrder(to, text) {
  * @param {string} orderText El texto completo del pedido del cliente.
  */
 async function handleNewOrderFromMenu(to, orderText) {
-  const totalMatch = orderText.match(/Total a pagar: \$(\d+\.\d{2})/);
+  const totalMatch = orderText.match(/Total del pedido: \$(\d+\.\d{2})/i);
   const total = totalMatch ? totalMatch[1] : null;
 
   // Notificar a los administradores que se ha iniciado un nuevo pedido.
@@ -451,7 +451,7 @@ async function handlePaymentMethodResponse(from, buttonId) {
 
     // Notificar al administrador
     const orderSummary = userState.orderText.split('\n').slice(1, -2).join('\n'); // Extraer solo los items
-    const totalMatch = userState.orderText.match(/Total a pagar: (\$\d+\.\d{2})/);
+    const totalMatch = userState.orderText.match(/Total del pedido: (\$\d+\.\d{2})/i);
     const total = totalMatch ? totalMatch[1] : 'N/A';
     const accessCodeMessage = userState.accessCodeInfo === 'access_code_yes'
         ? '⚠️ Se necesita código de acceso.'
@@ -499,7 +499,7 @@ async function handleCashDenominationResponse(from, denomination) {
 
   // Notificar al administrador
   const orderSummary = userState.orderText.split('\n').slice(1, -2).join('\n');
-  const totalMatch = userState.orderText.match(/Total a pagar: (\$\d+\.\d{2})/);
+  const totalMatch = userState.orderText.match(/Total del pedido: (\$\d+\.\d{2})/i);
   const total = totalMatch ? totalMatch[1] : 'N/A';
   const accessCodeMessage = userState.accessCodeInfo === 'access_code_yes'
     ? '⚠️ Se necesita código de acceso.'
@@ -528,7 +528,7 @@ async function handlePaymentProofImage(from, imageObject) {
 
   // 2. Preparar la notificación para los administradores
   const orderSummary = userState.orderText.split('\n').slice(1, -2).join('\n');
-  const totalMatch = userState.orderText.match(/Total a pagar: (\$\d+\.\d{2})/);
+  const totalMatch = userState.orderText.match(/Total del pedido: (\$\d+\.\d{2})/i);
   const total = totalMatch ? totalMatch[1] : 'N/A';
   
   const accessCodeMessage = userState.accessCodeInfo === 'access_code_yes'
