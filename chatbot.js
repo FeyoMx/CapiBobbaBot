@@ -430,7 +430,10 @@ async function handlePaymentMethodResponse(from, buttonId) {
     const orderSummary = userState.orderText.split('\n').slice(1, -2).join('\n'); // Extraer solo los items
     const totalMatch = userState.orderText.match(/Total a pagar: (\$\d+\.\d{2})/);
     const total = totalMatch ? totalMatch[1] : 'N/A';
-    const adminNotification = `⏳ Pedido por Transferencia en espera\n\n*Cliente:* ${formatDisplayNumber(from)}\n*Dirección:* ${userState.address}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}\n\n*Nota:* Esperando comprobante de pago.`;
+    const accessCodeMessage = userState.accessCodeInfo === 'access_code_yes'
+        ? '⚠️ Se necesita código de acceso.'
+        : '✅ No se necesita código de acceso.';
+    const adminNotification = `⏳ Pedido por Transferencia en espera\n\n*Cliente:* ${formatDisplayNumber(from)}\n*Dirección:* ${userState.address}\n*Acceso:* ${accessCodeMessage}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}\n\n*Nota:* Esperando comprobante de pago.`;
     notifyAdmin(adminNotification);
 
     // Actualizamos el estado para esperar la imagen del comprobante
@@ -475,7 +478,10 @@ async function handleCashDenominationResponse(from, denomination) {
   const orderSummary = userState.orderText.split('\n').slice(1, -2).join('\n');
   const totalMatch = userState.orderText.match(/Total a pagar: (\$\d+\.\d{2})/);
   const total = totalMatch ? totalMatch[1] : 'N/A';
-  const adminNotification = `🎉 ¡Nuevo pedido en Efectivo!\n\n*Cliente:* ${formatDisplayNumber(from)}\n*Dirección:* ${address}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}\n*Paga con:* ${denomination}`;
+  const accessCodeMessage = userState.accessCodeInfo === 'access_code_yes'
+    ? '⚠️ Se necesita código de acceso.'
+    : '✅ No se necesita código de acceso.';
+  const adminNotification = `🎉 ¡Nuevo pedido en Efectivo!\n\n*Cliente:* ${formatDisplayNumber(from)}\n*Dirección:* ${address}\n*Acceso:* ${accessCodeMessage}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}\n*Paga con:* ${denomination}`;
   notifyAdmin(adminNotification);
 
   console.log(`Pedido finalizado para ${from}. Dirección: ${address}. Pago: Efectivo (${sanitizedDenomination}).`);
@@ -502,7 +508,10 @@ async function handlePaymentProofImage(from, imageObject) {
   const totalMatch = userState.orderText.match(/Total a pagar: (\$\d+\.\d{2})/);
   const total = totalMatch ? totalMatch[1] : 'N/A';
   
-  const adminCaption = `✅ Comprobante Recibido\n\n*Cliente:* ${formatDisplayNumber(from)}\n*Dirección:* ${userState.address}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}`;
+  const accessCodeMessage = userState.accessCodeInfo === 'access_code_yes'
+    ? '⚠️ Se necesita código de acceso.'
+    : '✅ No se necesita código de acceso.';
+  const adminCaption = `✅ Comprobante Recibido\n\n*Cliente:* ${formatDisplayNumber(from)}\n*Dirección:* ${userState.address}\n*Acceso:* ${accessCodeMessage}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}`;
 
   // 3. Construir el payload para reenviar la imagen con el caption
   const imagePayload = {
