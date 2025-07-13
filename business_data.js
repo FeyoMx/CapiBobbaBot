@@ -28,7 +28,7 @@ const BUSINESS_CONTEXT = `
 - Chocolate Mexicano: $75.00
 - Matcha: $75.00
 - Bebidas de temporada
-- Chamoyada: $80.00
+- Chamoyada: $80.00 Puede ser de cualquier sabor base agua
 - Fresas con crema: $75.00
 - Toppings
 - Perlas explosivas de frutos rojos: $10.00
@@ -39,7 +39,7 @@ const BUSINESS_CONTEXT = `
 - Perlas Cristal: $10.00
 
 **Como Pedir?**
-- la manera mas rapida de hacerlo es en nuestro menu https://menu-capibobba.web.app/ ahi seleccionas tus bebidas y toppings
+- la manera mas rapida de hacerlo es en nuestro menu https://feyomx.github.io/Menu-CapiBobba-/ ahi seleccionas tus bebidas y toppings
 **Promociones Actuales:**
 - Combo día Lluvioso: 2 bebidas calientes del mismo sabor por $110.
 - Combo Amigos: 2 Frappe base agua del mismo sabor por $130.
