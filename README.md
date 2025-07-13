@@ -81,7 +81,7 @@ Para ejecutar este proyecto localmente, sigue estos pasos:
 
 ## 📄 Política de Privacidad
 
-La política de privacidad que cumple con los requisitos de Meta se puede encontrar aquí.
+La política de privacidad que cumple con los requisitos de Meta se puede encontrar [aquí](https://feyomx.github.io/CapiBobbaBot/PRIVACY_POLICY.html).
 
 ## ✍️ Autor
 
