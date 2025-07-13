@@ -220,6 +220,12 @@ function findTextCommandHandler(text) {
         return handleNewOrderFromMenu;
     }
 
+    // NUEVO: Detecta la intención de hacer un pedido, incluso si no está completo.
+    const orderIntentKeywords = ['pedido', 'ordenar', 'quisiera pedir', 'me gustaría pedir', 'me gustaría hacer el siguiente pedido'];
+    if (orderIntentKeywords.some(keyword => text.includes(keyword))) {
+        return handleInitiateOrder;
+    }
+
     // Damos prioridad a los saludos para mostrar el menú principal
     if (isGreeting(text)) {
       return sendMainMenu;
@@ -312,6 +318,23 @@ function handleContactAgent(to, text) {
   notifyAdmin(`🔔 ¡Atención! El cliente ${formatDisplayNumber(to)} solicita hablar con un agente.`);
 }
 
+/**
+ * Maneja la intención de iniciar un pedido.
+ * Si el pedido ya está en el mensaje, lo procesa.
+ * Si no, guía al usuario para que lo genere.
+ * @param {string} to Número del destinatario.
+ * @param {string} text El texto completo del mensaje del usuario.
+ */
+function handleInitiateOrder(to, text) {
+  // Comprueba si el texto del mensaje ya contiene un pedido formateado.
+  if (text.includes('total a pagar:') && text.includes('subtotal:')) {
+    handleNewOrderFromMenu(to, text);
+  } else {
+    // Si solo es la intención, guía al usuario.
+    const guideText = '¡Genial! Para tomar tu pedido de la forma más rápida y sin errores, por favor, créalo en nuestro menú interactivo y cuando termines, copia y pega el resumen de tu orden aquí.\n\nAquí tienes el enlace: https://menu-capibobba.web.app/';
+    sendTextMessage(to, guideText);
+  }
+}
 /**
  * Maneja la recepción de un nuevo pedido desde el menú web.
  * @param {string} to Número del destinatario.
