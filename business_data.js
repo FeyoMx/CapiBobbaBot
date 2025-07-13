@@ -8,7 +8,7 @@
 
 const BUSINESS_CONTEXT = `
 **Menú de CapiBoba:**
-- Bebidas Base Agua
+- Bebidas Base Agua Frappe
 - Litchi: $75.00 
 - Blueberry: $75.00
 - Guanábana: $75.00
@@ -18,7 +18,7 @@ const BUSINESS_CONTEXT = `
 - Mango: $75.00
 - Maracuya: $75.00
 - Tamarindo: $75.00
-- Bebidas Base Leche
+- Bebidas Base Leche Frappe
 - Taro: $75.00
 - Chai: $75.00
 - Cookies&cream: $75.00
