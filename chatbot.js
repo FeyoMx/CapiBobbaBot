@@ -149,6 +149,14 @@ function processMessage(message) {
       handleCashDenominationResponse(from, message.text.body);
       return; // Detenemos el procesamiento.
     }
+    if (userState.step === 'awaiting_payment_proof') {
+      if (message.type === 'image') {
+        handlePaymentProofImage(from, message.image);
+      } else {
+        sendTextMessage(from, 'Por favor, para confirmar tu pedido, envía únicamente la imagen de tu comprobante de pago.');
+      }
+      return; // Detenemos el procesamiento.
+    }
   }
 
   if (message.type === 'text') {
@@ -406,29 +414,23 @@ async function handleAccessCodeResponse(from, buttonId) {
  * @param {string} buttonId El ID del botón presionado ('payment_cash' o 'payment_transfer').
  */
 async function handlePaymentMethodResponse(from, buttonId) {
+  const userState = userStates.get(from);
+  if (!userState) return; // Chequeo de seguridad
+
   if (buttonId === 'payment_transfer') {
     const bankDetails = `Para transferencias, puedes usar la siguiente cuenta:\n- Banco: MERCADO PAGO W\n- Número de Cuenta: 722969010305501833\n- A nombre de: Maria Elena Martinez Flores\n\nPor favor, envía tu comprobante de pago a este mismo chat para confirmar tu pedido.`;
     await sendTextMessage(from, bankDetails);
-
-    const userState = userStates.get(from);
-    const address = userState.address;
-    let finalMessage = `¡Pedido completo y confirmado! 🛵\n\nTu orden será enviada a:\n*${address}*.\n\n`;
-    finalMessage += userState.accessCodeInfo === 'access_code_yes' 
-      ? `Un agente te contactará para el código de acceso.\n\n`
-      : `Hemos registrado que no se necesita código de acceso.\n\n`;
-    finalMessage += `Esperamos tu comprobante de pago. ¡Gracias por tu preferencia!`;
-
-    await sendTextMessage(from, finalMessage);
-    console.log(`Pedido finalizado para ${from}. Dirección: ${address}. Pago: Transferencia.`);
+    await sendTextMessage(from, 'Por favor, envía una imagen de tu comprobante de pago a este mismo chat para confirmar tu pedido.');
 
     // Notificar al administrador
     const orderSummary = userState.orderText.split('\n').slice(1, -2).join('\n'); // Extraer solo los items
     const totalMatch = userState.orderText.match(/Total a pagar: (\$\d+\.\d{2})/);
     const total = totalMatch ? totalMatch[1] : 'N/A';
-    const adminNotification = `🎉 ¡Nuevo pedido por Transferencia!\n\n*Cliente:* ${formatDisplayNumber(from)}\n*Dirección:* ${address}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}\n\n*Nota:* Esperando comprobante.`;
+    const adminNotification = `⏳ Pedido por Transferencia en espera\n\n*Cliente:* ${formatDisplayNumber(from)}\n*Dirección:* ${userState.address}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}\n\n*Nota:* Esperando comprobante de pago.`;
     notifyAdmin(adminNotification);
 
-    userStates.delete(from); // Limpiamos el estado del usuario
+    // Actualizamos el estado para esperar la imagen del comprobante
+    userStates.set(from, { ...userState, step: 'awaiting_payment_proof' });
     saveUserState();
   } else { // 'payment_cash'
     await sendTextMessage(from, 'Has elegido pagar en efectivo. ¿Con qué billete pagarás? (ej. $200, $500) para que podamos llevar tu cambio exacto.');
@@ -473,6 +475,51 @@ async function handleCashDenominationResponse(from, denomination) {
   notifyAdmin(adminNotification);
 
   console.log(`Pedido finalizado para ${from}. Dirección: ${address}. Pago: Efectivo (${sanitizedDenomination}).`);
+  userStates.delete(from);
+  saveUserState();
+}
+
+/**
+ * Maneja la recepción de una imagen como comprobante de pago.
+ * @param {string} from El número del remitente.
+ * @param {object} imageObject El objeto de imagen del mensaje, que contiene el ID.
+ */
+async function handlePaymentProofImage(from, imageObject) {
+  const userState = userStates.get(from);
+  if (!userState) return;
+
+  console.log(`Recibido comprobante de pago (imagen) de ${from}`);
+  
+  // 1. Agradecer al cliente y confirmar el pedido
+  await sendTextMessage(from, '¡Gracias! Hemos recibido tu comprobante. Tu pedido ha sido confirmado y se preparará en breve. 🛵');
+
+  // 2. Preparar la notificación para los administradores
+  const orderSummary = userState.orderText.split('\n').slice(1, -2).join('\n');
+  const totalMatch = userState.orderText.match(/Total a pagar: (\$\d+\.\d{2})/);
+  const total = totalMatch ? totalMatch[1] : 'N/A';
+  
+  const adminCaption = `✅ Comprobante Recibido\n\n*Cliente:* ${formatDisplayNumber(from)}\n*Dirección:* ${userState.address}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}`;
+
+  // 3. Construir el payload para reenviar la imagen con el caption
+  const imagePayload = {
+    type: 'image',
+    image: {
+      id: imageObject.id, // Usamos el ID de la imagen recibida para reenviarla
+      caption: adminCaption
+    }
+  };
+
+  // 4. Enviar a todos los administradores
+  const adminNumbers = ADMIN_WHATSAPP_NUMBERS.split(',').map(num => num.trim());
+  for (const number of adminNumbers) {
+    if (number) {
+      await sendMessage(number, imagePayload);
+    }
+  }
+
+  console.log(`Pedido finalizado y comprobante reenviado para ${from}.`);
+  
+  // 5. Limpiar el estado del usuario
   userStates.delete(from);
   saveUserState();
 }
