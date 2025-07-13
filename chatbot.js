@@ -335,6 +335,31 @@ function handleInitiateOrder(to, text) {
     sendTextMessage(to, guideText);
   }
 }
+
+/**
+ * Extrae solo los artículos de un texto de pedido completo.
+ * @param {string} orderText El texto completo del pedido.
+ * @returns {string} Una cadena con solo los artículos del pedido, uno por línea.
+ */
+function extractOrderItems(orderText) {
+  const lines = orderText.split('\n');
+  const totalLineIndex = lines.findIndex(line => line.toLowerCase().startsWith('total del pedido:'));
+
+  // Si no se encuentra la línea de total, es probable que el formato no sea el esperado.
+  // Usamos un fallback, pero lo ideal es que el formato siempre sea consistente.
+  if (totalLineIndex === -1) {
+    return orderText.split('\n').slice(1, -2).join('\n');
+  }
+
+  // Buscamos el inicio de los artículos. Asumimos que es después de la primera línea vacía.
+  const firstEmptyLineIndex = lines.findIndex(line => line.trim() === '');
+  const startIndex = firstEmptyLineIndex > -1 ? firstEmptyLineIndex + 1 : 1;
+
+  // Filtramos las líneas entre el inicio y la línea de total para quedarnos solo con los artículos.
+  const items = lines.slice(startIndex, totalLineIndex).filter(line => line.trim() !== '');
+  
+  return items.join('\n');
+}
 /**
  * Maneja la recepción de un nuevo pedido desde el menú web.
  * @param {string} to Número del destinatario.
@@ -345,7 +370,7 @@ async function handleNewOrderFromMenu(to, orderText) {
   const total = totalMatch ? totalMatch[1] : null;
 
   // Notificar a los administradores que se ha iniciado un nuevo pedido.
-  const orderSummary = orderText.split('\n').slice(1, -2).join('\n'); // Extraer solo los items
+  const orderSummary = extractOrderItems(orderText);
   const initialAdminNotification = `🔔 ¡Nuevo pedido iniciado!\n\n*Cliente:* ${formatDisplayNumber(to)}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total ? '$' + total : 'No especificado'}\n\n*Nota:* Esperando dirección y método de pago.`;
   notifyAdmin(initialAdminNotification);
 
@@ -376,7 +401,7 @@ async function handleAddressResponse(from, address) {
   console.log(`Dirección recibida de ${from}: ${address}`);
 
   // Mejora: Si el usuario vuelve a enviar el pedido en lugar de la dirección, se lo volvemos a pedir.
-  if (address.includes('total a pagar:') && address.includes('subtotal:')) {
+  if (address.toLowerCase().includes('total del pedido:')) {
     await sendTextMessage(from, 'Parece que me enviaste el pedido de nuevo. ¡No te preocupes! Ya lo tengo registrado. 👍\n\nAhora solo necesito que me escribas tu dirección completa para continuar.');
     return; // Detenemos la ejecución para esperar la dirección correcta.
   }
@@ -450,7 +475,7 @@ async function handlePaymentMethodResponse(from, buttonId) {
     await sendTextMessage(from, 'Por favor, envía una imagen de tu comprobante de pago a este mismo chat para confirmar tu pedido.');
 
     // Notificar al administrador
-    const orderSummary = userState.orderText.split('\n').slice(1, -2).join('\n'); // Extraer solo los items
+    const orderSummary = extractOrderItems(userState.orderText);
     const totalMatch = userState.orderText.match(/Total del pedido: (\$\d+\.\d{2})/i);
     const total = totalMatch ? totalMatch[1] : 'N/A';
     const accessCodeMessage = userState.accessCodeInfo === 'access_code_yes'
@@ -498,7 +523,7 @@ async function handleCashDenominationResponse(from, denomination) {
   await sendTextMessage(from, finalMessage);
 
   // Notificar al administrador
-  const orderSummary = userState.orderText.split('\n').slice(1, -2).join('\n');
+  const orderSummary = extractOrderItems(userState.orderText);
   const totalMatch = userState.orderText.match(/Total del pedido: (\$\d+\.\d{2})/i);
   const total = totalMatch ? totalMatch[1] : 'N/A';
   const accessCodeMessage = userState.accessCodeInfo === 'access_code_yes'
@@ -527,7 +552,7 @@ async function handlePaymentProofImage(from, imageObject) {
   await sendTextMessage(from, '¡Gracias! Hemos recibido tu comprobante. Tu pedido ha sido confirmado y se preparará en breve. 🛵');
 
   // 2. Preparar la notificación para los administradores
-  const orderSummary = userState.orderText.split('\n').slice(1, -2).join('\n');
+  const orderSummary = extractOrderItems(userState.orderText);
   const totalMatch = userState.orderText.match(/Total del pedido: (\$\d+\.\d{2})/i);
   const total = totalMatch ? totalMatch[1] : 'N/A';
   
