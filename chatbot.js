@@ -321,6 +321,12 @@ async function handleNewOrderFromMenu(to, orderText) {
 async function handleAddressResponse(from, address) {
   console.log(`Dirección recibida de ${from}: ${address}`);
 
+  // Mejora: Si el usuario vuelve a enviar el pedido en lugar de la dirección, se lo volvemos a pedir.
+  if (address.includes('total a pagar:') && address.includes('subtotal:')) {
+    await sendTextMessage(from, 'Parece que me enviaste el pedido de nuevo. ¡No te preocupes! Ya lo tengo registrado. 👍\n\nAhora solo necesito que me escribas tu dirección completa para continuar.');
+    return; // Detenemos la ejecución para esperar la dirección correcta.
+  }
+
   // Pregunta si se necesita código de acceso con botones.
   const payload = {
     type: 'interactive',
