@@ -205,7 +205,7 @@ const buttonCommandHandlers = {
  * @returns {boolean}
  */
 function isGreeting(text) {
-  const greetings = ['hola', 'buenas', 'buenos dias', 'buen dia', 'hey', 'que tal'];
+  const greetings = ['hola', 'buenas', 'buenos dias', 'buen dia', 'hey', 'que tal', 'buenas tardes','buenas noches'];
   return greetings.some(greeting => text.startsWith(greeting));
 }
 
