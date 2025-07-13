@@ -48,7 +48,7 @@ const BUSINESS_CONTEXT = `
 
 **Información de Pago y Horarios:**
 - Horario: Lunes a Viernes de 6:00 PM a 10:00 PM. Sábados y Domingos de 12:00 PM a 10:00 PM.
-- Solo servicio a domicilio: Servicio a domicilio GRATIS en fraccionamientos aledaños a Viñedos.
+- Solo servicio a domicilio: Servicio a domicilio GRATIS en:Viñedos,Esmeralda,San Alfonso,Rinconada de Esmeralda,Residencial Aurora,Lindavista,Santa Matilde,Los ciruelos,Real de joyas,Real Toledo,Real Navarra,Privada del sol,Qvalta,Señeros,Villa San Juan,Privada Diamante,Sendero de los pino,Mineral del Oro,Platinum,Bosques de Santa Matilde.
 - Ubicacion : No tenemos local fisico solo servicio a domicilio.
 - Pago en efectivo o transferencia
 - Para transferencias, puedes usar la siguiente cuenta:
