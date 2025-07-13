@@ -279,7 +279,7 @@ function sendMainMenu(to, text) {
  * @param {string} to Número del destinatario.
  */
 function handleShowMenu(to, text) {
-  sendTextMessage(to, `¡Claro! Aquí está nuestro delicioso menú: https://menu-capibobba.web.app/`);
+  sendTextMessage(to, `¡Claro! Aquí está nuestro delicioso menú: https://feyomx.github.io/Menu-CapiBobba-/`);
 }
 
 /**
@@ -331,7 +331,7 @@ function handleInitiateOrder(to, text) {
     handleNewOrderFromMenu(to, text);
   } else {
     // Si solo es la intención, guía al usuario.
-    const guideText = '¡Genial! Para tomar tu pedido de la forma más rápida y sin errores, por favor, créalo en nuestro menú interactivo y cuando termines, copia y pega el resumen de tu orden aquí.\n\nAquí tienes el enlace: https://menu-capibobba.web.app/';
+    const guideText = '¡Genial! Para tomar tu pedido de la forma más rápida y sin errores, por favor, créalo en nuestro menú interactivo y cuando termines, copia y pega el resumen de tu orden aquí.\n\nAquí tienes el enlace: https://feyomx.github.io/Menu-CapiBobba-/';
     sendTextMessage(to, guideText);
   }
 }
