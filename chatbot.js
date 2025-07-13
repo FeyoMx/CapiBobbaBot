@@ -241,6 +241,10 @@ function findTextCommandHandler(text) {
  * @param {string} to Número del destinatario.
  */
 function sendMainMenu(to, text) {
+  // Notificamos al administrador que un cliente ha iniciado una conversación.
+  // Esto ayuda al personal a estar atento a un posible pedido.
+  notifyAdmin(`🔔 ¡Atención! El cliente ${formatDisplayNumber(to)} ha iniciado una conversación y está viendo el menú principal.`);
+
   const payload = {
     type: 'interactive',
     interactive: {
