@@ -105,6 +105,25 @@ function saveUserState() {
 }
 
 /**
+ * Formatea un número de WhatsApp para mostrarlo de forma más legible.
+ * Ej: Convierte "5217712416450" a "7712416450".
+ * @param {string} fullNumber El número completo con código de país.
+ * @returns {string} El número formateado.
+ */
+function formatDisplayNumber(fullNumber) {
+  if (typeof fullNumber !== 'string') return fullNumber;
+
+  if (fullNumber.startsWith('521')) {
+    return fullNumber.substring(3);
+  }
+  // Para números que no tienen el '1' extra después del código de país.
+  if (fullNumber.startsWith('52')) {
+    return fullNumber.substring(2);
+  }
+  return fullNumber; // Devuelve el número original si no coincide con los patrones de México.
+}
+
+/**
  * Procesa el mensaje entrante y lo dirige al manejador correcto.
  * @param {object} message El objeto de mensaje de la API de WhatsApp.
  */
@@ -278,7 +297,7 @@ function handleShowLocation(to, text) {
  */
 function handleContactAgent(to, text) {
   sendTextMessage(to, 'Entendido. Un agente se pondrá en contacto contigo en breve.');
-  notifyAdmin(`🔔 ¡Atención! El cliente ${to} solicita hablar con un agente.`);
+  notifyAdmin(`🔔 ¡Atención! El cliente ${formatDisplayNumber(to)} solicita hablar con un agente.`);
 }
 
 /**
@@ -292,7 +311,7 @@ async function handleNewOrderFromMenu(to, orderText) {
 
   // Notificar a los administradores que se ha iniciado un nuevo pedido.
   const orderSummary = orderText.split('\n').slice(1, -2).join('\n'); // Extraer solo los items
-  const initialAdminNotification = `🔔 ¡Nuevo pedido iniciado!\n\n*Cliente:* ${to}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total ? '$' + total : 'No especificado'}\n\n*Nota:* Esperando dirección y método de pago.`;
+  const initialAdminNotification = `🔔 ¡Nuevo pedido iniciado!\n\n*Cliente:* ${formatDisplayNumber(to)}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total ? '$' + total : 'No especificado'}\n\n*Nota:* Esperando dirección y método de pago.`;
   notifyAdmin(initialAdminNotification);
 
   let confirmationText = `¡Gracias por tu pedido! ✨\n\nHemos recibido tu orden y ya está en proceso de confirmación.`;
@@ -404,8 +423,9 @@ async function handlePaymentMethodResponse(from, buttonId) {
 
     // Notificar al administrador
     const orderSummary = userState.orderText.split('\n').slice(1, -2).join('\n'); // Extraer solo los items
-    const total = userState.orderText.match(/Total a pagar: (\$\d+\.\d{2})/)[1];
-    const adminNotification = `🎉 ¡Nuevo pedido por Transferencia!\n\n*Cliente:* ${from}\n*Dirección:* ${address}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}\n\n*Nota:* Esperando comprobante.`;
+    const totalMatch = userState.orderText.match(/Total a pagar: (\$\d+\.\d{2})/);
+    const total = totalMatch ? totalMatch[1] : 'N/A';
+    const adminNotification = `🎉 ¡Nuevo pedido por Transferencia!\n\n*Cliente:* ${formatDisplayNumber(from)}\n*Dirección:* ${address}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}\n\n*Nota:* Esperando comprobante.`;
     notifyAdmin(adminNotification);
 
     userStates.delete(from); // Limpiamos el estado del usuario
@@ -447,8 +467,9 @@ async function handleCashDenominationResponse(from, denomination) {
 
   // Notificar al administrador
   const orderSummary = userState.orderText.split('\n').slice(1, -2).join('\n');
-  const total = userState.orderText.match(/Total a pagar: (\$\d+\.\d{2})/)[1];
-  const adminNotification = `🎉 ¡Nuevo pedido en Efectivo!\n\n*Cliente:* ${from}\n*Dirección:* ${address}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}\n*Paga con:* ${denomination}`;
+  const totalMatch = userState.orderText.match(/Total a pagar: (\$\d+\.\d{2})/);
+  const total = totalMatch ? totalMatch[1] : 'N/A';
+  const adminNotification = `🎉 ¡Nuevo pedido en Efectivo!\n\n*Cliente:* ${formatDisplayNumber(from)}\n*Dirección:* ${address}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}\n*Paga con:* ${denomination}`;
   notifyAdmin(adminNotification);
 
   console.log(`Pedido finalizado para ${from}. Dirección: ${address}. Pago: Efectivo (${sanitizedDenomination}).`);
