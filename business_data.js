@@ -8,7 +8,8 @@
 
 const BUSINESS_CONTEXT = `
 **Menú de CapiBoba:**
-- Bebidas Base Agua 
+- Bebidas Base Agua
+- Litchi: $75.00 
 - Blueberry: $75.00
 - Guanábana: $75.00
 - Piña colada: $75.00
@@ -27,6 +28,7 @@ const BUSINESS_CONTEXT = `
 - Mocha: $75.00
 - Chocolate Mexicano: $75.00
 - Matcha: $75.00
+- Bebidas Calientes: $60.00 Pueden ser de cualquier sabor base leche
 - Bebidas de temporada
 - Chamoyada: $80.00 Puede ser de cualquier sabor base agua
 - Fresas con crema: $75.00
