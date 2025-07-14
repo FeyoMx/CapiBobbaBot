@@ -221,7 +221,7 @@ function findTextCommandHandler(text) {
     }
 
     // NUEVO: Detecta la intención de hacer un pedido, incluso si no está completo.
-    const orderIntentKeywords = ['pedido', 'ordenar', 'quisiera pedir', 'me gustaría pedir', 'me gustaría hacer el siguiente pedido'];
+    const orderIntentKeywords = ['pedido', 'ordenar', 'quisiera pedir', 'me gustaría pedir', 'me gustaría hacer el siguiente pedido', 'quiero pedir', 'me gustaría ordenar'];
     if (orderIntentKeywords.some(keyword => text.includes(keyword))) {
         return handleInitiateOrder;
     }
