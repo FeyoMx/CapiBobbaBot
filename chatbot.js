@@ -216,7 +216,7 @@ function isGreeting(text) {
  */
 function findTextCommandHandler(text) {
     // Damos prioridad a la detección de pedidos del menú web, ahora buscando el texto correcto.
-    if (text.includes('total del pedido:')) {
+    if (text.includes('total del pedido:','total a pagar:')) {
         return handleNewOrderFromMenu;
     }
 
