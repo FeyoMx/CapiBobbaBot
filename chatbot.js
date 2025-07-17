@@ -129,7 +129,7 @@ function formatDisplayNumber(fullNumber) {
  */
 function sendToN8n(message) {
   // Es una buena práctica mover esta URL a una variable de entorno (p. ej., N8N_WEBHOOK_URL en tu .env)
-  const n8nWebhookUrl = 'http://localhost:5678/webhook-test/1704d003-443e-4870-9a3c-4d32d8ec3a2c';
+  const n8nWebhookUrl = 'http://localhost:5678/webhook/1704d003-443e-4870-9a3c-4d32d8ec3a2c';
 
   // Construimos un payload base con la información más relevante.
   // Enviamos el mensaje completo en 'rawMessage' para tener toda la data disponible en n8n.
