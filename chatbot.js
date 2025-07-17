@@ -124,10 +124,68 @@ function formatDisplayNumber(fullNumber) {
 }
 
 /**
+ * Envía datos del mensaje recibido a un webhook de n8n.
+ * @param {object} message El objeto de mensaje de la API de WhatsApp.
+ */
+function sendToN8n(message) {
+  // Es una buena práctica mover esta URL a una variable de entorno (p. ej., N8N_WEBHOOK_URL en tu .env)
+  const n8nWebhookUrl = 'http://localhost:5678/webhook-test/1704d003-443e-4870-9a3c-4d32d8ec3a2c';
+
+  // Construimos un payload base con la información más relevante.
+  // Enviamos el mensaje completo en 'rawMessage' para tener toda la data disponible en n8n.
+  const payload = {
+    from: message.from,
+    type: message.type,
+    timestamp: message.timestamp, // El mensaje ya trae un timestamp UNIX
+    rawMessage: message 
+  };
+
+  // Añadimos detalles específicos y más fáciles de usar según el tipo de mensaje
+  if (message.type === 'text') {
+    payload.text = message.text.body;
+  } else if (message.type === 'interactive') {
+    if (message.interactive.type === 'button_reply') {
+      payload.interactive = {
+        type: 'button_reply',
+        id: message.interactive.button_reply.id,
+        title: message.interactive.button_reply.title
+      };
+    }
+    // Aquí podrías añadir soporte para 'list_reply' si lo usas en el futuro
+  } else if (message.type === 'image') {
+    payload.image = {
+      id: message.image.id,
+      mime_type: message.image.mime_type
+      // Nota: No enviamos el binario, solo la referencia. 
+      // n8n puede usar el ID para descargar la imagen si es necesario.
+    };
+  }
+  // Se podría añadir lógica para otros tipos de mensajes (audio, video, ubicación, etc.)
+
+  console.log('Enviando payload a n8n:', JSON.stringify(payload, null, 2));
+
+  axios.post(n8nWebhookUrl, payload)
+    .then(response => {
+      // La respuesta de n8n puede ser útil para debugging o para flujos de 2 vías.
+      console.log('Respuesta de n8n:', response.data);
+    })
+    .catch(error => {
+      if (error.response) {
+        console.error('Error enviando a n8n (el servidor respondió con un error):', { status: error.response.status, data: error.response.data });
+      } else if (error.request) {
+        console.error('Error enviando a n8n (sin respuesta): Asegúrate de que n8n esté corriendo y el webhook esté activo y sea de tipo POST.');
+      } else {
+        console.error('Error enviando a n8n (error de configuración de Axios):', error.message);
+      }
+    });
+}
+
+/**
  * Procesa el mensaje entrante y lo dirige al manejador correcto.
  * @param {object} message El objeto de mensaje de la API de WhatsApp.
  */
 function processMessage(message) {
+  sendToN8n(message); // <-- AÑADIDO: Envía cada mensaje a n8n
   const from = message.from; // Número de teléfono del remitente
 
   // Primero, revisamos si el usuario está en medio de un flujo de conversación (como un pedido).

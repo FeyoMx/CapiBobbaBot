@@ -3,19 +3,18 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-    ,"start": "node chatbot.js"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node chatbot.js"
   },
   "keywords": [],
   "author": "FeyoMx",
   "license": "ISC",
   "description": "ChatBot de CapiBobba",
   "dependencies": {
+    "@google/generative-ai": "^0.14.1",
     "axios": "^1.10.0",
     "body-parser": "^2.2.0",
     "dotenv": "^16.4.5",
-    "express": "^5.1.0",
-    "@google/generative-ai": "^0.14.1"
+    "express": "^5.1.0"
   }
 }
-
