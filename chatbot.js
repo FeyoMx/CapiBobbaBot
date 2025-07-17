@@ -129,7 +129,7 @@ function formatDisplayNumber(fullNumber) {
  */
 function sendToN8n(message) {
       // ¡IMPORTANTE! Verifica que esta URL sea la correcta en tu n8n
-  const n8nWebhookUrl = 'https://791a621e3cd9.ngrok-free.app/webhook/58417d94-89dd-4915-897d-a2973327aade';
+  const n8nWebhookUrl = 'https://6762aff1f404.ngrok-free.app/webhook/58417d94-89dd-4915-897d-a2973327aade';
 
   // Construimos un payload base con la información más relevante.
   // Enviamos el mensaje completo en 'rawMessage' para tener toda la data disponible en n8n.
