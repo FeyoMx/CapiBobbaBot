@@ -164,6 +164,7 @@ function sendToN8n(message) {
 
   console.log('Enviando payload a n8n:', JSON.stringify(payload, null, 2));
 
+  console.log(`Enviando a n8n: URL=${n8nWebhookUrl}, payload=${JSON.stringify(payload)}`);
   axios.post(n8nWebhookUrl, payload)
     .then(response => {
       // La respuesta de n8n puede ser útil para debugging o para flujos de 2 vías.
