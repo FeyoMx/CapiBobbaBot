@@ -32,6 +32,12 @@ app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 3000;
 
+// === INICIO DEL BLOQUE PARA UPTIMEROBOT ===
+// Endpoint raíz para que los monitores de salud (como UptimeRobot) sepan que el bot está vivo.
+app.get('/', (req, res) => {
+  res.status(200).send('CapiBobbaBot está en línea y funcionando. ¡Listo para recibir mensajes!');
+});
+
 // --- ENDPOINTS ---
 
 // Endpoint para la verificación del Webhook (solo se usa una vez por Meta)
