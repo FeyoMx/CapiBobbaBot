@@ -133,7 +133,7 @@ function formatDisplayNumber(fullNumber) {
  * Envía datos del mensaje recibido a un webhook de n8n.
  * @param {object} message El objeto de mensaje de la API de WhatsApp.
  */
-function sendToN8n(message) {
+function sendToN8n(message, address = null) {
       // ¡IMPORTANTE! Verifica que esta URL sea la correcta en tu n8n
   const n8nWebhookUrl = 'https://n8n-autobot-634h.onrender.com/webhook/58417d94-89dd-4915-897d-a2973327aade';
 
@@ -143,9 +143,12 @@ function sendToN8n(message) {
     from: message.from,
     type: message.type,
     timestamp: message.timestamp, // El mensaje ya trae un timestamp UNIX
-    address: address, // <-- AÑADIDO: Incluimos la dirección
     rawMessage: message 
   };
+
+  if (address) {
+    payload.address = address;
+  }
 
   // Añadimos detalles específicos y más fáciles de usar según el tipo de mensaje
   if (message.type === 'text') {
@@ -281,7 +284,7 @@ function isGreeting(text) {
  */
 function findTextCommandHandler(text) {
     // Damos prioridad a la detección de pedidos del menú web, ahora buscando el texto correcto.
-    if (text.includes('total del pedido:','total a pagar:')) {
+    if (text.includes('total del pedido:') || text.includes('total a pagar:')) {
         return handleNewOrderFromMenu;
     }
 
@@ -495,7 +498,7 @@ async function handleAddressResponse(from, address) {
   // AÑADE ESTA LÍNEA:
   // Volvemos a enviar los datos a n8n, pero esta vez con la dirección.
   // Creamos un objeto de mensaje falso ya que solo nos importa la dirección.
-  sendToN8n({ from: from, type: 'address_update' }, address); 
+  sendToN8n({ from: from, type: 'address_update', timestamp: Math.floor(Date.now() / 1000) }, address); 
   console.log(`Dirección enviada a n8n: ${address}`);
 }
 
