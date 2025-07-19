@@ -191,6 +191,47 @@ function sendToN8n(message, address = null) {
 }
 
 /**
+ * Envía los detalles de un pedido completado a n8n.
+ * @param {string} from El número del cliente.
+ * @param {object} state El estado completo del usuario con los detalles del pedido.
+ */
+function sendOrderCompletionToN8n(from, state) {
+    const n8nWebhookUrl = 'https://n8n-autobot-634h.onrender.com/webhook/58417d94-89dd-4915-897d-a2973327aade';
+
+    const totalMatch = state.orderText.match(/Total del pedido: \$(\d+\.\d{2})/i);
+    const total = totalMatch ? parseFloat(totalMatch[1]) : null;
+
+    const payload = {
+        from: from,
+        type: 'order_completed',
+        timestamp: Math.floor(Date.now() / 1000),
+        order: {
+            summary: extractOrderItems(state.orderText),
+            total: total,
+            fullText: state.orderText
+        },
+        delivery: {
+            address: state.address,
+            accessCodeRequired: state.accessCodeInfo === 'access_code_yes'
+        },
+        payment: {
+            method: state.paymentMethod,
+            // Añade detalles específicos del pago
+            ...(state.paymentMethod === 'Efectivo' && { cashDenomination: state.cashDenomination }),
+            ...(state.paymentMethod === 'Transferencia' && { proofImageId: state.proofImageId })
+        }
+    };
+
+    console.log('Enviando pedido completo a n8n:', JSON.stringify(payload, null, 2));
+
+    axios.post(n8nWebhookUrl, payload)
+        .then(response => console.log('Respuesta de n8n (pedido completo):', response.data))
+        .catch(error => {
+            console.error('Error enviando pedido completo a n8n:', error.message);
+        });
+}
+
+/**
  * Procesa el mensaje entrante y lo dirige al manejador correcto.
  * @param {object} message El objeto de mensaje de la API de WhatsApp.
  */
@@ -559,12 +600,12 @@ async function handlePaymentMethodResponse(from, buttonId) {
     notifyAdmin(adminNotification);
 
     // Actualizamos el estado para esperar la imagen del comprobante
-    userStates.set(from, { ...userState, step: 'awaiting_payment_proof' });
+    userStates.set(from, { ...userState, step: 'awaiting_payment_proof', paymentMethod: 'Transferencia' });
     saveUserState();
   } else { // 'payment_cash'
     await sendTextMessage(from, 'Has elegido pagar en efectivo. ¿Con qué billete pagarás? (ej. $200, $500) para que podamos llevar tu cambio exacto.');
-    const userState = userStates.get(from);
-    userStates.set(from, { ...userState, step: 'awaiting_cash_denomination' });
+    // Guardamos el método de pago en el estado
+    userStates.set(from, { ...userState, step: 'awaiting_cash_denomination', paymentMethod: 'Efectivo' });
     saveUserState();
   }
 }
@@ -605,6 +646,10 @@ async function handleCashDenominationResponse(from, denomination) {
     : '✅ No se necesita código de acceso.';
   const adminNotification = `🎉 ¡Nuevo pedido en Efectivo!\n\n*Cliente:* ${formatDisplayNumber(from)}\n*Dirección:* ${address}\n*Acceso:* ${accessCodeMessage}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}\n*Paga con:* ${denomination}`;
   notifyAdmin(adminNotification);
+
+  // Guardamos la denominación y enviamos el pedido completo a n8n
+  const finalState = { ...userState, cashDenomination: sanitizedDenomination };
+  sendOrderCompletionToN8n(from, finalState);
 
   console.log(`Pedido finalizado para ${from}. Dirección: ${address}. Pago: Efectivo (${sanitizedDenomination}).`);
   userStates.delete(from);
@@ -651,6 +696,10 @@ async function handlePaymentProofImage(from, imageObject) {
       await sendMessage(number, imagePayload);
     }
   }
+
+  // Guardamos el ID de la imagen y enviamos el pedido completo a n8n
+  const finalState = { ...userState, proofImageId: imageObject.id };
+  sendOrderCompletionToN8n(from, finalState);
 
   console.log(`Pedido finalizado y comprobante reenviado para ${from}.`);
   
