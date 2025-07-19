@@ -137,6 +137,7 @@ function sendToN8n(message) {
     from: message.from,
     type: message.type,
     timestamp: message.timestamp, // El mensaje ya trae un timestamp UNIX
+    address: address, // <-- AÑADIDO: Incluimos la dirección
     rawMessage: message 
   };
 
@@ -484,6 +485,12 @@ async function handleAddressResponse(from, address) {
   const currentState = userStates.get(from) || {};
   userStates.set(from, { ...currentState, step: 'awaiting_access_code_info', address: address });
   saveUserState();
+
+  // AÑADE ESTA LÍNEA:
+  // Volvemos a enviar los datos a n8n, pero esta vez con la dirección.
+  // Creamos un objeto de mensaje falso ya que solo nos importa la dirección.
+  sendToN8n({ from: from, type: 'address_update' }, address); 
+  console.log(`Dirección enviada a n8n: ${address}`);
 }
 
 /**
