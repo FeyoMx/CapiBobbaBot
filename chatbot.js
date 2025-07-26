@@ -4,6 +4,7 @@ require('dotenv').config(); // Carga las variables de entorno desde el archivo .
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
+const redis = require('redis');
 const fs = require('fs');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { BUSINESS_CONTEXT } = require('./business_data'); // Importa el contexto del negocio
@@ -16,13 +17,14 @@ const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const ADMIN_WHATSAPP_NUMBERS = process.env.ADMIN_WHATSAPP_NUMBERS; // Plural
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
+const REDIS_URL = process.env.REDIS_URL;
 const WHATSAPP_API_VERSION = process.env.WHATSAPP_API_VERSION || 'v18.0';
 
 // Validamos que las variables de entorno críticas estén definidas
-if (!VERIFY_TOKEN || !WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY || !ADMIN_WHATSAPP_NUMBERS || !N8N_WEBHOOK_URL) {
+if (!VERIFY_TOKEN || !WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY || !ADMIN_WHATSAPP_NUMBERS || !N8N_WEBHOOK_URL || !REDIS_URL) {
   console.error(
     'Error: Faltan variables de entorno críticas. ' +
-    'Asegúrate de que VERIFY_TOKEN, WHATSAPP_TOKEN, PHONE_NUMBER_ID, GEMINI_API_KEY, ADMIN_WHATSAPP_NUMBERS y N8N_WEBHOOK_URL ' +
+    'Asegúrate de que VERIFY_TOKEN, WHATSAPP_TOKEN, PHONE_NUMBER_ID, GEMINI_API_KEY, ADMIN_WHATSAPP_NUMBERS, N8N_WEBHOOK_URL y REDIS_URL ' +
     'estén en tu archivo .env'
   );
   process.exit(1); // Detiene la aplicación si falta configuración
@@ -30,6 +32,14 @@ if (!VERIFY_TOKEN || !WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY || !
 
 const app = express();
 app.use(bodyParser.json());
+
+// --- CONEXIÓN A REDIS ---
+const redisClient = redis.createClient({
+  url: REDIS_URL
+});
+
+redisClient.on('error', err => console.error('Error en el cliente de Redis', err));
+redisClient.on('connect', () => console.log('Conectado exitosamente a Redis.'));
 
 const PORT = process.env.PORT || 3000;
 
@@ -78,7 +88,7 @@ app.post('/webhook', (req, res) => {
         if (change.value.messages) {
           // Es un mensaje nuevo de un usuario, lo procesamos para responder.
           const message = change.value.messages[0];
-          processMessage(message);
+          processMessage(message); // La función ahora es async, pero no necesitamos esperar su finalización aquí.
         } else if (change.value.statuses) {
           // Es una actualización de estado (sent, delivered, read).
           // Por ahora, solo lo registramos en consola y no hacemos nada más.
@@ -99,16 +109,36 @@ app.post('/webhook', (req, res) => {
 
 // --- LÓGICA DEL BOT ---
 
-// --- GESTIÓN DE ESTADO PERSISTENTE ---
-// Esto guarda el estado de la conversación en un archivo para que no se pierda si el servidor se reinicia.
-// En un entorno de producción en la nube, no se debe usar el sistema de archivos local porque es efímero.
-// El estado se mantendrá en memoria. Si se necesita persistencia, se debe usar una base de datos como Redis o PostgreSQL.
+// --- GESTIÓN DE ESTADO CON REDIS ---
+// Las siguientes funciones reemplazan el `Map` en memoria para guardar y recuperar el estado de la conversación de forma persistente.
 
-let userStates = new Map();
+/**
+ * Obtiene el estado de la conversación de un usuario desde Redis.
+ * @param {string} from El número de WhatsApp del usuario.
+ * @returns {Promise<object|null>} El objeto de estado o null si no existe.
+ */
+async function getUserState(from) {
+  const stateJSON = await redisClient.get(from);
+  return stateJSON ? JSON.parse(stateJSON) : null;
+}
 
-function saveUserState() {
-  // No hacemos nada aquí para evitar escribir en el sistema de archivos efímero.
-  // En un futuro, aquí iría la lógica para guardar en una base de datos externa.
+/**
+ * Guarda el estado de la conversación de un usuario en Redis.
+ * El estado expira en 24 horas para limpiar conversaciones inactivas.
+ * @param {string} from El número de WhatsApp del usuario.
+ * @param {object} state El objeto de estado a guardar.
+ */
+async function setUserState(from, state) {
+  // Guardamos el estado como un string JSON y le ponemos una expiración de 24 horas (86400 segundos).
+  await redisClient.set(from, JSON.stringify(state), { EX: 86400 });
+}
+
+/**
+ * Elimina el estado de la conversación de un usuario de Redis.
+ * @param {string} from El número de WhatsApp del usuario.
+ */
+async function deleteUserState(from) {
+  await redisClient.del(from);
 }
 
 /**
@@ -231,34 +261,34 @@ function sendOrderCompletionToN8n(from, state) {
  * Procesa el mensaje entrante y lo dirige al manejador correcto.
  * @param {object} message El objeto de mensaje de la API de WhatsApp.
  */
-function processMessage(message) {
+async function processMessage(message) {
   sendToN8n(message); // <-- AÑADIDO: Envía cada mensaje a n8n
   const from = message.from; // Número de teléfono del remitente
 
   // Primero, revisamos si el usuario está en medio de un flujo de conversación (como un pedido).
-  const userState = userStates.get(from);
+  const userState = await getUserState(from);
   if (userState) {
     if (userState.step === 'awaiting_address' && message.type === 'text') {
-      handleAddressResponse(from, message.text.body);
+      await handleAddressResponse(from, message.text.body);
       return; // Detenemos el procesamiento para no interpretar la dirección como un comando.
     }
     if (userState.step === 'awaiting_access_code_info' && message.type === 'interactive' && message.interactive.type === 'button_reply') {
-      handleAccessCodeResponse(from, message.interactive.button_reply.id);
+      await handleAccessCodeResponse(from, message.interactive.button_reply.id);
       return; // Detenemos el procesamiento.
     }
     if (userState.step === 'awaiting_payment_method' && message.type === 'interactive' && message.interactive.type === 'button_reply') {
-      handlePaymentMethodResponse(from, message.interactive.button_reply.id);
+      await handlePaymentMethodResponse(from, message.interactive.button_reply.id);
       return; // Detenemos el procesamiento.
     }
     if (userState.step === 'awaiting_cash_denomination' && message.type === 'text') {
-      handleCashDenominationResponse(from, message.text.body);
+      await handleCashDenominationResponse(from, message.text.body);
       return; // Detenemos el procesamiento.
     }
     if (userState.step === 'awaiting_payment_proof') {
       if (message.type === 'image') {
-        handlePaymentProofImage(from, message.image);
+        await handlePaymentProofImage(from, message.image);
       } else {
-        sendTextMessage(from, 'Por favor, para confirmar tu pedido, envía únicamente la imagen de tu comprobante de pago.');
+        await sendTextMessage(from, 'Por favor, para confirmar tu pedido, envía únicamente la imagen de tu comprobante de pago.');
       }
       return; // Detenemos el procesamiento.
     }
@@ -272,10 +302,10 @@ function processMessage(message) {
     const handler = textCommandHandlers[lowerCaseMessage] || findTextCommandHandler(lowerCaseMessage);
     if (handler) {
       // Pasamos el texto original del mensaje por si el manejador lo necesita (ej. para un pedido)
-      handler(from, messageBody);
+      await handler(from, messageBody);
     } else {
       // Si no es un comando conocido, se lo pasamos a Gemini
-      handleFreeformQuery(from, messageBody);
+      await handleFreeformQuery(from, messageBody);
     }
   } else if (message.type === 'interactive' && message.interactive.type === 'button_reply') {
     const buttonId = message.interactive.button_reply.id;
@@ -351,7 +381,7 @@ function findTextCommandHandler(text) {
  * Envía el menú principal con botones.
  * @param {string} to Número del destinatario.
  */
-function sendMainMenu(to, text) {
+async function sendMainMenu(to, text) {
   // Notificamos al administrador que un cliente ha iniciado una conversación.
   // Esto ayuda al personal a estar atento a un posible pedido.
   notifyAdmin(`🔔 ¡Atención! El cliente ${formatDisplayNumber(to)} ha iniciado una conversación y está viendo el menú principal.`);
@@ -376,51 +406,51 @@ function sendMainMenu(to, text) {
       }
     }
   };
-  sendMessage(to, payload);
+  await sendMessage(to, payload);
 }
 
 /**
  * Maneja la solicitud para ver el menú.
  * @param {string} to Número del destinatario.
  */
-function handleShowMenu(to, text) {
-  sendTextMessage(to, `¡Claro! Aquí está nuestro delicioso menú: https://feyomx.github.io/Menu-CapiBobba-/`);
+async function handleShowMenu(to, text) {
+  await sendTextMessage(to, `¡Claro! Aquí está nuestro delicioso menú: https://feyomx.github.io/Menu-CapiBobba-/`);
 }
 
 /**
  * Maneja la solicitud para ver las promociones.
  * @param {string} to Número del destinatario.
  */
-function handleShowPromotions(to, text) {
+async function handleShowPromotions(to, text) {
   const promoText = `¡Nuestras promos de hoy! ✨\n\n- *Combo dia Lluvioso:* 2 bebidas calientes del mismo sabor x $110.\n- *Combo Amigos:* 2 Frappe base agua del mismo sabor por $130.`;
-  sendTextMessage(to, promoText);
+  await sendTextMessage(to, promoText);
 }
 
 /**
  * Maneja la solicitud de horario.
  * @param {string} to Número del destinatario.
  */
-function handleShowHours(to, text) {
+async function handleShowHours(to, text) {
   const hoursText = `Nuestro horario de atención es:\nLunes a Viernes: 6:00 PM - 10:00 PM\nSábados y Domingos: 12:00 PM - 10:00 PM`;
-  sendTextMessage(to, hoursText);
+  await sendTextMessage(to, hoursText);
 }
 
 /**
  * Maneja la solicitud de ubicación.
  * @param {string} to Número del destinatario.
  */
-function handleShowLocation(to, text) {
+async function handleShowLocation(to, text) {
   const locationText = `Tenemos servicio a domicilio GRATIS en los fraccionamientos aledaños a Viñedos!`;
-  sendTextMessage(to, locationText);
+  await sendTextMessage(to, locationText);
 }
 
 /**
  * Maneja la solicitud para contactar a un agente.
  * @param {string} to Número del destinatario.
  */
-function handleContactAgent(to, text) {
-  sendTextMessage(to, 'Entendido. Un agente se pondrá en contacto contigo en breve.');
-  notifyAdmin(`🔔 ¡Atención! El cliente ${formatDisplayNumber(to)} solicita hablar con un agente.`);
+async function handleContactAgent(to, text) {
+  await sendTextMessage(to, 'Entendido. Un agente se pondrá en contacto contigo en breve.');
+  await notifyAdmin(`🔔 ¡Atención! El cliente ${formatDisplayNumber(to)} solicita hablar con un agente.`);
 }
 
 /**
@@ -430,14 +460,14 @@ function handleContactAgent(to, text) {
  * @param {string} to Número del destinatario.
  * @param {string} text El texto completo del mensaje del usuario.
  */
-function handleInitiateOrder(to, text) {
+async function handleInitiateOrder(to, text) {
   // Comprueba si el texto del mensaje ya contiene un pedido formateado con el texto correcto.
   if (text.toLowerCase().includes('total del pedido:')) {
-    handleNewOrderFromMenu(to, text);
+    await handleNewOrderFromMenu(to, text);
   } else {
     // Si solo es la intención, guía al usuario.
     const guideText = '¡Genial! Para tomar tu pedido de la forma más rápida y sin errores, por favor, créalo en nuestro menú interactivo y cuando termines, copia y pega el resumen de tu orden aquí.\n\nAquí tienes el enlace: https://feyomx.github.io/Menu-CapiBobba-/';
-    sendTextMessage(to, guideText);
+    await sendTextMessage(to, guideText);
   }
 }
 
@@ -477,7 +507,7 @@ async function handleNewOrderFromMenu(to, orderText) {
   // Notificar a los administradores que se ha iniciado un nuevo pedido.
   const orderSummary = extractOrderItems(orderText);
   const initialAdminNotification = `🔔 ¡Nuevo pedido iniciado!\n\n*Cliente:* ${formatDisplayNumber(to)}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total ? '$' + total : 'No especificado'}\n\n*Nota:* Esperando dirección y método de pago.`;
-  notifyAdmin(initialAdminNotification);
+  await notifyAdmin(initialAdminNotification);
 
   let confirmationText = `¡Gracias por tu pedido! ✨\n\nHemos recibido tu orden y ya está en proceso de confirmación.`;
 
@@ -493,8 +523,7 @@ async function handleNewOrderFromMenu(to, orderText) {
   await sendTextMessage(to, addressRequestText);
 
   // 3. Pone al usuario en el estado de "esperando dirección".
-  userStates.set(to, { step: 'awaiting_address', orderText: orderText });
-  saveUserState();
+  await setUserState(to, { step: 'awaiting_address', orderText: orderText });
 }
 
 /**
@@ -528,9 +557,8 @@ async function handleAddressResponse(from, address) {
   await sendMessage(from, payload);
 
   // Actualiza el estado del usuario preservando el estado anterior (como orderText).
-  const currentState = userStates.get(from) || {};
-  userStates.set(from, { ...currentState, step: 'awaiting_access_code_info', address: address });
-  saveUserState();
+  const currentState = await getUserState(from) || {};
+  await setUserState(from, { ...currentState, step: 'awaiting_access_code_info', address: address });
 
   // Notifica a n8n que la dirección fue actualizada.
   // Se crea un payload personalizado para este evento específico,
@@ -545,7 +573,7 @@ async function handleAddressResponse(from, address) {
  * @param {string} buttonId El ID del botón presionado ('access_code_yes' o 'access_code_no').
  */
 async function handleAccessCodeResponse(from, buttonId) {
-  const userState = userStates.get(from);
+  const userState = await getUserState(from);
   
   // Guardamos la información del código de acceso en el estado
   userState.accessCodeInfo = buttonId;
@@ -567,8 +595,7 @@ async function handleAccessCodeResponse(from, buttonId) {
   await sendMessage(from, payload);
 
   // Actualiza el estado del usuario para esperar la respuesta del método de pago.
-  userStates.set(from, { ...userState, step: 'awaiting_payment_method' });
-  saveUserState();
+  await setUserState(from, { ...userState, step: 'awaiting_payment_method' });
 }
 
 /**
@@ -577,7 +604,7 @@ async function handleAccessCodeResponse(from, buttonId) {
  * @param {string} buttonId El ID del botón presionado ('payment_cash' o 'payment_transfer').
  */
 async function handlePaymentMethodResponse(from, buttonId) {
-  const userState = userStates.get(from);
+  const userState = await getUserState(from);
   if (!userState) return; // Chequeo de seguridad
 
   if (buttonId === 'payment_transfer') {
@@ -593,16 +620,14 @@ async function handlePaymentMethodResponse(from, buttonId) {
         ? '⚠️ Se necesita código de acceso.'
         : '✅ No se necesita código de acceso.';
     const adminNotification = `⏳ Pedido por Transferencia en espera\n\n*Cliente:* ${formatDisplayNumber(from)}\n*Dirección:* ${userState.address}\n*Acceso:* ${accessCodeMessage}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}\n\n*Nota:* Esperando comprobante de pago.`;
-    notifyAdmin(adminNotification);
+    await notifyAdmin(adminNotification);
 
     // Actualizamos el estado para esperar la imagen del comprobante
-    userStates.set(from, { ...userState, step: 'awaiting_payment_proof', paymentMethod: 'Transferencia' });
-    saveUserState();
+    await setUserState(from, { ...userState, step: 'awaiting_payment_proof', paymentMethod: 'Transferencia' });
   } else { // 'payment_cash'
     await sendTextMessage(from, 'Has elegido pagar en efectivo. ¿Con qué billete pagarás? (ej. $200, $500) para que podamos llevar tu cambio exacto.');
     // Guardamos el método de pago en el estado
-    userStates.set(from, { ...userState, step: 'awaiting_cash_denomination', paymentMethod: 'Efectivo' });
-    saveUserState();
+    await setUserState(from, { ...userState, step: 'awaiting_cash_denomination', paymentMethod: 'Efectivo' });
   }
 }
 
@@ -619,7 +644,7 @@ async function handleCashDenominationResponse(from, denomination) {
     return; // No continuamos si la entrada no es válida.
   }
 
-  const userState = userStates.get(from);
+  const userState = await getUserState(from);
   const address = userState.address;
   let finalMessage = `¡Pedido completo y confirmado! 🛵\n\nTu orden será enviada a:\n*${address}*.\n\n`;
 
@@ -641,15 +666,14 @@ async function handleCashDenominationResponse(from, denomination) {
     ? '⚠️ Se necesita código de acceso.'
     : '✅ No se necesita código de acceso.';
   const adminNotification = `🎉 ¡Nuevo pedido en Efectivo!\n\n*Cliente:* ${formatDisplayNumber(from)}\n*Dirección:* ${address}\n*Acceso:* ${accessCodeMessage}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}\n*Paga con:* ${denomination}`;
-  notifyAdmin(adminNotification);
+  await notifyAdmin(adminNotification);
 
   // Guardamos la denominación y enviamos el pedido completo a n8n
   const finalState = { ...userState, cashDenomination: sanitizedDenomination };
   sendOrderCompletionToN8n(from, finalState);
 
   console.log(`Pedido finalizado para ${from}. Dirección: ${address}. Pago: Efectivo (${sanitizedDenomination}).`);
-  userStates.delete(from);
-  saveUserState();
+  await deleteUserState(from);
 }
 
 /**
