@@ -15,14 +15,15 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const ADMIN_WHATSAPP_NUMBERS = process.env.ADMIN_WHATSAPP_NUMBERS; // Plural
+const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
 const WHATSAPP_API_VERSION = process.env.WHATSAPP_API_VERSION || 'v18.0';
 
 // Validamos que las variables de entorno críticas estén definidas
-if (!VERIFY_TOKEN || !WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY || !ADMIN_WHATSAPP_NUMBERS) {
+if (!VERIFY_TOKEN || !WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY || !ADMIN_WHATSAPP_NUMBERS || !N8N_WEBHOOK_URL) {
   console.error(
     'Error: Faltan variables de entorno críticas. ' +
-    'Asegúrate de que VERIFY_TOKEN, WHATSAPP_TOKEN, PHONE_NUMBER_ID, GEMINI_API_KEY y ADMIN_WHATSAPP_NUMBERS ' +
-    'estén en tu archivo .env (separados por coma si son varios)'
+    'Asegúrate de que VERIFY_TOKEN, WHATSAPP_TOKEN, PHONE_NUMBER_ID, GEMINI_API_KEY, ADMIN_WHATSAPP_NUMBERS y N8N_WEBHOOK_URL ' +
+    'estén en tu archivo .env'
   );
   process.exit(1); // Detiene la aplicación si falta configuración
 }
@@ -134,9 +135,6 @@ function formatDisplayNumber(fullNumber) {
  * @param {object} message El objeto de mensaje de la API de WhatsApp.
  */
 function sendToN8n(message, address = null) {
-      // ¡IMPORTANTE! Verifica que esta URL sea la correcta en tu n8n
-  const n8nWebhookUrl = 'https://n8n-autobot-634h.onrender.com/webhook/58417d94-89dd-4915-897d-a2973327aade';
-
   // Construimos un payload base con la información más relevante.
   // Enviamos el mensaje completo en 'rawMessage' para tener toda la data disponible en n8n.
   const payload = {
@@ -171,10 +169,10 @@ function sendToN8n(message, address = null) {
     };
   }
   // Se podría añadir lógica para otros tipos de mensajes (audio, video, ubicación, etc.)
-  console.log(`Enviando a n8n: URL=${n8nWebhookUrl}, payload=${JSON.stringify(payload)}`);
+  console.log(`Enviando a n8n: URL=${N8N_WEBHOOK_URL}, payload=${JSON.stringify(payload)}`);
   console.log('Enviando payload a n8n:', JSON.stringify(payload, null, 2));
 
-  axios.post(n8nWebhookUrl, payload)
+  axios.post(N8N_WEBHOOK_URL, payload)
     .then(response => {
       // La respuesta de n8n puede ser útil para debugging o para flujos de 2 vías.
       console.log('Respuesta de n8n:', response.data);
@@ -196,8 +194,6 @@ function sendToN8n(message, address = null) {
  * @param {object} state El estado completo del usuario con los detalles del pedido.
  */
 function sendOrderCompletionToN8n(from, state) {
-    const n8nWebhookUrl = 'https://n8n-autobot-634h.onrender.com/webhook/58417d94-89dd-4915-897d-a2973327aade';
-
     const totalMatch = state.orderText.match(/Total del pedido: \$(\d+\.\d{2})/i);
     const total = totalMatch ? parseFloat(totalMatch[1]) : null;
 
@@ -224,7 +220,7 @@ function sendOrderCompletionToN8n(from, state) {
 
     console.log('Enviando pedido completo a n8n:', JSON.stringify(payload, null, 2));
 
-    axios.post(n8nWebhookUrl, payload)
+    axios.post(N8N_WEBHOOK_URL, payload)
         .then(response => console.log('Respuesta de n8n (pedido completo):', response.data))
         .catch(error => {
             console.error('Error enviando pedido completo a n8n:', error.message);
@@ -536,10 +532,10 @@ async function handleAddressResponse(from, address) {
   userStates.set(from, { ...currentState, step: 'awaiting_access_code_info', address: address });
   saveUserState();
 
-  // AÑADE ESTA LÍNEA:
-  // Volvemos a enviar los datos a n8n, pero esta vez con la dirección.
-  // Creamos un objeto de mensaje falso ya que solo nos importa la dirección.
-  sendToN8n({ from: from, type: 'address_update', timestamp: Math.floor(Date.now() / 1000) }, address); 
+  // Notifica a n8n que la dirección fue actualizada.
+  // Se crea un payload personalizado para este evento específico,
+  // ya que no corresponde a un mensaje directo del usuario.
+  sendToN8n({ from: from, type: 'address_update', timestamp: Math.floor(Date.now() / 1000) }, address);
   console.log(`Dirección enviada a n8n: ${address}`);
 }
 
