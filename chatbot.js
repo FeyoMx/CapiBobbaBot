@@ -198,6 +198,22 @@ function sendToN8n(message, address = null) {
       // Nota: No enviamos el binario, solo la referencia. 
       // n8n puede usar el ID para descargar la imagen si es necesario.
     };
+  } else if (message.type === 'audio') {
+    payload.audio = {
+      id: message.audio.id,
+      mime_type: message.audio.mime_type
+    };
+  } else if (message.type === 'document') {
+    payload.document = {
+      id: message.document.id,
+      mime_type: message.document.mime_type,
+      filename: message.document.filename
+    };
+  } else if (message.type === 'location') {
+    payload.location = {
+      latitude: message.location.latitude,
+      longitude: message.location.longitude
+    };
   }
   // Se podría añadir lógica para otros tipos de mensajes (audio, video, ubicación, etc.)
   console.log(`Enviando a n8n: URL=${N8N_WEBHOOK_URL}, payload=${JSON.stringify(payload)}`);
