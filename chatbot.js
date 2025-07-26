@@ -495,6 +495,40 @@ function extractOrderItems(orderText) {
   
   return items.join('\n');
 }
+
+/**
+ * Construye un mensaje de notificación estandarizado para los administradores.
+ * @param {string} title El título de la notificación (ej. "🎉 ¡Nuevo pedido en Efectivo!").
+ * @param {object} userState El estado completo del usuario.
+ * @param {string} from El número de WhatsApp del cliente.
+ * @param {object} [extraDetails={}] Un objeto con detalles adicionales a incluir (ej. { 'Paga con': '$500' }).
+ * @returns {string} El mensaje de notificación formateado.
+ */
+function buildAdminNotification(title, userState, from, extraDetails = {}) {
+  const { address, orderText, accessCodeInfo } = userState;
+
+  const orderSummary = extractOrderItems(orderText);
+  const totalMatch = orderText.match(/Total del pedido: (\$\d+\.\d{2})/i);
+  const total = totalMatch ? totalMatch[1] : 'N/A';
+  
+  const accessCodeMessage = accessCodeInfo === 'access_code_yes'
+    ? '⚠️ Se necesita código de acceso.'
+    : '✅ No se necesita código de acceso.';
+
+  let notification = `${title}\n\n` +
+    `*Cliente:* ${formatDisplayNumber(from)}\n` +
+    `*Dirección:* ${address}\n` +
+    `*Acceso:* ${accessCodeMessage}\n\n` +
+    `*Pedido:*\n${orderSummary}\n\n` +
+    `*Total:* ${total}`;
+
+  // Añadir detalles extra si se proporcionan
+  Object.entries(extraDetails).forEach(([key, value]) => {
+    notification += `\n*${key}:* ${value}`;
+  });
+
+  return notification;
+}
 /**
  * Maneja la recepción de un nuevo pedido desde el menú web.
  * @param {string} to Número del destinatario.
@@ -613,13 +647,12 @@ async function handlePaymentMethodResponse(from, buttonId) {
     await sendTextMessage(from, 'Por favor, envía una imagen de tu comprobante de pago a este mismo chat para confirmar tu pedido.');
 
     // Notificar al administrador
-    const orderSummary = extractOrderItems(userState.orderText);
-    const totalMatch = userState.orderText.match(/Total del pedido: (\$\d+\.\d{2})/i);
-    const total = totalMatch ? totalMatch[1] : 'N/A';
-    const accessCodeMessage = userState.accessCodeInfo === 'access_code_yes'
-        ? '⚠️ Se necesita código de acceso.'
-        : '✅ No se necesita código de acceso.';
-    const adminNotification = `⏳ Pedido por Transferencia en espera\n\n*Cliente:* ${formatDisplayNumber(from)}\n*Dirección:* ${userState.address}\n*Acceso:* ${accessCodeMessage}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}\n\n*Nota:* Esperando comprobante de pago.`;
+    const adminNotification = buildAdminNotification(
+      '⏳ Pedido por Transferencia en espera',
+      userState,
+      from,
+      { 'Nota': 'Esperando comprobante de pago.' }
+    );
     await notifyAdmin(adminNotification);
 
     // Actualizamos el estado para esperar la imagen del comprobante
@@ -659,13 +692,12 @@ async function handleCashDenominationResponse(from, denomination) {
   await sendTextMessage(from, finalMessage);
 
   // Notificar al administrador
-  const orderSummary = extractOrderItems(userState.orderText);
-  const totalMatch = userState.orderText.match(/Total del pedido: (\$\d+\.\d{2})/i);
-  const total = totalMatch ? totalMatch[1] : 'N/A';
-  const accessCodeMessage = userState.accessCodeInfo === 'access_code_yes'
-    ? '⚠️ Se necesita código de acceso.'
-    : '✅ No se necesita código de acceso.';
-  const adminNotification = `🎉 ¡Nuevo pedido en Efectivo!\n\n*Cliente:* ${formatDisplayNumber(from)}\n*Dirección:* ${address}\n*Acceso:* ${accessCodeMessage}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}\n*Paga con:* ${denomination}`;
+  const adminNotification = buildAdminNotification(
+    '🎉 ¡Nuevo pedido en Efectivo!',
+    userState,
+    from,
+    { 'Paga con': denomination }
+  );
   await notifyAdmin(adminNotification);
 
   // Guardamos la denominación y enviamos el pedido completo a n8n
@@ -691,14 +723,11 @@ async function handlePaymentProofImage(from, imageObject) {
   await sendTextMessage(from, '¡Gracias! Hemos recibido tu comprobante. Tu pedido ha sido confirmado y se preparará en breve. 🛵');
 
   // 2. Preparar la notificación para los administradores
-  const orderSummary = extractOrderItems(userState.orderText);
-  const totalMatch = userState.orderText.match(/Total del pedido: (\$\d+\.\d{2})/i);
-  const total = totalMatch ? totalMatch[1] : 'N/A';
-  
-  const accessCodeMessage = userState.accessCodeInfo === 'access_code_yes'
-    ? '⚠️ Se necesita código de acceso.'
-    : '✅ No se necesita código de acceso.';
-  const adminCaption = `✅ Comprobante Recibido\n\n*Cliente:* ${formatDisplayNumber(from)}\n*Dirección:* ${userState.address}\n*Acceso:* ${accessCodeMessage}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total}`;
+  const adminCaption = buildAdminNotification(
+    '✅ Comprobante Recibido',
+    userState,
+    from
+  );
 
   // 3. Construir el payload para reenviar la imagen con el caption
   const imagePayload = {
