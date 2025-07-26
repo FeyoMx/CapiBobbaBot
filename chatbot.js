@@ -40,6 +40,7 @@ const redisClient = redis.createClient({
 
 redisClient.on('error', err => console.error('Error en el cliente de Redis', err));
 redisClient.on('connect', () => console.log('Conectado exitosamente a Redis.'));
+redisClient.connect(); // <-- CRÍTICO: Es necesario para iniciar la conexión con Redis.
 
 const PORT = process.env.PORT || 3000;
 
@@ -714,7 +715,7 @@ async function handleCashDenominationResponse(from, denomination) {
  * @param {object} imageObject El objeto de imagen del mensaje, que contiene el ID.
  */
 async function handlePaymentProofImage(from, imageObject) {
-  const userState = userStates.get(from);
+  const userState = await getUserState(from); // <-- CORRECCIÓN: Usar la función async de Redis.
   if (!userState) return;
 
   console.log(`Recibido comprobante de pago (imagen) de ${from}`);
@@ -753,8 +754,7 @@ async function handlePaymentProofImage(from, imageObject) {
   console.log(`Pedido finalizado y comprobante reenviado para ${from}.`);
   
   // 5. Limpiar el estado del usuario
-  userStates.delete(from);
-  saveUserState();
+  await deleteUserState(from); // <-- CORRECCIÓN: Usar la función async de Redis.
 }
 /**
  * Maneja preguntas de formato libre usando la API de Gemini.
