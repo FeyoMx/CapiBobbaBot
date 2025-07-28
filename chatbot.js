@@ -143,6 +143,18 @@ async function deleteUserState(from) {
 }
 
 /**
+ * Verifica si un número de teléfono corresponde a un administrador.
+ * @param {string} from El número de WhatsApp a verificar.
+ * @returns {boolean} True si el número es de un administrador, false en caso contrario.
+ */
+function isAdmin(from) {
+    if (!ADMIN_WHATSAPP_NUMBERS) {
+        return false;
+    }
+    const adminNumbers = ADMIN_WHATSAPP_NUMBERS.split(',').map(num => num.trim());
+    return adminNumbers.includes(from);
+}
+/**
  * Formatea un número de WhatsApp para mostrarlo de forma más legible.
  * Ej: Convierte "5217712416450" a "7712416450".
  * @param {string} fullNumber El número completo con código de país.
@@ -279,8 +291,14 @@ function sendOrderCompletionToN8n(from, state) {
  * @param {object} message El objeto de mensaje de la API de WhatsApp.
  */
 async function processMessage(message) {
-  sendToN8n(message); // <-- AÑADIDO: Envía cada mensaje a n8n
+  sendToN8n(message); // Envía cada mensaje a n8n
   const from = message.from; // Número de teléfono del remitente
+
+  // NUEVO: Verificar si el mensaje es de un administrador
+  if (isAdmin(from)) {
+    await handleAdminMessage(message);
+    return; // Detenemos el procesamiento para que no se ejecute la lógica de cliente.
+  }
 
   // Primero, revisamos si el usuario está en medio de un flujo de conversación (como un pedido).
   const userState = await getUserState(from);
@@ -330,6 +348,26 @@ async function processMessage(message) {
     const handler = buttonCommandHandlers[buttonId] || defaultHandler;
     handler(from);
   }
+}
+
+/**
+ * Maneja los mensajes provenientes de un número de administrador.
+ * @param {object} message El objeto de mensaje de la API de WhatsApp.
+ */
+async function handleAdminMessage(message) {
+    const from = message.from;
+    const messageBody = message.type === 'text' ? message.text.body.toLowerCase().trim() : '';
+
+    console.log(`Mensaje recibido del administrador ${from}: "${messageBody}"`);
+
+    // Aquí se pueden implementar comandos específicos para administradores.
+    // Por ejemplo: "hablar con [numero]", "pausar bot", "ver pedidos".
+
+    // Por ahora, solo enviamos un saludo de confirmación si el admin escribe 'hola admin'.
+    if (messageBody === 'hola admin') {
+        await sendTextMessage(from, `🤖 Saludos, administrador. Estoy a tu disposición.`);
+    }
+    // Si no es un comando conocido para el admin, no hacemos nada para evitar spam.
 }
 
 // --- MANEJADORES DE COMANDOS ---
@@ -409,7 +447,7 @@ async function sendMainMenu(to, text) {
       type: 'button',
       header: { type: 'text', text: '🧋CapiBobba🧋' },
       body: {
-        text: '¡Hola! Soy el asistente virtual de CapiBobba. ¿Cómo puedo ayudarte hoy?'
+        text: '¡Hola! Soy CapiBot, el asistente virtual de CapiBobba. ¿Cómo puedo ayudarte hoy?'
       },
       footer: {
         text: 'Selecciona una opción'
@@ -431,7 +469,7 @@ async function sendMainMenu(to, text) {
  * @param {string} to Número del destinatario.
  */
 async function handleShowMenu(to, text) {
-  await sendTextMessage(to, `¡Claro! Aquí está nuestro delicioso menú: https://feyomx.github.io/Menu-CapiBobba-/`);
+  await sendTextMessage(to, `¡Claro! Aquí está nuestro delicioso menú: https://feyomx.github.io/menucapibobba/`);
 }
 
 /**
@@ -483,7 +521,7 @@ async function handleInitiateOrder(to, text) {
     await handleNewOrderFromMenu(to, text);
   } else {
     // Si solo es la intención, guía al usuario.
-    const guideText = '¡Genial! Para tomar tu pedido de la forma más rápida y sin errores, por favor, créalo en nuestro menú interactivo y cuando termines, copia y pega el resumen de tu orden aquí.\n\nAquí tienes el enlace: https://feyomx.github.io/Menu-CapiBobba-/';
+    const guideText = '¡Genial! Para tomar tu pedido de la forma más rápida y sin errores, por favor, créalo en nuestro menú interactivo y cuando termines, copia y pega el resumen de tu orden aquí.\n\nAquí tienes el enlace: https://feyomx.github.io/menucapibobba/';
     await sendTextMessage(to, guideText);
   }
 }
