@@ -300,8 +300,21 @@ async function processMessage(message) {
     return; // Detenemos el procesamiento para que no se ejecute la lógica de cliente.
   }
 
-  // Primero, revisamos si el usuario está en medio de un flujo de conversación (como un pedido).
+  // Revisamos si el usuario está en medio de un flujo de conversación (pedido o chat con admin).
   const userState = await getUserState(from);
+
+  // NUEVO: Si el cliente está en modo chat con un admin, reenviamos su mensaje al admin.
+  if (userState && userState.mode === 'in_conversation_with_admin') {
+    const adminNumber = userState.admin;
+    if (message.type === 'text') {
+      await sendTextMessage(adminNumber, `💬 *Cliente* (${formatDisplayNumber(from)}):\n${message.text.body}`);
+    } else {
+      // Por ahora, solo notificamos al admin que se envió un mensaje que no es de texto.
+      await sendTextMessage(adminNumber, `💬 *Cliente* (${formatDisplayNumber(from)}) ha enviado un mensaje que no es de texto (ej. imagen, audio). Por ahora no se puede reenviar.`);
+    }
+    return; // Detenemos el procesamiento normal.
+  }
+
   if (userState) {
     if (userState.step === 'awaiting_address' && message.type === 'text') {
       await handleAddressResponse(from, message.text.body);
@@ -356,18 +369,66 @@ async function processMessage(message) {
  */
 async function handleAdminMessage(message) {
     const from = message.from;
-    const messageBody = message.type === 'text' ? message.text.body.toLowerCase().trim() : '';
+    const messageBody = message.type === 'text' ? message.text.body.trim() : '';
+    const lowerCaseMessage = messageBody.toLowerCase();
+
+    const adminState = await getUserState(from);
+
+    // --- Comandos de Chat Directo ---
+
+    // Comando para terminar una conversación
+    if (lowerCaseMessage === 'terminar chat' || lowerCaseMessage === 'salir') {
+        if (adminState && adminState.mode === 'chatting') {
+            const clientNumber = adminState.targetUser;
+            // Limpiamos los estados de ambos
+            await deleteUserState(from);
+            await deleteUserState(clientNumber);
+
+            await sendTextMessage(from, `✅ Chat con ${formatDisplayNumber(clientNumber)} finalizado. Has vuelto al modo normal.`);
+            await sendTextMessage(clientNumber, `La conversación con nuestro agente ha terminado. Si necesitas algo más, escribe "hola" para ver el menú. 👋`);
+        } else {
+            await sendTextMessage(from, `No estás en un chat activo. Para iniciar uno, usa el comando: "hablar con <numero>"`);
+        }
+        return;
+    }
+
+    // Comando para iniciar una conversación
+    if (lowerCaseMessage.startsWith('hablar con ')) {
+        const targetUser = lowerCaseMessage.replace('hablar con ', '').trim();
+        // Validación simple para asegurar que es un número
+        if (/^\d+$/.test(targetUser)) {
+            // Establecemos el estado para el admin y para el cliente
+            await setUserState(from, { mode: 'chatting', targetUser: targetUser });
+            await setUserState(targetUser, { mode: 'in_conversation_with_admin', admin: from });
+
+            await sendTextMessage(from, `📞 Has iniciado un chat directo con ${formatDisplayNumber(targetUser)}. Todo lo que escribas ahora se le enviará directamente.\n\nPara terminar, escribe "terminar chat".`);
+            await sendTextMessage(targetUser, `🧑‍ Un agente se ha unido a la conversación para ayudarte personalmente.`);
+        } else {
+            await sendTextMessage(from, `El número proporcionado no es válido. Asegúrate de que sea solo el número de WhatsApp (ej. 521771...).`);
+        }
+        return;
+    }
+
+    // Si el admin ya está en modo chat, reenviamos su mensaje al cliente
+    if (adminState && adminState.mode === 'chatting') {
+        const clientNumber = adminState.targetUser;
+        if (message.type === 'text') {
+            await sendTextMessage(clientNumber, `🧑‍ Agente: ${message.text.body}`);
+        } else {
+            // En el futuro se podría implementar el reenvío de imágenes, audios, etc.
+            await sendTextMessage(from, "Por ahora, solo puedo reenviar mensajes de texto en el chat directo.");
+        }
+        return;
+    }
+
+    // --- Otros Comandos de Admin ---
 
     console.log(`Mensaje recibido del administrador ${from}: "${messageBody}"`);
 
-    // Aquí se pueden implementar comandos específicos para administradores.
-    // Por ejemplo: "hablar con [numero]", "pausar bot", "ver pedidos".
-
-    // Por ahora, solo enviamos un saludo de confirmación si el admin escribe 'hola admin'.
-    if (messageBody === 'hola admin') {
-        await sendTextMessage(from, `🤖 Saludos, administrador. Estoy a tu disposición.`);
+    if (lowerCaseMessage === 'hola admin') {
+        await sendTextMessage(from, `🤖 Saludos, administrador. Estoy a tu disposición. Puedes usar "hablar con <numero>" para chatear con un cliente.`);
     }
-    // Si no es un comando conocido para el admin, no hacemos nada para evitar spam.
+    // Si no es un comando conocido, no hacemos nada para evitar spam.
 }
 
 // --- MANEJADORES DE COMANDOS ---
