@@ -300,6 +300,10 @@ async function processMessage(message) {
     return; // Detenemos el procesamiento para que no se ejecute la lógica de cliente.
   }
 
+  // Mostramos el indicador de "escribiendo..." para mejorar la experiencia del usuario.
+  // No es necesario esperar (await) a que se complete.
+  sendTypingOn(from);
+
   // Revisamos si el usuario está en medio de un flujo de conversación (pedido o chat con admin).
   const userState = await getUserState(from);
 
@@ -947,6 +951,33 @@ function notifyAdmin(text) {
     if (number) { // Asegura no procesar strings vacíos si hay comas extra
       sendTextMessage(number, text);
     }
+  }
+}
+
+/**
+ * Envía el indicador de "escribiendo..." al usuario para mejorar la UX.
+ * Esta es una acción de "disparar y olvidar", no bloquea el flujo principal.
+ * @param {string} to El número de teléfono del destinatario.
+ */
+async function sendTypingOn(to) {
+  const url = `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`;
+  const data = {
+    messaging_product: 'whatsapp',
+    to: to,
+    action: 'typing_on',
+  };
+  const headers = {
+    'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+    'Content-Type': 'application/json',
+  };
+
+  try {
+    // No usamos await en la llamada a esta función, pero la función es async por axios.
+    // No logueamos el éxito para no saturar la consola.
+    await axios.post(url, data, { headers });
+  } catch (error) {
+    // Es una función de UX, si falla no es crítico. No logueamos el error para evitar ruido.
+    // console.error('Error al enviar el indicador de typing_on:', error.response ? error.response.data : error.message);
   }
 }
 
