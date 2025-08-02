@@ -176,75 +176,80 @@ function formatDisplayNumber(fullNumber) {
 /**
  * Envía datos del mensaje recibido a un webhook de n8n.
  * @param {object} message El objeto de mensaje de la API de WhatsApp.
+ * @param {object} [extraData={}] Datos adicionales para incluir en el payload.
  */
-function sendToN8n(message, address = null) {
-  // Construimos un payload base con la información más relevante.
-  // Enviamos el mensaje completo en 'rawMessage' para tener toda la data disponible en n8n.
+async function sendToN8n(message, extraData = {}) {
+  // 1. Construcción del payload base y fusión con datos extra.
   const payload = {
     from: message.from,
     type: message.type,
     timestamp: message.timestamp, // El mensaje ya trae un timestamp UNIX
-    rawMessage: message 
+    rawMessage: message,
+    ...extraData // Fusiona cualquier dato extra como 'address'.
   };
 
-  if (address) {
-    payload.address = address;
-  }
-
-  // Añadimos detalles específicos y más fáciles de usar según el tipo de mensaje
-  if (message.type === 'text') {
-    payload.text = message.text.body;
-  } else if (message.type === 'interactive') {
-    if (message.interactive.type === 'button_reply') {
-      payload.interactive = {
-        type: 'button_reply',
-        id: message.interactive.button_reply.id,
-        title: message.interactive.button_reply.title
-      };
-    }
-    // Aquí podrías añadir soporte para 'list_reply' si lo usas en el futuro
-  } else if (message.type === 'image') {
-    payload.image = {
-      id: message.image.id,
-      mime_type: message.image.mime_type
-      // Nota: No enviamos el binario, solo la referencia. 
-      // n8n puede usar el ID para descargar la imagen si es necesario.
-    };
-  } else if (message.type === 'audio') {
-    payload.audio = {
-      id: message.audio.id,
-      mime_type: message.audio.mime_type
-    };
-  } else if (message.type === 'document') {
-    payload.document = {
-      id: message.document.id,
-      mime_type: message.document.mime_type,
-      filename: message.document.filename
-    };
-  } else if (message.type === 'location') {
-    payload.location = {
-      latitude: message.location.latitude,
-      longitude: message.location.longitude
-    };
-  }
-  // Se podría añadir lógica para otros tipos de mensajes (audio, video, ubicación, etc.)
-  console.log(`Enviando a n8n: URL=${N8N_WEBHOOK_URL}, payload=${JSON.stringify(payload)}`);
-  console.log('Enviando payload a n8n:', JSON.stringify(payload, null, 2));
-
-  axios.post(N8N_WEBHOOK_URL, payload)
-    .then(response => {
-      // La respuesta de n8n puede ser útil para debugging o para flujos de 2 vías.
-      console.log('Respuesta de n8n:', response.data);
-    })
-    .catch(error => {
-      if (error.response) {
-        console.error('Error enviando a n8n (el servidor respondió con un error):', { status: error.response.status, data: error.response.data });
-      } else if (error.request) {
-        console.error('Error enviando a n8n (sin respuesta): Asegúrate de que n8n esté corriendo y el webhook esté activo y sea de tipo POST.');
-      } else {
-        console.error('Error enviando a n8n (error de configuración de Axios):', error.message);
+  // 2. Añadir detalles específicos del mensaje de forma segura.
+  switch (message.type) {
+    case 'text':
+      payload.text = message.text?.body;
+      break;
+    case 'interactive':
+      if (message.interactive?.type === 'button_reply') {
+        payload.interactive = {
+          type: 'button_reply',
+          id: message.interactive.button_reply?.id,
+          title: message.interactive.button_reply?.title
+        };
       }
-    });
+      // Se puede añadir 'list_reply' aquí en el futuro.
+      break;
+    case 'image':
+      payload.interactive = {
+        id: message.image?.id,
+        mime_type: message.image?.mime_type
+      };
+      break;
+    case 'audio':
+      payload.audio = {
+        id: message.audio?.id,
+        mime_type: message.audio?.mime_type
+      };
+      break;
+    case 'document':
+      payload.document = {
+        id: message.document?.id,
+        mime_type: message.document?.mime_type,
+        filename: message.document?.filename
+      };
+      break;
+    case 'location':
+      payload.location = {
+        latitude: message.location?.latitude,
+        longitude: message.location?.longitude
+      };
+      break;
+    // Añadir más casos según sea necesario.
+  }
+
+  // 3. Envío asíncrono con manejo de errores mejorado.
+  try {
+    console.log('Enviando payload a n8n:', JSON.stringify(payload, null, 2));
+    const response = await axios.post(N8N_WEBHOOK_URL, payload, { timeout: 5000 }); // Timeout de 5 segundos
+    console.log('Respuesta de n8n recibida:', response.data);
+  } catch (error) {
+    if (error.response) {
+      // El servidor respondió con un código de estado fuera del rango 2xx
+      console.error('Error enviando a n8n (el servidor respondió con un error):', { status: error.response.status, data: error.response.data });
+    } else if (error.request) {
+      // La petición se hizo pero no se recibió respuesta
+      console.error('Error enviando a n8n (sin respuesta): Asegúrate de que n8n esté corriendo y el webhook esté activo y sea de tipo POST.');
+    } else if (error.code === 'ECONNABORTED') {
+      console.error('Error enviando a n8n: La petición tardó demasiado (timeout).');
+    } else {
+      // Algo pasó al configurar la petición que lanzó un Error
+      console.error('Error enviando a n8n (error de configuración de Axios):', error.message);
+    }
+  }
 }
 
 /**
@@ -351,7 +356,7 @@ async function processMessage(message) {
     const lowerCaseMessage = messageBody.toLowerCase().trim();
 
     // Busca un manejador para el comando de texto
-    const handler = textCommandHandlers[lowerCaseMessage] || findTextCommandHandler(lowerCaseMessage);
+    const handler = findCommandHandler(lowerCaseMessage);
     if (handler) {
       // Pasamos el texto original del mensaje por si el manejador lo necesita (ej. para un pedido)
       await handler(from, messageBody);
@@ -437,23 +442,6 @@ async function handleAdminMessage(message) {
 
 // --- MANEJADORES DE COMANDOS ---
 
-// Manejadores para comandos de texto exactos. Aquí "entrenas" al bot.
-const textCommandHandlers = {
-  // Los saludos ahora se manejan de forma más flexible en findTextCommandHandler
-  'ayuda': sendMainMenu,
-  'menu': handleShowMenu,
-  'promociones': handleShowPromotions,
-  'horario': handleShowHours,
-  'ubicacion': handleShowLocation
-};
-
-// Manejadores para respuestas de botones.
-const buttonCommandHandlers = {
-  'ver_menu': handleShowMenu,
-  'ver_promociones': handleShowPromotions,
-  'contactar_agente': handleContactAgent
-};
-
 /**
  * Comprueba si un texto es un saludo común.
  * @param {string} text El texto a comprobar en minúsculas.
@@ -465,34 +453,55 @@ function isGreeting(text) {
 }
 
 /**
- * Busca un manejador de comandos que coincida parcialmente (ej. "quiero ver el menu").
- * @param {string} text El texto del mensaje del usuario.
+ * Define la lista de comandos de texto, su prioridad y cómo detectarlos.
+ * El array se procesa en orden, por lo que los comandos más específicos deben ir primero.
+ */
+const commandHandlers = [
+  // Prioridad 1: Pedido completo desde el menú web. Es el más específico.
+  {
+    name: 'Handle Web Menu Order',
+    match: (text) => text.includes('total del pedido:') || text.includes('total a pagar:'),
+    handler: handleNewOrderFromMenu
+  },
+  // Prioridad 2: Intención de hacer un pedido.
+  {
+    name: 'Initiate Order',
+    keywords: ['pedido', 'ordenar', 'quisiera pedir', 'me gustaría pedir', 'me gustaría hacer el siguiente pedido', 'quiero pedir', 'me gustaría ordenar'],
+    handler: handleInitiateOrder
+  },
+  // Prioridad 3: Saludos comunes.
+  {
+    name: 'Greeting',
+    match: isGreeting,
+    handler: sendMainMenu
+  },
+  // Prioridad 4: Comandos generales por palabra clave.
+  { name: 'Show Menu', keywords: ['menu'], handler: handleShowMenu },
+  { name: 'Show Promotions', keywords: ['promo'], handler: handleShowPromotions },
+  { name: 'Show Hours', keywords: ['hora', 'atienden', 'horario'], handler: handleShowHours },
+  { name: 'Show Location', keywords: ['ubicacion', 'donde estan', 'domicilio'], handler: handleShowLocation },
+  { name: 'Help', keywords: ['ayuda'], handler: sendMainMenu } // 'ayuda' ahora usa el mismo sistema
+];
+
+/**
+ * Busca y devuelve el manejador de comandos apropiado para un mensaje de texto.
+ * Itera a través de la lista `commandHandlers` y devuelve el primer manejador que coincida.
+ * @param {string} text El mensaje del usuario en minúsculas y sin espacios extra.
  * @returns {Function|null} La función manejadora o null si no se encuentra.
  */
-function findTextCommandHandler(text) {
-    // Damos prioridad a la detección de pedidos del menú web, ahora buscando el texto correcto.
-    if (text.includes('total del pedido:') || text.includes('total a pagar:')) {
-        return handleNewOrderFromMenu;
+function findCommandHandler(text) {
+  for (const command of commandHandlers) {
+    // Estrategia 1: Función de match personalizada (la más flexible)
+    if (command.match && command.match(text)) {
+      return command.handler;
     }
-
-    // NUEVO: Detecta la intención de hacer un pedido, incluso si no está completo.
-    const orderIntentKeywords = ['pedido', 'ordenar', 'quisiera pedir', 'me gustaría pedir', 'me gustaría hacer el siguiente pedido', 'quiero pedir', 'me gustaría ordenar'];
-    if (orderIntentKeywords.some(keyword => text.includes(keyword))) {
-        return handleInitiateOrder;
+    // Estrategia 2: Coincidencia por palabras clave
+    if (command.keywords && command.keywords.some(keyword => text.includes(keyword))) {
+      return command.handler;
     }
-
-    // Damos prioridad a los saludos para mostrar el menú principal
-    if (isGreeting(text)) {
-      return sendMainMenu;
-    }
-
-    // Lógica para otros comandos
-    if (text.includes('menu')) return handleShowMenu;
-    if (text.includes('promo')) return handleShowPromotions;
-    if (text.includes('hora') || text.includes('atienden')) return handleShowHours;
-    if (text.includes('ubicacion') || text.includes('donde estan')) return handleShowLocation;
-    // Si ninguna de las palabras clave coincide, no devolvemos nada para que lo maneje Gemini.
-    return null;
+  }
+  // Si ninguna de las palabras clave coincide, no devolvemos nada para que lo maneje Gemini.
+  return null;
 }
 
 // --- ACCIONES DEL BOT (Las respuestas de tu negocio) ---
@@ -625,29 +634,40 @@ function extractOrderItems(orderText) {
  * @returns {string} El mensaje de notificación formateado.
  */
 function buildAdminNotification(title, userState, from, extraDetails = {}) {
-  const { address, orderText, accessCodeInfo } = userState;
+  // 1. Desestructuración segura con valores por defecto para evitar errores.
+  const { address = 'No especificada', orderText = '', accessCodeInfo } = userState || {};
 
+  // 2. Extracción de datos.
   const orderSummary = extractOrderItems(orderText);
-  const totalMatch = orderText.match(/Total del pedido: (\$\d+\.\d{2})/i);
+  // Regex mejorada: busca el total, permitiendo opcionalmente un espacio y decimales.
+  const totalMatch = orderText.match(/Total del pedido:\s*(\$\d+(\.\d{1,2})?)/i);
   const total = totalMatch ? totalMatch[1] : 'N/A';
   
+  // 3. Mensajes claros con emojis consistentes.
   const accessCodeMessage = accessCodeInfo === 'access_code_yes'
-    ? '⚠️ Se necesita código de acceso.'
-    : '✅ No se necesita código de acceso.';
+    ? '🔐 Sí, se necesita código'
+    : '🔓 No, acceso libre';
 
-  let notification = `${title}\n\n` +
-    `*Cliente:* ${formatDisplayNumber(from)}\n` +
-    `*Dirección:* ${address}\n` +
-    `*Acceso:* ${accessCodeMessage}\n\n` +
-    `*Pedido:*\n${orderSummary}\n\n` +
-    `*Total:* ${total}`;
+  // 4. Construcción del mensaje usando un array para mayor legibilidad y mantenimiento.
+  const notificationParts = [
+    title,
+    '──────────────────',
+    `🧍 *Cliente:* ${formatDisplayNumber(from)}`,
+    `🏠 *Dirección:* ${address}`,
+    `🔑 *Acceso:* ${accessCodeMessage}`,
+    '', // Espacio antes del pedido
+    '🧾 *Pedido:*',
+    orderSummary,
+    '', // Espacio después del pedido
+    `💰 *Total:* ${total}`
+  ];
 
   // Añadir detalles extra si se proporcionan
   Object.entries(extraDetails).forEach(([key, value]) => {
-    notification += `\n*${key}:* ${value}`;
+    notificationParts.push(`📌 *${key}:* ${value}`);
   });
 
-  return notification;
+  return notificationParts.join('\n');
 }
 /**
  * Maneja la recepción de un nuevo pedido desde el menú web.
@@ -717,7 +737,7 @@ async function handleAddressResponse(from, address) {
   // Notifica a n8n que la dirección fue actualizada.
   // Se crea un payload personalizado para este evento específico,
   // ya que no corresponde a un mensaje directo del usuario.
-  sendToN8n({ from: from, type: 'address_update', timestamp: Math.floor(Date.now() / 1000) }, address);
+  sendToN8n({ from: from, type: 'address_update', timestamp: Math.floor(Date.now() / 1000) }, { address });
   console.log(`Dirección enviada a n8n: ${address}`);
 }
 
