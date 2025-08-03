@@ -355,6 +355,15 @@ async function processMessage(message) {
     const messageBody = message.text.body; // Mantenemos el texto original para el pedido
     const lowerCaseMessage = messageBody.toLowerCase().trim();
 
+    // --- MANEJO DE RESPUESTA DE ENCUESTA ---
+    // Verificamos si el mensaje es un número único entre 0 y 5.
+    const rating = parseInt(lowerCaseMessage, 10);
+    // Esta condición asegura que el mensaje sea únicamente un número en el rango esperado.
+    if (String(rating) === lowerCaseMessage && rating >= 0 && rating <= 5) {
+        await handleSurveyResponse(from, rating);
+        return; // Importante: detenemos el procesamiento aquí para no pasarlo a Gemini.
+    }
+
     // Busca un manejador para el comando de texto
     const handler = findCommandHandler(lowerCaseMessage);
     if (handler) {
@@ -440,6 +449,32 @@ async function handleAdminMessage(message) {
     // Si no es un comando conocido, no hacemos nada para evitar spam.
 }
 
+/**
+ * Maneja la respuesta numérica de una encuesta de satisfacción.
+ * @param {string} from El número del remitente.
+ * @param {number} rating La calificación dada por el usuario (0-5).
+ */
+async function handleSurveyResponse(from, rating) {
+  console.log(`Respuesta de encuesta recibida de ${from}: Calificación ${rating}`);
+
+  let responseText;
+
+  // Personalizamos el mensaje de agradecimiento según la calificación.
+  if (rating <= 2) {
+    responseText = "Lamentamos mucho que tu experiencia no haya sido la mejor. Agradecemos tus comentarios y los tomaremos en cuenta para mejorar. Un agente podría contactarte para entender mejor qué pasó.";
+    // Notificamos a un admin sobre la mala calificación para un seguimiento.
+    notifyAdmin(`⚠️ ¡Alerta de Calificación Baja! ⚠️\n\nEl cliente ${formatDisplayNumber(from)} ha calificado el servicio con un: *${rating}*.\n\nSería bueno contactarlo para entender qué podemos mejorar.`);
+  } else if (rating >= 4) {
+    responseText = "¡Nos alegra mucho que hayas tenido una buena experiencia! Gracias por tu calificación. ¡Esperamos verte pronto! 🎉";
+  } else { // Para calificaciones de 3
+    responseText = "¡Muchas gracias por tus comentarios! Tu opinión es muy importante para nosotros y nos ayuda a mejorar. 😊";
+  }
+
+  await sendTextMessage(from, responseText);
+
+  // Opcional: Si usaras un estado como 'awaiting_survey', aquí lo limpiarías.
+  // await deleteUserState(from);
+}
 // --- MANEJADORES DE COMANDOS ---
 
 /**
