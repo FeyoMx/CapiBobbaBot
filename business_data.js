@@ -30,10 +30,11 @@ const businessData = {
             price: 60.00,
             description: "Pueden ser de cualquier sabor base leche"
         },
-        temporada: {
-            name: "Bebidas de temporada",
+        especialidades: {
+            name: "Especialidades",
             items: [
                 { name: "Chamoyada", price: 80.00, description: "Puede ser de cualquier sabor base agua" },
+                { name: "Yogurtada", price: 80.00, description: "Puede ser de cualquier sabor base frutal" },
                 { name: "Fresas con crema", price: 75.00 }
             ]
         },
