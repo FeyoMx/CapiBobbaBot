@@ -292,6 +292,40 @@ function sendOrderCompletionToN8n(from, state) {
 }
 
 /**
+ * Registra la respuesta del bot en un webhook de n8n.
+ * @param {string} to El número de WhatsApp del destinatario.
+ * @param {object} payload El payload del mensaje que se envía.
+ */
+async function logBotResponseToN8n(to, payload) {
+  // Construimos un payload específico para las respuestas del bot
+  const n8nPayload = {
+    recipient: to, // A quién se le envía
+    source: 'bot', // Para identificar que el origen es el bot
+    type: 'bot_response', // Un tipo de evento claro
+    timestamp: Math.floor(Date.now() / 1000),
+    messagePayload: payload, // El contenido real del mensaje
+  };
+
+  // Reutilizamos la lógica de envío y manejo de errores
+  try {
+    console.log('Registrando respuesta del bot en n8n:', JSON.stringify(n8nPayload, null, 2));
+    // Usamos un timeout para no bloquear el bot si n8n no responde rápido
+    await axios.post(N8N_WEBHOOK_URL, n8nPayload, { timeout: 5000 });
+    console.log('Respuesta del bot registrada exitosamente en n8n.');
+  } catch (error) {
+    if (error.response) {
+      console.error('Error registrando respuesta del bot en n8n (el servidor respondió con un error):', { status: error.response.status, data: error.response.data });
+    } else if (error.request) {
+      console.error('Error registrando respuesta del bot en n8n (sin respuesta): Asegúrate de que n8n esté corriendo y el webhook esté activo y sea de tipo POST.');
+    } else if (error.code === 'ECONNABORTED') {
+      console.error('Error registrando respuesta del bot en n8n: La petición tardó demasiado (timeout).');
+    } else {
+      console.error('Error registrando respuesta del bot en n8n (error de configuración de Axios):', error.message);
+    }
+  }
+}
+
+/**
  * Procesa el mensaje entrante y lo dirige al manejador correcto.
  * @param {object} message El objeto de mensaje de la API de WhatsApp.
  */
@@ -1042,6 +1076,11 @@ async function sendTypingOn(to) {
  * @param {object} payload El objeto de mensaje a enviar (puede ser texto, interactivo, etc.).
  */
 async function sendMessage(to, payload) {
+  // NUEVO: Registramos la respuesta del bot en n8n antes de enviarla.
+  // Es una acción de "disparar y olvidar" para no retrasar la respuesta al usuario.
+  // Esto nos permite tener un log de todas las comunicaciones salientes.
+  logBotResponseToN8n(to, payload);
+
   const url = `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`;
   const data = {
     messaging_product: 'whatsapp',
