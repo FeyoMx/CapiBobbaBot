@@ -34,6 +34,9 @@ const app = express();
 app.use(bodyParser.json());
 
 // --- CONEXIÓN A REDIS ---
+// Helper para pausas
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 const redisClient = redis.createClient({
   url: REDIS_URL
 });
@@ -343,6 +346,12 @@ async function processMessage(message) {
   // No es necesario esperar (await) a que se complete.
   sendTypingOn(from);
 
+  // AÑADIMOS UN PEQUEÑO RETRASO ARTIFICIAL
+  // Esto da tiempo a que el indicador "escribiendo..." aparezca en el dispositivo del usuario,
+  // especialmente para respuestas rápidas que de otro modo serían instantáneas.
+  // Un valor entre 1000ms y 2000ms (1-2 segundos) suele ser efectivo.
+  await sleep(1500);
+
   // Revisamos si el usuario está en medio de un flujo de conversación (pedido o chat con admin).
   const userState = await getUserState(from);
 
@@ -411,7 +420,7 @@ async function processMessage(message) {
     const buttonId = message.interactive.button_reply.id;
     // Busca un manejador para el ID del botón y lo llama. Si no lo encuentra, usa el manejador por defecto.
     const handler = buttonCommandHandlers[buttonId] || defaultHandler;
-    handler(from);
+    await handler(from);
   }
 }
 
@@ -1016,8 +1025,8 @@ async function handleFreeformQuery(to, userQuery) {
  * Maneja los mensajes no reconocidos.
  * @param {string} to Número del destinatario.
  */
-function defaultHandler(to) {
-  sendTextMessage(to, `No entendí tu mensaje. Escribe "hola" o "ayuda" para ver las opciones disponibles.`);
+async function defaultHandler(to) {
+  await sendTextMessage(to, `No entendí tu mensaje. Escribe "hola" o "ayuda" para ver las opciones disponibles.`);
 }
 
 /**
@@ -1025,32 +1034,35 @@ function defaultHandler(to) {
  * @param {string} to El número de teléfono del destinatario.
  * @param {string} text El texto a enviar.
  */
-function sendTextMessage(to, text) {
+async function sendTextMessage(to, text) {
   const payload = { type: 'text', text: { body: text } };
-  sendMessage(to, payload);
+  await sendMessage(to, payload);
 }
 
 /**
  * Envía una notificación a todos los números de WhatsApp de los administradores.
  * @param {string} text El mensaje de notificación.
  */
-function notifyAdmin(text) {
+async function notifyAdmin(text) {
   if (!ADMIN_WHATSAPP_NUMBERS) {
     console.log('No se han configurado números de administrador para notificaciones.');
     return;
   }
 
-  // Separa la cadena de números en un array y elimina espacios en blanco
-  const adminNumbers = ADMIN_WHATSAPP_NUMBERS.split(',').map(num => num.trim());
+  // Separa la cadena de números en un array, elimina espacios y filtra vacíos.
+  const adminNumbers = ADMIN_WHATSAPP_NUMBERS.split(',').map(num => num.trim()).filter(Boolean);
+
+  if (adminNumbers.length === 0) {
+    return;
+  }
 
   console.log(`Enviando notificación a los administradores: ${adminNumbers.join(', ')}`);
 
-  // Envía el mensaje a cada número del array
-  for (const number of adminNumbers) {
-    if (number) { // Asegura no procesar strings vacíos si hay comas extra
-      sendTextMessage(number, text);
-    }
-  }
+  // Crea una promesa para cada envío de mensaje
+  const promises = adminNumbers.map(number => sendTextMessage(number, text));
+
+  // Espera a que todas las notificaciones se envíen en paralelo para mayor eficiencia
+  await Promise.all(promises);
 }
 
 /**
