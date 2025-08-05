@@ -522,6 +522,16 @@ function isGreeting(text) {
 }
 
 /**
+ * Define los manejadores para los botones interactivos.
+ * La clave es el ID del botón y el valor es la función manejadora.
+ */
+const buttonCommandHandlers = {
+  'ver_menu': handleShowMenu,
+  'ver_promociones': handleShowPromotions,
+  'contactar_agente': handleContactAgent
+};
+
+/**
  * Define la lista de comandos de texto, su prioridad y cómo detectarlos.
  * El array se procesa en orden, por lo que los comandos más específicos deben ir primero.
  */
