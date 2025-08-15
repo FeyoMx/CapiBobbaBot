@@ -588,10 +588,16 @@ const commandHandlers = [
     match: isGreeting,
     handler: sendMainMenu
   },
+  // NUEVO: Prioridad 3.5: Preguntas sobre el estado del servicio.
+  {
+    name: 'Check Service Status',
+    keywords: ['servicio', 'abierto', 'trabajando', 'atienden', 'atendiendo', 'laborando'],
+    handler: handleServiceStatusCheck
+  },
   // Prioridad 4: Comandos generales por palabra clave.
   { name: 'Show Menu', keywords: ['menu'], handler: handleShowMenu },
   { name: 'Show Promotions', keywords: ['promo'], handler: handleShowPromotions },
-  { name: 'Show Hours', keywords: ['hora', 'atienden', 'horario'], handler: handleShowHours },
+  { name: 'Show Hours', keywords: ['hora', 'horario'], handler: handleShowHours },
   { name: 'Show Location', keywords: ['ubicacion', 'donde estan', 'domicilio'], handler: handleShowLocation },
   { name: 'Help', keywords: ['ayuda'], handler: sendMainMenu } // 'ayuda' ahora usa el mismo sistema
 ];
@@ -624,21 +630,26 @@ function findCommandHandler(text) {
  * @param {string} to Número del destinatario.
  */
 async function sendMainMenu(to, text) {
-  // Notificamos al administrador que un cliente ha iniciado una conversación.
-  // Esto ayuda al personal a estar atento a un posible pedido.
-  notifyAdmin(`🔔 ¡Atención! El cliente ${formatDisplayNumber(to)} ha iniciado una conversación y está viendo el menú principal.`);
+  // Verificamos el modo "fuera de servicio"
+  const isMaintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY) === 'true';
+  let bodyText = '¡Hola! Soy CapiBot, el asistente virtual de CapiBobba. ¿Cómo puedo ayudarte hoy?';
+  let adminNotification = `🔔 ¡Atención! El cliente ${formatDisplayNumber(to)} ha iniciado una conversación y está viendo el menú principal.`;
+
+  if (isMaintenanceMode) {
+    bodyText = '⚠️ *AVISO: En este momento no estamos tomando pedidos.*\n\n¡Hola! Soy CapiBot. Aunque no hay servicio de pedidos, puedo darte información sobre nuestro menú o promociones. ¿En qué te ayudo?';
+    adminNotification += '\n(Modo "Fuera de Servicio" está ACTIVO)';
+  }
+
+  // Notificamos al administrador
+  notifyAdmin(adminNotification);
 
   const payload = {
     type: 'interactive',
     interactive: {
       type: 'button',
       header: { type: 'text', text: '🧋CapiBobba🧋' },
-      body: {
-        text: '¡Hola! Soy CapiBot, el asistente virtual de CapiBobba. ¿Cómo puedo ayudarte hoy?'
-      },
-      footer: {
-        text: 'Selecciona una opción'
-      },
+      body: { text: bodyText },
+      footer: { text: 'Selecciona una opción' },
       action: {
         buttons: [
           { type: 'reply', reply: { id: 'ver_menu', title: 'Ver Menú 📜' } },
@@ -695,6 +706,25 @@ async function handleContactAgent(to, text) {
   await notifyAdmin(`🔔 ¡Atención! El cliente ${formatDisplayNumber(to)} solicita hablar con un agente.`);
 }
 
+/**
+ * NUEVO: Verifica si hay servicio y responde adecuadamente.
+ * Si el modo "fuera de servicio" está activo, lo informa.
+ * Si no, delega la pregunta a Gemini para una respuesta más natural.
+ * @param {string} to Número del destinatario.
+ * @param {string} text El texto de la pregunta del usuario.
+ */
+async function handleServiceStatusCheck(to, text) {
+  const isMaintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY) === 'true';
+
+  if (isMaintenanceMode) {
+    // Si el modo está activo, siempre informa que no hay servicio.
+    await sendTextMessage(to, 'Hola. En este momento no estamos tomando pedidos. ¡Agradecemos tu comprensión y esperamos verte pronto! 👋');
+  } else {
+    // Si el servicio está activo, la pregunta es general ("¿están abiertos?").
+    // Dejamos que Gemini la responda usando el contexto del negocio (horarios).
+    await handleFreeformQuery(to, text);
+  }
+}
 /**
  * Maneja la intención de iniciar un pedido.
  * Si el pedido ya está en el mensaje, lo procesa.
