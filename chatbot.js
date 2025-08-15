@@ -19,6 +19,7 @@ const ADMIN_WHATSAPP_NUMBERS = process.env.ADMIN_WHATSAPP_NUMBERS; // Plural
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
 const REDIS_URL = process.env.REDIS_URL;
 const WHATSAPP_API_VERSION = process.env.WHATSAPP_API_VERSION || 'v18.0';
+const MAINTENANCE_MODE_KEY = 'maintenance_mode_status'; // Clave para Redis
 
 // Validamos que las variables de entorno críticas estén definidas
 if (!VERIFY_TOKEN || !WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY || !ADMIN_WHATSAPP_NUMBERS || !N8N_WEBHOOK_URL || !REDIS_URL) {
@@ -335,15 +336,14 @@ async function logBotResponseToN8n(to, payload) {
 async function processMessage(message) {
   sendToN8n(message); // Envía cada mensaje a n8n
   const from = message.from; // Número de teléfono del remitente
-
-  // NUEVO: Verificar si el mensaje es de un administrador
+  
+  // Los mensajes de administradores se manejan por separado y no se ven afectados por el modo de servicio.
   if (isAdmin(from)) {
     await handleAdminMessage(message);
     return; // Detenemos el procesamiento para que no se ejecute la lógica de cliente.
   }
 
   // Mostramos el indicador de "escribiendo..." para mejorar la experiencia del usuario.
-  // No es necesario esperar (await) a que se complete.
   sendTypingOn(from);
 
   // AÑADIMOS UN PEQUEÑO RETRASO ARTIFICIAL
@@ -354,6 +354,16 @@ async function processMessage(message) {
 
   // Revisamos si el usuario está en medio de un flujo de conversación (pedido o chat con admin).
   const userState = await getUserState(from);
+  const isMaintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY) === 'true';
+
+  // NUEVO: Si el modo "fuera de servicio" está activo y el usuario está en medio de un pedido,
+  // se le notifica y se cancela su estado para evitar que quede atascado.
+  if (isMaintenanceMode && userState && userState.step && userState.step.startsWith('awaiting_')) {
+    await sendTextMessage(from, 'Hola, te informamos que hemos suspendido temporalmente la toma de pedidos. Tu orden actual ha sido cancelada. ¡Disculpa las molestias!');
+    await deleteUserState(from);
+    return;
+  }
+
 
   // NUEVO: Si el cliente está en modo chat con un admin, reenviamos su mensaje al admin.
   if (userState && userState.mode === 'in_conversation_with_admin') {
@@ -432,6 +442,21 @@ async function handleAdminMessage(message) {
     const from = message.from;
     const messageBody = message.type === 'text' ? message.text.body.trim() : '';
     const lowerCaseMessage = messageBody.toLowerCase();
+
+    // --- Comandos de Modo Fuera de Servicio ---
+    if (lowerCaseMessage === 'activar fuera de servicio') {
+        await redisClient.set(MAINTENANCE_MODE_KEY, 'true');
+        await sendTextMessage(from, '✅ Modo "Fuera de Servicio" ACTIVADO. El bot informará a los clientes que no hay servicio.');
+        await notifyAdmin(`⚠️ El administrador ${formatDisplayNumber(from)} ha ACTIVADO el modo "Fuera de Servicio".`);
+        return;
+    }
+
+    if (lowerCaseMessage === 'desactivar fuera de servicio') {
+        await redisClient.del(MAINTENANCE_MODE_KEY);
+        await sendTextMessage(from, '✅ Modo "Fuera de Servicio" DESACTIVADO. El bot vuelve a operar normalmente.');
+        await notifyAdmin(`🟢 El administrador ${formatDisplayNumber(from)} ha DESACTIVADO el modo "Fuera de Servicio".`);
+        return;
+    }
 
     const adminState = await getUserState(from);
 
@@ -678,6 +703,13 @@ async function handleContactAgent(to, text) {
  * @param {string} text El texto completo del mensaje del usuario.
  */
 async function handleInitiateOrder(to, text) {
+  // NUEVO: Verificación del modo "fuera de servicio"
+  const isMaintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY) === 'true';
+  if (isMaintenanceMode) {
+    await sendTextMessage(to, '¡Hola! En este momento no estamos tomando pedidos, pero con gusto puedo darte información sobre nuestro menú o promociones. ¿En qué te puedo ayudar? 😊');
+    return;
+  }
+
   // Comprueba si el texto del mensaje ya contiene un pedido formateado con el texto correcto.
   if (text.toLowerCase().includes('total del pedido:')) {
     await handleNewOrderFromMenu(to, text);
@@ -763,6 +795,13 @@ function buildAdminNotification(title, userState, from, extraDetails = {}) {
  * @param {string} orderText El texto completo del pedido del cliente.
  */
 async function handleNewOrderFromMenu(to, orderText) {
+  // NUEVO: Verificación del modo "fuera de servicio"
+  const isMaintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY) === 'true';
+  if (isMaintenanceMode) {
+    await sendTextMessage(to, '¡Hola! En este momento no estamos tomando pedidos, pero con gusto puedo darte información sobre nuestro menú o promociones. ¿En qué te puedo ayudar? 😊');
+    return;
+  }
+
   const totalMatch = orderText.match(/Total del pedido: \$(\d+\.\d{2})/i);
   const total = totalMatch ? totalMatch[1] : null;
 
