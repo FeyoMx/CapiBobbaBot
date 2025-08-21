@@ -8,6 +8,7 @@ const redis = require('redis');
 const fs = require('fs');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { BUSINESS_CONTEXT } = require('./business_data'); // Importa el contexto del negocio
+const path = require('path');
 
 // --- CONFIGURACIÓN ---
 // Lee las variables de entorno de forma segura. ¡No dejes tokens en el código!
@@ -33,6 +34,11 @@ if (!VERIFY_TOKEN || !WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY || !
 
 const app = express();
 app.use(bodyParser.json());
+
+// Servir la aplicación de React
+app.use('/dashboard', express.static(path.join(__dirname, 'dashboard/build')));
+
+
 
 // --- CONEXIÓN A REDIS ---
 // Helper para pausas
@@ -110,6 +116,93 @@ app.post('/webhook', (req, res) => {
     // Informa a Meta que hubo un error en el servidor
     res.sendStatus(500);
   }
+});
+
+// --- API PARA EL DASHBOARD ---
+
+// Endpoint para obtener el estado del modo de mantenimiento
+app.get('/api/maintenance', async (req, res) => {
+  try {
+    const isMaintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY) === 'true';
+    res.json({ maintenanceMode: isMaintenanceMode });
+  } catch (error) {
+    console.error('Error al obtener el estado de mantenimiento:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para actualizar el estado del modo de mantenimiento
+app.post('/api/maintenance', async (req, res) => {
+  const { maintenanceMode } = req.body;
+  if (typeof maintenanceMode !== 'boolean') {
+    return res.status(400).json({ error: 'El estado de mantenimiento debe ser un booleano' });
+  }
+
+  try {
+    if (maintenanceMode) {
+      await redisClient.set(MAINTENANCE_MODE_KEY, 'true');
+      await notifyAdmin(`⚠️ Un administrador ha ACTIVADO el modo "Fuera de Servicio" desde el dashboard.`);
+    } else {
+      await redisClient.del(MAINTENANCE_MODE_KEY);
+      await notifyAdmin(`🟢 Un administrador ha DESACTIVADO el modo "Fuera de Servicio" desde el dashboard.`);
+    }
+    res.json({ success: true, maintenanceMode });
+  } catch (error) {
+    console.error('Error al actualizar el estado de mantenimiento:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+// Endpoint para obtener los datos del negocio
+app.get('/api/business-data', (req, res) => {
+  try {
+    // Leemos el archivo en cada petición para obtener los datos más actuales
+    const businessDataRaw = fs.readFileSync(path.join(__dirname, 'business_data.js'), 'utf8');
+    // Extraemos el objeto 'businessData' del archivo. Esto es frágil y podría mejorarse.
+    const match = businessDataRaw.match(/const businessData = (\{[\s\S]*?\});/);
+    if (match && match[1]) {
+      // Usamos eval de forma controlada para convertir el string del objeto en un objeto real.
+      // ¡CUIDADO! Esto es generalmente inseguro, pero aquí lo usamos en nuestro propio código de confianza.
+      // Una mejor solución sería exportar el objeto y usar require, pero eso cachea el módulo.
+      const businessDataObject = eval('(' + match[1] + ')');
+      res.json(businessDataObject);
+    } else {
+      res.status(500).json({ error: 'No se pudo parsear el archivo business_data.js' });
+    }
+  } catch (error) {
+    console.error('Error al leer business_data.js:', error);
+    res.status(500).json({ error: 'Error al leer los datos del negocio' });
+  }
+});
+
+// Endpoint para actualizar los datos del negocio
+app.post('/api/business-data', (req, res) => {
+    const newBusinessData = req.body;
+
+    // Convertimos el objeto JSON a un string con formato
+    const dataAsString = `const businessData = ${JSON.stringify(newBusinessData, null, 4)};`;
+
+    // Leemos el contenido actual del archivo
+    fs.readFile(path.join(__dirname, 'business_data.js'), 'utf8', (err, data) => {
+        if (err) {
+            console.error('Error al leer business_data.js para actualizar:', err);
+            return res.status(500).json({ error: 'No se pudo leer el archivo de datos.' });
+        }
+
+        // Reemplazamos solo el objeto businessData
+        const updatedContent = data.replace(/const businessData = \{[\s\S]*?\};/, dataAsString);
+
+        // Escribimos el contenido actualizado de vuelta al archivo
+        fs.writeFile(path.join(__dirname, 'business_data.js'), updatedContent, 'utf8', async (err) => {
+            if (err) {
+                console.error('Error al escribir en business_data.js:', err);
+                return res.status(500).json({ error: 'No se pudo guardar la configuración.' });
+            }
+            console.log('business_data.js actualizado correctamente.');
+            await notifyAdmin('✅ La información del negocio (menú, promos, etc.) ha sido actualizada desde el dashboard.');
+            res.json({ success: true });
+        });
+    });
 });
 
 // --- LÓGICA DEL BOT ---
@@ -334,6 +427,7 @@ async function logBotResponseToN8n(to, payload) {
  * @param {object} message El objeto de mensaje de la API de WhatsApp.
  */
 async function processMessage(message) {
+  logMessageToFile({ type: 'incoming', message: message }); // Log incoming message
   sendToN8n(message); // Envía cada mensaje a n8n
   const from = message.from; // Número de teléfono del remitente
   
@@ -524,6 +618,7 @@ async function handleAdminMessage(message) {
  */
 async function handleSurveyResponse(from, rating) {
   console.log(`Respuesta de encuesta recibida de ${from}: Calificación ${rating}`);
+  logSurveyResponseToFile({ from: from, rating: rating }); // Log the survey response
 
   let responseText;
 
@@ -1000,6 +1095,7 @@ async function handleCashDenominationResponse(from, denomination) {
   // Guardamos la denominación y enviamos el pedido completo a n8n
   const finalState = { ...userState, cashDenomination: sanitizedDenomination };
   sendOrderCompletionToN8n(from, finalState);
+  logOrderToFile(finalState); // Log the completed order
 
   console.log(`Pedido finalizado para ${from}. Dirección: ${address}. Pago: Efectivo (${sanitizedDenomination}).`);
   await deleteUserState(from);
@@ -1046,6 +1142,7 @@ async function handlePaymentProofImage(from, imageObject) {
   // Guardamos el ID de la imagen y enviamos el pedido completo a n8n
   const finalState = { ...userState, proofImageId: imageObject.id };
   sendOrderCompletionToN8n(from, finalState);
+  logOrderToFile(finalState); // Log the completed order
 
   console.log(`Pedido finalizado y comprobante reenviado para ${from}.`);
   
@@ -1167,6 +1264,7 @@ async function sendTypingOn(to) {
  * @param {object} payload El objeto de mensaje a enviar (puede ser texto, interactivo, etc.).
  */
 async function sendMessage(to, payload) {
+  logMessageToFile({ type: 'outgoing', to: to, payload: payload }); // Log outgoing message
   // NUEVO: Registramos la respuesta del bot en n8n antes de enviarla.
   // Es una acción de "disparar y olvidar" para no retrasar la respuesta al usuario.
   // Esto nos permite tener un log de todas las comunicaciones salientes.
@@ -1193,6 +1291,271 @@ async function sendMessage(to, payload) {
 }
 
 // Inicia el servidor
+/**
+ * Registra un evento de mensaje (entrada o salida) en un archivo de log.
+ * @param {object} logEntry El objeto a registrar (ej. { type: 'incoming', message: {...} } o { type: 'outgoing', to: '...', payload: {...} }).
+ */
+function logMessageToFile(logEntry) {
+  const logFilePath = path.join(__dirname, 'message_log.jsonl');
+  const timestampedEntry = { timestamp: new Date().toISOString(), ...logEntry };
+  fs.appendFile(logFilePath, JSON.stringify(timestampedEntry) + '\n', (err) => {
+    if (err) {
+      console.error('Error al escribir en el archivo de log de mensajes:', err);
+    }
+  });
+}
+
+// Endpoint para obtener el log de mensajes
+app.get('/api/message-log', (req, res) => {
+  const logFilePath = path.join(__dirname, 'message_log.jsonl');
+  fs.readFile(logFilePath, 'utf8', (err, data) => {
+    if (err) {
+      if (err.code === 'ENOENT') {
+        // El archivo no existe, devuelve un array vacío
+        return res.json([]);
+      }
+      console.error('Error al leer el archivo de log de mensajes:', err);
+      return res.status(500).json({ error: 'Error al leer el log de mensajes.' });
+    }
+    // Divide el contenido por líneas y parsea cada línea como JSON
+    const messages = data.split('\n').filter(Boolean).map(line => {
+      try {
+        return JSON.parse(line);
+      } catch (parseError) {
+        console.error('Error al parsear línea del log de mensajes:', parseError);
+        return null; // Ignora líneas mal formadas
+      }
+    }).filter(Boolean); // Filtra los nulos
+    res.json(messages);
+  });
+});
+
+// Inicia el servidor
+/**
+ * Registra un pedido completado en un archivo de log.
+ * @param {object} orderData El objeto del pedido a registrar.
+ */
+function logOrderToFile(orderData) {
+  const logFilePath = path.join(__dirname, 'order_log.jsonl');
+  const timestampedOrder = { timestamp: new Date().toISOString(), ...orderData };
+  fs.appendFile(logFilePath, JSON.stringify(timestampedOrder) + '\n', (err) => {
+    if (err) {
+      console.error('Error al escribir en el archivo de log de pedidos:', err);
+    }
+  });
+}
+
+// Endpoint para obtener el log de pedidos
+app.get('/api/orders', (req, res) => {
+  const logFilePath = path.join(__dirname, 'order_log.jsonl');
+  fs.readFile(logFilePath, 'utf8', (err, data) => {
+    if (err) {
+      if (err.code === 'ENOENT') {
+        // El archivo no existe, devuelve un array vacío
+        return res.json([]);
+      }
+      console.error('Error al leer el archivo de log de pedidos:', err);
+      return res.status(500).json({ error: 'Error al leer el log de pedidos.' });
+    }
+    // Divide el contenido por líneas y parsea cada línea como JSON
+    const orders = data.split('\n').filter(Boolean).map(line => {
+      try {
+        return JSON.parse(line);
+      } catch (parseError) {
+        console.error('Error al parsear línea del log de pedidos:', parseError);
+        return null; // Ignora líneas mal formadas
+      }
+    }).filter(Boolean); // Filtra los nulos
+    res.json(orders);
+  });
+});
+
+/**
+ * Endpoint para enviar mensajes a un usuario de WhatsApp desde el dashboard.
+ * Requiere 'to' (número de WhatsApp) y 'text' (contenido del mensaje) en el body.
+ */
+/**
+ * Registra un evento de mensaje (entrada o salida) en un archivo de log.
+ * @param {object} logEntry El objeto a registrar (ej. { type: 'incoming', message: {...} } o { type: 'outgoing', to: '...', payload: {...} }).
+ */
+function logMessageToFile(logEntry) {
+  const logFilePath = path.join(__dirname, 'message_log.jsonl');
+  const timestampedEntry = { timestamp: new Date().toISOString(), ...logEntry };
+  fs.appendFile(logFilePath, JSON.stringify(timestampedEntry) + '\n', (err) => {
+    if (err) {
+      console.error('Error al escribir en el archivo de log de mensajes:', err);
+    }
+  });
+}
+
+// Endpoint para obtener el log de mensajes
+app.get('/api/message-log', (req, res) => {
+  const logFilePath = path.join(__dirname, 'message_log.jsonl');
+  fs.readFile(logFilePath, 'utf8', (err, data) => {
+    if (err) {
+      if (err.code === 'ENOENT') {
+        // El archivo no existe, devuelve un array vacío
+        return res.json([]);
+      }
+      console.error('Error al leer el archivo de log de mensajes:', err);
+      return res.status(500).json({ error: 'Error al leer el log de mensajes.' });
+    }
+    // Divide el contenido por líneas y parsea cada línea como JSON
+    const messages = data.split('\n').filter(Boolean).map(line => {
+      try {
+        return JSON.parse(line);
+      } catch (parseError) {
+        console.error('Error al parsear línea del log de mensajes:', parseError);
+        return null; // Ignora líneas mal formadas
+      }
+    }).filter(Boolean); // Filtra los nulos
+    res.json(messages);
+  });
+});
+
+// Inicia el servidor
+/**
+ * Registra un pedido completado en un archivo de log.
+ * @param {object} orderData El objeto del pedido a registrar.
+ */
+function logOrderToFile(orderData) {
+  const logFilePath = path.join(__dirname, 'order_log.jsonl');
+  const timestampedOrder = { timestamp: new Date().toISOString(), ...orderData };
+  fs.appendFile(logFilePath, JSON.stringify(timestampedOrder) + '\n', (err) => {
+    if (err) {
+      console.error('Error al escribir en el archivo de log de pedidos:', err);
+    }
+  });
+}
+
+// Endpoint para obtener el log de pedidos
+app.get('/api/orders', (req, res) => {
+  const logFilePath = path.join(__dirname, 'order_log.jsonl');
+  fs.readFile(logFilePath, 'utf8', (err, data) => {
+    if (err) {
+      if (err.code === 'ENOENT') {
+        // El archivo no existe, devuelve un array vacío
+        return res.json([]);
+      }
+      console.error('Error al leer el archivo de log de pedidos:', err);
+      return res.status(500).json({ error: 'Error al leer el log de pedidos.' });
+    }
+    // Divide el contenido por líneas y parsea cada línea como JSON
+    const orders = data.split('\n').filter(Boolean).map(line => {
+      try {
+        return JSON.parse(line);
+      } catch (parseError) {
+        console.error('Error al parsear línea del log de pedidos:', parseError);
+        return null; // Ignora líneas mal formadas
+      }
+    }).filter(Boolean); // Filtra los nulos
+    res.json(orders);
+  });
+});
+
+/**
+ * Registra una respuesta de encuesta en un archivo de log.
+ * @param {object} surveyData El objeto de la encuesta a registrar.
+ */
+function logSurveyResponseToFile(surveyData) {
+  const logFilePath = path.join(__dirname, 'survey_log.jsonl');
+  const timestampedEntry = { timestamp: new Date().toISOString(), ...surveyData };
+  fs.appendFile(logFilePath, JSON.stringify(timestampedEntry) + '\n', (err) => {
+    if (err) {
+      console.error('Error al escribir en el archivo de log de encuestas:', err);
+    }
+  });
+}
+
+// Endpoint para obtener el log de encuestas
+app.get('/api/surveys', (req, res) => {
+  const logFilePath = path.join(__dirname, 'survey_log.jsonl');
+  fs.readFile(logFilePath, 'utf8', (err, data) => {
+    if (err) {
+      if (err.code === 'ENOENT') {
+        // El archivo no existe, devuelve un array vacío
+        return res.json([]);
+      }
+      console.error('Error al leer el archivo de log de encuestas:', err);
+      return res.status(500).json({ error: 'Error al leer el log de encuestas.' });
+    }
+    // Divide el contenido por líneas y parsea cada línea como JSON
+    const surveys = data.split('\n').filter(Boolean).map(line => {
+      try {
+        return JSON.parse(line);
+      } catch (parseError) {
+        console.error('Error al parsear línea del log de encuestas:', parseError);
+        return null; // Ignora líneas mal formadas
+      }
+    }).filter(Boolean); // Filtra los nulos
+    res.json(surveys);
+  });
+});
+
+/**
+ * Endpoint para enviar mensajes a un usuario de WhatsApp desde el dashboard.
+ * Requiere 'to' (número de WhatsApp) y 'text' (contenido del mensaje) en el body.
+ */
+app.post('/api/send-message', async (req, res) => {
+  const { to, text } = req.body;
+
+  if (!to || !text) {
+    return res.status(400).json({ error: "Faltan parámetros: 'to' y 'text' son requeridos." });
+  }
+
+  try {
+    await sendTextMessage(to, text);
+    res.json({ success: true, message: 'Mensaje enviado exitosamente.' });
+  } catch (error) {
+    console.error('Error al enviar mensaje desde el dashboard:', error);
+    res.status(500).json({ error: 'Error al enviar el mensaje.' });
+  }
+});
+
+// Endpoint para obtener todos los estados de Redis
+app.get('/api/redis-states', async (req, res) => {
+  try {
+    // Obtener todas las claves de Redis. CUIDADO: KEYS * puede ser lento en bases de datos grandes.
+    const keys = await redisClient.keys('*');
+    const states = [];
+
+    for (const key of keys) {
+      // Excluir la clave de modo de mantenimiento y otras claves internas si es necesario
+      if (key === MAINTENANCE_MODE_KEY) continue;
+      
+      const value = await redisClient.get(key);
+      try {
+        states.push({ key: key, state: JSON.parse(value) });
+      } catch (parseError) {
+        // Si no es JSON, lo devolvemos como texto plano
+        states.push({ key: key, state: value });
+      }
+    }
+    res.json(states);
+  } catch (error) {
+    console.error('Error al obtener estados de Redis:', error);
+    res.status(500).json({ error: 'Error al obtener estados de Redis.' });
+  }
+});
+
+// Endpoint para eliminar un estado de Redis por clave
+app.delete('/api/redis-states/:key', async (req, res) => {
+  const { key } = req.params;
+  try {
+    const result = await redisClient.del(key);
+    if (result === 1) {
+      res.json({ success: true, message: `Estado para la clave ${key} eliminado.` });
+    } else {
+      res.status(404).json({ error: `Clave ${key} no encontrada.` });
+    }
+  } catch (error) {
+    console.error(`Error al eliminar estado para la clave ${key}:`, error);
+    res.status(500).json({ error: 'Error al eliminar estado de Redis.' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Servidor escuchando en el puerto ${PORT}`);
 });
+
+
