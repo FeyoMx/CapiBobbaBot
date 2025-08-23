@@ -1,0 +1,54 @@
+{
+    "menu": {
+        "baseAguaFrappe": {
+            "name": "Bebidas Base Agua Frappe",
+            "price": 75.00,
+            "items": ["Litchi", "Blueberry", "Guanábana", "Piña colada", "Fresa", "Sandia", "Mango", "Maracuya", "Tamarindo", "Cereza", "Banana"]
+        },
+        "baseLecheFrappe": {
+            "name": "Bebidas Base Leche Frappe",
+            "price": 75.00,
+            "items": ["Taro", "Chai", "Cookies&cream", "Pay de limon", "Crema irlandesa", "Mazapan", "Mocha", "Chocolate Mexicano", "Matcha", "Algodon de Azucar"]
+        },
+        "calientes": {
+            "name": "Bebidas Calientes",
+            "price": 60.00,
+            "description": "Pueden ser de cualquier sabor base leche"
+        },
+        "especialidades": {
+            "name": "Especialidades",
+            "items": [
+                { "name": "Chamoyada", "price": 80.00, "description": "Puede ser de cualquier sabor base agua" },
+                { "name": "Yogurtada", "price": 80.00, "description": "Puede ser de cualquier sabor base frutal" },
+                { "name": "Fresas con crema", "price": 75.00 }
+            ]
+        },
+        "toppings": {
+            "name": "Toppings",
+            "price": 10.00,
+            "items": ["Perlas explosivas de frutos rojos", "Perlas explosivas de litchi", "Perlas explosivas de manzana verde", "Tapioca extra", "Jelly Arcoiris", "Perlas Cristal"]
+        }
+    },
+    "howToOrder": [
+        "La manera mas rapida de hacerlo es en nuestro menu https://feyomx.github.io/menucapibobba/ ahi seleccionas tus bebidas y toppings",
+        "Tu Bebida puede ser de leche entera o leche deslactosada, si no especificas se te enviara con leche entera."
+    ],
+    "promotions": [
+        { "name": "Combo día Lluvioso", "description": "2 bebidas calientes del mismo sabor por $110." },
+        { "name": "Combo Amigos", "description": "2 Frappe base agua del mismo sabor por $130." }
+    ],
+    "info": {
+        "schedule": "Lunes a Viernes de 6:00 PM a 10:00 PM. Sábados y Domingos de 12:00 PM a 10:00 PM.",
+        "delivery": "Servicio a domicilio GRATIS en: Viñedos, Esmeralda, San Alfonso, Rinconada de Esmeralda, Residencial Aurora, Lindavista, Santa Matilde, Los ciruelos, Real de joyas, Real Toledo, Real Navarra, Privada del sol, Qvalta, Señeros, Villa San Juan, Privada Diamante, Sendero de los pino, Mineral del Oro, Platinum, Bosques de Santa Matilde.",
+        "location": "No tenemos local fisico solo servicio a domicilio.",
+        "paymentMethods": {
+            "types": ["Efectivo", "Transferencia"],
+            "transferDetails": {
+                "bank": "MERCADO PAGO W",
+                "accountNumber": "722969010305501833",
+                "name": "Maria Elena Martinez Flores",
+                "instructions": "Por favor, envía tu comprobante de pago a este mismo chat para confirmar tu pedido."
+            }
+        }
+    }
+}

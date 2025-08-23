@@ -26,7 +26,8 @@ const MAINTENANCE_MODE_KEY = 'maintenance_mode_status'; // Clave para Redis
 if (!VERIFY_TOKEN || !WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY || !ADMIN_WHATSAPP_NUMBERS || !N8N_WEBHOOK_URL || !REDIS_URL) {
   console.error(
     'Error: Faltan variables de entorno críticas. ' +
-    'Asegúrate de que VERIFY_TOKEN, WHATSAPP_TOKEN, PHONE_NUMBER_ID, GEMINI_API_KEY, ADMIN_WHATSAPP_NUMBERS, N8N_WEBHOOK_URL y REDIS_URL ' +
+    'Asegúrate de que VERIFY_TOKEN, WHATSAPP_TOKEN, PHONE_NUMBER_ID, GEMINI_API_KEY, ADMIN_WHATSAPP_NUMBERS, N8N_WEBHOOK_URL y REDIS_URL '
+    +
     'estén en tu archivo .env'
   );
   process.exit(1); // Detiene la aplicación si falta configuración
@@ -155,53 +156,33 @@ app.post('/api/maintenance', async (req, res) => {
 
 // Endpoint para obtener los datos del negocio
 app.get('/api/business-data', (req, res) => {
-  try {
-    // Leemos el archivo en cada petición para obtener los datos más actuales
-    const businessDataRaw = fs.readFileSync(path.join(__dirname, 'business_data.js'), 'utf8');
-    // Extraemos el objeto 'businessData' del archivo. Esto es frágil y podría mejorarse.
-    const match = businessDataRaw.match(/const businessData = (\{[\s\S]*?\});/);
-    if (match && match[1]) {
-      // Usamos eval de forma controlada para convertir el string del objeto en un objeto real.
-      // ¡CUIDADO! Esto es generalmente inseguro, pero aquí lo usamos en nuestro propio código de confianza.
-      // Una mejor solución sería exportar el objeto y usar require, pero eso cachea el módulo.
-      const businessDataObject = eval('(' + match[1] + ')');
-      res.json(businessDataObject);
-    } else {
-      res.status(500).json({ error: 'No se pudo parsear el archivo business_data.js' });
+  fs.readFile(path.join(__dirname, 'business_data.json'), 'utf8', (err, data) => {
+    if (err) {
+      console.error('Error al leer business_data.json:', err);
+      return res.status(500).json({ error: 'Error al leer los datos del negocio.' });
     }
-  } catch (error) {
-    console.error('Error al leer business_data.js:', error);
-    res.status(500).json({ error: 'Error al leer los datos del negocio' });
-  }
+    try {
+      res.json(JSON.parse(data));
+    } catch (parseError) {
+      console.error('Error al parsear business_data.json:', parseError);
+      res.status(500).json({ error: 'El formato del archivo de datos es inválido.' });
+    }
+  });
 });
 
 // Endpoint para actualizar los datos del negocio
 app.post('/api/business-data', (req, res) => {
     const newBusinessData = req.body;
+    const jsonContent = JSON.stringify(newBusinessData, null, 4); // 4 espacios para indentación
 
-    // Convertimos el objeto JSON a un string con formato
-    const dataAsString = `const businessData = ${JSON.stringify(newBusinessData, null, 4)};`;
-
-    // Leemos el contenido actual del archivo
-    fs.readFile(path.join(__dirname, 'business_data.js'), 'utf8', (err, data) => {
+    fs.writeFile(path.join(__dirname, 'business_data.json'), jsonContent, 'utf8', async (err) => {
         if (err) {
-            console.error('Error al leer business_data.js para actualizar:', err);
-            return res.status(500).json({ error: 'No se pudo leer el archivo de datos.' });
+            console.error('Error al escribir en business_data.json:', err);
+            return res.status(500).json({ error: 'No se pudo guardar la configuración.' });
         }
-
-        // Reemplazamos solo el objeto businessData
-        const updatedContent = data.replace(/const businessData = \{[\s\S]*?\};/, dataAsString);
-
-        // Escribimos el contenido actualizado de vuelta al archivo
-        fs.writeFile(path.join(__dirname, 'business_data.js'), updatedContent, 'utf8', async (err) => {
-            if (err) {
-                console.error('Error al escribir en business_data.js:', err);
-                return res.status(500).json({ error: 'No se pudo guardar la configuración.' });
-            }
-            console.log('business_data.js actualizado correctamente.');
-            await notifyAdmin('✅ La información del negocio (menú, promos, etc.) ha sido actualizada desde el dashboard.');
-            res.json({ success: true });
-        });
+        console.log('business_data.json actualizado correctamente.');
+        await notifyAdmin('✅ La información del negocio (menú, promos, etc.) ha sido actualizada desde el dashboard.');
+        res.json({ success: true });
     });
 });
 
@@ -355,7 +336,7 @@ async function sendToN8n(message, extraData = {}) {
  * @param {object} state El estado completo del usuario con los detalles del pedido.
  */
 function sendOrderCompletionToN8n(from, state) {
-    const totalMatch = state.orderText.match(/Total del pedido: \$(\d+\.\d{2})/i);
+    const totalMatch = state.orderText.match(/Total del pedido: $(\d+\.\d{2})/i);
     const total = totalMatch ? parseFloat(totalMatch[1]) : null;
 
     const payload = {
@@ -581,7 +562,9 @@ async function handleAdminMessage(message) {
             await setUserState(from, { mode: 'chatting', targetUser: targetUser });
             await setUserState(targetUser, { mode: 'in_conversation_with_admin', admin: from });
 
-            await sendTextMessage(from, `📞 Has iniciado un chat directo con ${formatDisplayNumber(targetUser)}. Todo lo que escribas ahora se le enviará directamente.\n\nPara terminar, escribe "terminar chat".`);
+            await sendTextMessage(from, `📞 Has iniciado un chat directo con ${formatDisplayNumber(targetUser)}. Todo lo que escribas ahora se le enviará directamente.
+
+Para terminar, escribe "terminar chat".`);
             await sendTextMessage(targetUser, `🧑‍ Un agente se ha unido a la conversación para ayudarte personalmente.`);
         } else {
             await sendTextMessage(from, `El número proporcionado no es válido. Asegúrate de que sea solo el número de WhatsApp (ej. 521771...).`);
@@ -624,13 +607,13 @@ async function handleSurveyResponse(from, rating) {
 
   // Personalizamos el mensaje de agradecimiento según la calificación.
   if (rating <= 2) {
-    responseText = "Lamentamos mucho que tu experiencia no haya sido la mejor. Agradecemos tus comentarios y los tomaremos en cuenta para mejorar. Un agente podría contactarte para entender mejor qué pasó.";
+    responseText = `Lamentamos mucho que tu experiencia no haya sido la mejor. Agradecemos tus comentarios y los tomaremos en cuenta para mejorar. Un agente podría contactarte para entender mejor qué pasó.`;
     // Notificamos a un admin sobre la mala calificación para un seguimiento.
     notifyAdmin(`⚠️ ¡Alerta de Calificación Baja! ⚠️\n\nEl cliente ${formatDisplayNumber(from)} ha calificado el servicio con un: *${rating}*.\n\nSería bueno contactarlo para entender qué podemos mejorar.`);
   } else if (rating >= 4) {
-    responseText = "¡Nos alegra mucho que hayas tenido una buena experiencia! Gracias por tu calificación. ¡Esperamos verte pronto! 🎉";
+    responseText = `¡Nos alegra mucho que hayas tenido una buena experiencia! Gracias por tu calificación. ¡Esperamos verte pronto! 🎉`;
   } else { // Para calificaciones de 3
-    responseText = "¡Muchas gracias por tus comentarios! Tu opinión es muy importante para nosotros y nos ayuda a mejorar. 😊";
+    responseText = `¡Muchas gracias por tus comentarios! Tu opinión es muy importante para nosotros y nos ayuda a mejorar. 😊`;
   }
 
   await sendTextMessage(from, responseText);
@@ -731,7 +714,9 @@ async function sendMainMenu(to, text) {
   let adminNotification = `🔔 ¡Atención! El cliente ${formatDisplayNumber(to)} ha iniciado una conversación y está viendo el menú principal.`;
 
   if (isMaintenanceMode) {
-    bodyText = '⚠️ *AVISO: En este momento no estamos tomando pedidos.*\n\n¡Hola! Soy CapiBot. Aunque no hay servicio de pedidos, puedo darte información sobre nuestro menú o promociones. ¿En qué te ayudo?';
+    bodyText = `⚠️ *AVISO: En este momento no estamos tomando pedidos.*
+
+¡Hola! Soy CapiBot. Aunque no hay servicio de pedidos, puedo darte información sobre nuestro menú o promociones. ¿En qué te ayudo?`;
     adminNotification += '\n(Modo "Fuera de Servicio" está ACTIVO)';
   }
 
@@ -840,7 +825,7 @@ async function handleInitiateOrder(to, text) {
     await handleNewOrderFromMenu(to, text);
   } else {
     // Si solo es la intención, guía al usuario.
-    const guideText = '¡Genial! Para tomar tu pedido de la forma más rápida y sin errores, por favor, créalo en nuestro menú interactivo y cuando termines, copia y pega el resumen de tu orden aquí.\n\nAquí tienes el enlace: https://feyomx.github.io/menucapibobba/';
+    const guideText = `¡Genial! Para tomar tu pedido de la forma más rápida y sin errores, por favor, créalo en nuestro menú interactivo y cuando termines, copia y pega el resumen de tu orden aquí.\n\nAquí tienes el enlace: https://feyomx.github.io/menucapibobba/`;
     await sendTextMessage(to, guideText);
   }
 }
@@ -885,7 +870,7 @@ function buildAdminNotification(title, userState, from, extraDetails = {}) {
   // 2. Extracción de datos.
   const orderSummary = extractOrderItems(orderText);
   // Regex mejorada: busca el total, permitiendo opcionalmente un espacio y decimales.
-  const totalMatch = orderText.match(/Total del pedido:\s*(\$\d+(\.\d{1,2})?)/i);
+  const totalMatch = orderText.match(/Total del pedido:\s*(\$?\d+(\.\d{1,2})?)/i);
   const total = totalMatch ? totalMatch[1] : 'N/A';
   
   // 3. Mensajes claros con emojis consistentes.
@@ -927,12 +912,13 @@ async function handleNewOrderFromMenu(to, orderText) {
     return;
   }
 
-  const totalMatch = orderText.match(/Total del pedido: \$(\d+\.\d{2})/i);
+  const totalMatch = orderText.match(/Total del pedido: $(\d+\.\d{2})/i);
   const total = totalMatch ? totalMatch[1] : null;
 
   // Notificar a los administradores que se ha iniciado un nuevo pedido.
   const orderSummary = extractOrderItems(orderText);
-  const initialAdminNotification = `🔔 ¡Nuevo pedido iniciado!\n\n*Cliente:* ${formatDisplayNumber(to)}\n\n*Pedido:*\n${orderSummary}\n\n*Total:* ${total ? '$' + total : 'No especificado'}\n\n*Nota:* Esperando dirección y método de pago.`;
+  const initialAdminNotification = `🔔 ¡Nuevo pedido iniciado!\n\n*Cliente:* ${formatDisplayNumber(to)}\n\n*Pedido:*
+${orderSummary}\n\n*Total:* ${total ? '$' + total : 'No especificado'}\n\n*Nota:* Esperando dirección y método de pago.`;
   await notifyAdmin(initialAdminNotification);
 
   let confirmationText = `¡Gracias por tu pedido! ✨\n\nHemos recibido tu orden y ya está en proceso de confirmación.`;
@@ -1290,207 +1276,71 @@ async function sendMessage(to, payload) {
   }
 }
 
-// Inicia el servidor
+// --- Funciones de Logging ---
+
 /**
- * Registra un evento de mensaje (entrada o salida) en un archivo de log.
- * @param {object} logEntry El objeto a registrar (ej. { type: 'incoming', message: {...} } o { type: 'outgoing', to: '...', payload: {...} }).
+ * Registra una entrada de log en un archivo .jsonl.
+ * @param {string} fileName El nombre del archivo (ej. 'message_log.jsonl').
+ * @param {object} logEntry El objeto a registrar.
  */
-function logMessageToFile(logEntry) {
-  const logFilePath = path.join(__dirname, 'message_log.jsonl');
+function logToFile(fileName, logEntry) {
+  const logFilePath = path.join(__dirname, fileName);
   const timestampedEntry = { timestamp: new Date().toISOString(), ...logEntry };
   fs.appendFile(logFilePath, JSON.stringify(timestampedEntry) + '\n', (err) => {
     if (err) {
-      console.error('Error al escribir en el archivo de log de mensajes:', err);
+      console.error(`Error al escribir en el archivo de log ${fileName}:`, err);
     }
+  });
+}
+
+// Funciones específicas de log que usan el logger genérico
+const logMessageToFile = (logEntry) => logToFile('message_log.jsonl', logEntry);
+const logOrderToFile = (orderData) => logToFile('order_log.jsonl', orderData);
+const logSurveyResponseToFile = (surveyData) => logToFile('survey_log.jsonl', surveyData);
+
+/**
+ * Lee un archivo de log en formato JSONL y envía el contenido como respuesta JSON.
+ * @param {string} logFileName El nombre del archivo de log (ej. 'message_log.jsonl').
+ * @param {object} res El objeto de respuesta de Express.
+ * @param {string} errorContext Un string para el mensaje de error (ej. 'mensajes').
+ */
+function sendJsonlLogResponse(logFileName, res, errorContext) {
+  const logFilePath = path.join(__dirname, logFileName);
+  fs.readFile(logFilePath, 'utf8', (err, data) => {
+    if (err) {
+      if (err.code === 'ENOENT') {
+        return res.json([]); // Si el archivo no existe, devuelve un array vacío.
+      }
+      console.error(`Error al leer el archivo de log de ${errorContext}:`, err);
+      return res.status(500).json({ error: `Error al leer el log de ${errorContext}.` });
+    }
+    const items = data.split('\n').filter(Boolean).map(line => {
+      try {
+        return JSON.parse(line);
+      } catch (parseError) {
+        console.error(`Error al parsear línea del log de ${errorContext}:`, parseError);
+        return null; // Ignora líneas mal formadas
+      }
+    }).filter(Boolean); // Filtra los nulos
+    res.json(items);
   });
 }
 
 // Endpoint para obtener el log de mensajes
 app.get('/api/message-log', (req, res) => {
-  const logFilePath = path.join(__dirname, 'message_log.jsonl');
-  fs.readFile(logFilePath, 'utf8', (err, data) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        // El archivo no existe, devuelve un array vacío
-        return res.json([]);
-      }
-      console.error('Error al leer el archivo de log de mensajes:', err);
-      return res.status(500).json({ error: 'Error al leer el log de mensajes.' });
-    }
-    // Divide el contenido por líneas y parsea cada línea como JSON
-    const messages = data.split('\n').filter(Boolean).map(line => {
-      try {
-        return JSON.parse(line);
-      } catch (parseError) {
-        console.error('Error al parsear línea del log de mensajes:', parseError);
-        return null; // Ignora líneas mal formadas
-      }
-    }).filter(Boolean); // Filtra los nulos
-    res.json(messages);
-  });
+  sendJsonlLogResponse('message_log.jsonl', res, 'mensajes');
 });
-
-// Inicia el servidor
-/**
- * Registra un pedido completado en un archivo de log.
- * @param {object} orderData El objeto del pedido a registrar.
- */
-function logOrderToFile(orderData) {
-  const logFilePath = path.join(__dirname, 'order_log.jsonl');
-  const timestampedOrder = { timestamp: new Date().toISOString(), ...orderData };
-  fs.appendFile(logFilePath, JSON.stringify(timestampedOrder) + '\n', (err) => {
-    if (err) {
-      console.error('Error al escribir en el archivo de log de pedidos:', err);
-    }
-  });
-}
 
 // Endpoint para obtener el log de pedidos
 app.get('/api/orders', (req, res) => {
-  const logFilePath = path.join(__dirname, 'order_log.jsonl');
-  fs.readFile(logFilePath, 'utf8', (err, data) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        // El archivo no existe, devuelve un array vacío
-        return res.json([]);
-      }
-      console.error('Error al leer el archivo de log de pedidos:', err);
-      return res.status(500).json({ error: 'Error al leer el log de pedidos.' });
-    }
-    // Divide el contenido por líneas y parsea cada línea como JSON
-    const orders = data.split('\n').filter(Boolean).map(line => {
-      try {
-        return JSON.parse(line);
-      } catch (parseError) {
-        console.error('Error al parsear línea del log de pedidos:', parseError);
-        return null; // Ignora líneas mal formadas
-      }
-    }).filter(Boolean); // Filtra los nulos
-    res.json(orders);
-  });
+  sendJsonlLogResponse('order_log.jsonl', res, 'pedidos');
 });
-
-/**
- * Endpoint para enviar mensajes a un usuario de WhatsApp desde el dashboard.
- * Requiere 'to' (número de WhatsApp) y 'text' (contenido del mensaje) en el body.
- */
-/**
- * Registra un evento de mensaje (entrada o salida) en un archivo de log.
- * @param {object} logEntry El objeto a registrar (ej. { type: 'incoming', message: {...} } o { type: 'outgoing', to: '...', payload: {...} }).
- */
-function logMessageToFile(logEntry) {
-  const logFilePath = path.join(__dirname, 'message_log.jsonl');
-  const timestampedEntry = { timestamp: new Date().toISOString(), ...logEntry };
-  fs.appendFile(logFilePath, JSON.stringify(timestampedEntry) + '\n', (err) => {
-    if (err) {
-      console.error('Error al escribir en el archivo de log de mensajes:', err);
-    }
-  });
-}
-
-// Endpoint para obtener el log de mensajes
-app.get('/api/message-log', (req, res) => {
-  const logFilePath = path.join(__dirname, 'message_log.jsonl');
-  fs.readFile(logFilePath, 'utf8', (err, data) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        // El archivo no existe, devuelve un array vacío
-        return res.json([]);
-      }
-      console.error('Error al leer el archivo de log de mensajes:', err);
-      return res.status(500).json({ error: 'Error al leer el log de mensajes.' });
-    }
-    // Divide el contenido por líneas y parsea cada línea como JSON
-    const messages = data.split('\n').filter(Boolean).map(line => {
-      try {
-        return JSON.parse(line);
-      } catch (parseError) {
-        console.error('Error al parsear línea del log de mensajes:', parseError);
-        return null; // Ignora líneas mal formadas
-      }
-    }).filter(Boolean); // Filtra los nulos
-    res.json(messages);
-  });
-});
-
-// Inicia el servidor
-/**
- * Registra un pedido completado en un archivo de log.
- * @param {object} orderData El objeto del pedido a registrar.
- */
-function logOrderToFile(orderData) {
-  const logFilePath = path.join(__dirname, 'order_log.jsonl');
-  const timestampedOrder = { timestamp: new Date().toISOString(), ...orderData };
-  fs.appendFile(logFilePath, JSON.stringify(timestampedOrder) + '\n', (err) => {
-    if (err) {
-      console.error('Error al escribir en el archivo de log de pedidos:', err);
-    }
-  });
-}
-
-// Endpoint para obtener el log de pedidos
-app.get('/api/orders', (req, res) => {
-  const logFilePath = path.join(__dirname, 'order_log.jsonl');
-  fs.readFile(logFilePath, 'utf8', (err, data) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        // El archivo no existe, devuelve un array vacío
-        return res.json([]);
-      }
-      console.error('Error al leer el archivo de log de pedidos:', err);
-      return res.status(500).json({ error: 'Error al leer el log de pedidos.' });
-    }
-    // Divide el contenido por líneas y parsea cada línea como JSON
-    const orders = data.split('\n').filter(Boolean).map(line => {
-      try {
-        return JSON.parse(line);
-      } catch (parseError) {
-        console.error('Error al parsear línea del log de pedidos:', parseError);
-        return null; // Ignora líneas mal formadas
-      }
-    }).filter(Boolean); // Filtra los nulos
-    res.json(orders);
-  });
-});
-
-/**
- * Registra una respuesta de encuesta en un archivo de log.
- * @param {object} surveyData El objeto de la encuesta a registrar.
- */
-function logSurveyResponseToFile(surveyData) {
-  const logFilePath = path.join(__dirname, 'survey_log.jsonl');
-  const timestampedEntry = { timestamp: new Date().toISOString(), ...surveyData };
-  fs.appendFile(logFilePath, JSON.stringify(timestampedEntry) + '\n', (err) => {
-    if (err) {
-      console.error('Error al escribir en el archivo de log de encuestas:', err);
-    }
-  });
-}
 
 // Endpoint para obtener el log de encuestas
 app.get('/api/surveys', (req, res) => {
-  const logFilePath = path.join(__dirname, 'survey_log.jsonl');
-  fs.readFile(logFilePath, 'utf8', (err, data) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        // El archivo no existe, devuelve un array vacío
-        return res.json([]);
-      }
-      console.error('Error al leer el archivo de log de encuestas:', err);
-      return res.status(500).json({ error: 'Error al leer el log de encuestas.' });
-    }
-    // Divide el contenido por líneas y parsea cada línea como JSON
-    const surveys = data.split('\n').filter(Boolean).map(line => {
-      try {
-        return JSON.parse(line);
-      } catch (parseError) {
-        console.error('Error al parsear línea del log de encuestas:', parseError);
-        return null; // Ignora líneas mal formadas
-      }
-    }).filter(Boolean); // Filtra los nulos
-    res.json(surveys);
-  });
+  sendJsonlLogResponse('survey_log.jsonl', res, 'encuestas');
 });
+
 
 /**
  * Endpoint para enviar mensajes a un usuario de WhatsApp desde el dashboard.
@@ -1557,5 +1407,3 @@ app.delete('/api/redis-states/:key', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Servidor escuchando en el puerto ${PORT}`);
 });
-
-
