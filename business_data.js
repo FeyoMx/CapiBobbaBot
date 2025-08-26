@@ -36,6 +36,7 @@ const businessData = {
                 { name: "Chamoyada", price: 80.00, description: "Puede ser de cualquier sabor base agua" },
                 { name: "Yogurtada", price: 80.00, description: "Puede ser de cualquier sabor base frutal" },
                 { name: "Fresas con crema", price: 75.00 }
+                { name: "Pumpkin Spice", price: 75.00 }
             ]
         },
         toppings: {
