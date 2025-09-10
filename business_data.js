@@ -15,15 +15,16 @@
  */
 const businessData = {
     menu: {
+        included: "Todas nuestras bebidas incluyen tapioca.",
         baseAguaFrappe: {
             name: "Bebidas Base Agua Frappe",
             price: 75.00,
-            items: ["Litchi", "Blueberry", "Guanábana", "Piña colada", "Fresa", "Sandia", "Mango", "Maracuya", "Tamarindo", "Cereza", "Banana"]
+            items: ["Litchi", "Blueberry", "Guanábana", "Piña colada", "Fresa", "Sandia", "Mango", "Maracuya", "Tamarindo", "Cereza", "Banana", "Coco"]
         },
         baseLecheFrappe: {
             name: "Bebidas Base Leche Frappe",
             price: 75.00,
-            items: ["Taro", "Chai", "Cookies&cream", "Pay de limon", "Crema irlandesa", "Mazapan", "Mocha", "Chocolate Mexicano", "Matcha", "Algodon de Azucar"]
+            items: ["Taro", "Chai", "Cookies&cream", "Pay de limon", "Crema irlandesa", "Mazapan", "Mocha", "Chocolate Mexicano", "Matcha", "Algodon de Azucar", "Coco"]
         },
         calientes: {
             name: "Bebidas Calientes",
@@ -82,7 +83,11 @@ function generateBusinessContext(data) {
 
     // Construcción del menú
     let menuText = "**Menú de CapiBoba:**\n";
+    if (data.menu.included) {
+        menuText += `**${data.menu.included}**\n\n`;
+    }
     for (const categoryKey in data.menu) {
+        if (categoryKey === 'included') continue;
         const category = data.menu[categoryKey];
         menuText += `- ${category.name}\n`;
         if (category.items) {

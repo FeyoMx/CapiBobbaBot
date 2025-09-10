@@ -1,14 +1,15 @@
 {
     "menu": {
+        "included": "Todas nuestras bebidas incluyen tapioca.",
         "baseAguaFrappe": {
             "name": "Bebidas Base Agua Frappe",
             "price": 75.00,
-            "items": ["Litchi", "Blueberry", "Guanábana", "Piña colada", "Fresa", "Sandia", "Mango", "Maracuya", "Tamarindo", "Cereza", "Banana"]
+            "items": ["Litchi", "Blueberry", "Guanábana", "Piña colada", "Fresa", "Sandia", "Mango", "Maracuya", "Tamarindo", "Cereza", "Banana", "Coco"]
         },
         "baseLecheFrappe": {
             "name": "Bebidas Base Leche Frappe",
             "price": 75.00,
-            "items": ["Taro", "Chai", "Cookies&cream", "Pay de limon", "Crema irlandesa", "Mazapan", "Mocha", "Chocolate Mexicano", "Matcha", "Algodon de Azucar"]
+            "items": ["Taro", "Chai", "Cookies&cream", "Pay de limon", "Crema irlandesa", "Mazapan", "Mocha", "Chocolate Mexicano", "Matcha", "Algodon de Azucar", "Coco"]
         },
         "calientes": {
             "name": "Bebidas Calientes",
