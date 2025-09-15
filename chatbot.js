@@ -133,7 +133,7 @@ app.post('/webhook', async (req, res) => {
                     // Verificar modo de mantenimiento
                     const maintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY);
                     if (maintenanceMode === 'true' && !checkIfAdminForWorkflow(message.from)) {
-                        await sendWhatsAppMessage(
+                        await sendTextMessage(
                             message.from,
                             '🔧 Estamos en mantenimiento. El servicio estará disponible pronto. Gracias por tu paciencia.'
                         );
@@ -519,7 +519,7 @@ async function processIncomingMessage(message) {
         }
     } catch (error) {
         console.error('❌ Error procesando mensaje:', error);
-        await sendWhatsAppMessage(
+        await sendTextMessage(
             from,
             'Lo siento, hubo un error procesando tu mensaje. Por favor intenta de nuevo.'
         );
@@ -585,7 +585,7 @@ Para continuar, necesito tu dirección de entrega:`
         }
     };
 
-    await sendWhatsAppMessage(from, addressMessage);
+    await sendMessage(from, addressMessage);
     
     // Registrar respuesta del bot en n8n
     registerBotResponseToN8n(from, addressMessage);
@@ -713,11 +713,12 @@ Para terminar, escribe "terminar chat".`);
             };
             
             await axios.post(N8N_WEBHOOK_URL, testPayload);
-            await sendWhatsAppMessage(from, '✅ Mensaje de prueba enviado al webhook de n8n');
+            await sendTextMessage(from, '✅ Mensaje de prueba enviado al webhook de n8n');
             break;
 
         case '/test_order':
-            const testOrder = `🍹 Tu pedido de CapiBobba
+            // Crear el pedido de prueba
+            const testOrderText = `🍹 Tu pedido de CapiBobba
 
 1x Frappé de Chocolate - $45.00
 2x Bubble Tea de Taro - $90.00
@@ -726,16 +727,103 @@ Para terminar, escribe "terminar chat".`);
 Total del pedido: $173.00
 
 ¡Gracias por tu preferencia!`;
+
+            // ENVIAR EL PEDIDO COMO order_completed a n8n
+            const orderCompletedPayload = {
+                from: from,
+                type: 'order_completed',
+                timestamp: Math.floor(Date.now() / 1000),
+                order: {
+                    summary: "1x Frappé de Chocolate - $45.00\n2x Bubble Tea de Taro - $90.00\n1x Smoothie de Mango - $38.00",
+                    total: 173.00,
+                    fullText: testOrderText
+                },
+                delivery: {
+                    address: "Calle de Prueba #123, Colonia Test, Pachuca",
+                    accessCodeRequired: false
+                },
+                payment: {
+                    method: "Efectivo",
+                    cashDenomination: "200"
+                }
+            };
+
+            try {
+                // Enviar a n8n como pedido completado
+                await axios.post(N8N_WEBHOOK_URL, orderCompletedPayload);
+                console.log('✅ Pedido de prueba enviado a n8n:', orderCompletedPayload);
+                
+                await sendTextMessage(from, '✅ Pedido de prueba enviado al workflow de n8n. Deberías recibir notificaciones en Telegram.');
+            } catch (error) {
+                console.error('❌ Error enviando pedido de prueba:', error.message);
+                await sendTextMessage(from, `❌ Error enviando pedido de prueba: ${error.message}`);
+            }
+            break;
+
+        case '/test_order_user':
+            // Simular mensaje de usuario con pedido
+            const userOrderPayload = {
+                from: from,
+                type: 'text',
+                timestamp: Math.floor(Date.now() / 1000).toString(),
+                rawMessage: {
+                    from: from,
+                    id: `test_msg_${Date.now()}`,
+                    timestamp: Math.floor(Date.now() / 1000).toString(),
+                    text: {
+                        body: `¡Hola! Me gustaría hacer un pedido con los siguientes productos:
+
+1. Blueberry x 1 ($75.00 c/u) - Subtotal: $75.00
+
+Total del pedido: $75.00
+
+¡Espero su confirmación! Gracias. 😊`
+                    },
+                    type: 'text'
+                },
+                text: `¡Hola! Me gustaría hacer un pedido con los siguientes productos:
+
+1. Blueberry x 1 ($75.00 c/u) - Subtotal: $75.00
+
+Total del pedido: $75.00
+
+¡Espero su confirmación! Gracias. 😊`
+            };
+
+            try {
+                await axios.post(N8N_WEBHOOK_URL, userOrderPayload);
+                console.log('✅ Mensaje de pedido de usuario simulado enviado a n8n');
+                
+                await sendTextMessage(from, '✅ Mensaje de pedido de usuario simulado enviado. Deberías ver el flujo completo en Telegram.');
+            } catch (error) {
+                console.error('❌ Error enviando mensaje simulado:', error.message);
+                await sendTextMessage(from, `❌ Error: ${error.message}`);
+            }
+            break;
+
+        case '/debug_payload':
+            // Mostrar cómo se está enviando actualmente
+            const debugPayload = {
+                from: from,
+                type: 'text',
+                timestamp: Math.floor(Date.now() / 1000).toString(),
+                rawMessage: {
+                    from: from,
+                    text: { body: '/test_order' },
+                    type: 'text'
+                },
+                text: '/test_order'
+            };
             
-            await handleOrderCompletion(from, testOrder, await getUserState(from));
+            await sendTextMessage(from, `🔍 Payload actual que se envía:\n\`\`\`json\n${JSON.stringify(debugPayload, null, 2)}\n\`\`\``);
             break;
 
         case '/webhook_status':
             try {
                 const response = await axios.get(N8N_WEBHOOK_URL.replace('/webhook/', '/health'), { timeout: 5000 });
-                await sendWhatsAppMessage(from, '✅ Webhook de n8n está funcionando correctamente');
+                await sendTextMessage(from, '✅ Webhook de n8n está funcionando correctamente');
             } catch (error) {
-                await sendWhatsAppMessage(from, `❌ Error conectando con webhook: ${error.message}`);
+                await sendTextMessage(from, `❌ Error conectando con webhook: ${error.message}`);
             }
             break;
 
