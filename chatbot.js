@@ -86,38 +86,73 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// Endpoint para recibir mensajes de WhatsApp
-app.post('/webhook', (req, res) => {
-  const body = req.body;
-  console.log('POST /webhook - Mensaje recibido:');
-  console.log(JSON.stringify(body, null, 2));
+// 5. MODIFICACIÓN DEL ENDPOINT DE WEBHOOK EXISTENTE
+// REEMPLAZA tu función actual de manejo de webhook con esta versión mejorada:
 
-  try {
-    // Aseguramos que el objeto y la entrada existan
-    if (body.object === 'whatsapp_business_account' && body.entry) {
-      const change = body.entry[0]?.changes?.[0];
-      if (change?.value) {
-        if (change.value.messages) {
-          // Es un mensaje nuevo de un usuario, lo procesamos para responder.
-          const message = change.value.messages[0];
-          processMessage(message); // La función ahora es async, pero no necesitamos esperar su finalización aquí.
-        } else if (change.value.statuses) {
-          // Es una actualización de estado (sent, delivered, read).
-          // Por ahora, solo lo registramos en consola y no hacemos nada más.
-          const status = change.value.statuses[0];
-          console.log(`Estado del mensaje ${status.id} actualizado a: ${status.status}`);
-        }
-      }
+app.post('/webhook', async (req, res) => {
+    console.log('📨 Webhook recibido. Headers:', req.headers);
+    console.log('📦 Cuerpo completo del webhook:', JSON.stringify(req.body, null, 2));
+
+    const body = req.body;
+
+    // Validar que llegó información
+    if (!body || Object.keys(body).length === 0) {
+        console.log('❌ Webhook vacío recibido');
+        return res.status(400).send('Webhook body is empty');
     }
 
-    // Responde a Meta para confirmar la recepción
-    res.sendStatus(200);
-  } catch (error) {
-    console.error('Error al procesar el webhook:', error);
-    // Informa a Meta que hubo un error en el servidor
-    res.sendStatus(500);
-  }
+    try {
+        // Verificar si es un mensaje de WhatsApp
+        if (body.object === 'whatsapp_business_account' && body.entry && body.entry[0] && body.entry[0].changes) {
+            const changes = body.entry[0].changes[0];
+            
+            if (changes.field === 'messages' && changes.value && changes.value.messages) {
+                const messages = changes.value.messages;
+                
+                for (const message of messages) {
+                    console.log('📱 Procesando mensaje de WhatsApp:', JSON.stringify(message, null, 2));
+                    
+                    // Enviar mensaje a n8n con el formato esperado por el workflow
+                    const n8nPayload = {
+                        rawMessage: message,
+                        from: message.from,
+                        timestamp: message.timestamp,
+                        type: message.type
+                    };
+
+                    // Agregar contenido específico según el tipo de mensaje
+                    if (message.type === 'text' && message.text) {
+                        n8nPayload.text = message.text.body;
+                    } else if (message.type === 'interactive' && message.interactive) {
+                        n8nPayload.interactive = message.interactive;
+                    }
+
+                    // Enviar a n8n primero
+                    await sendToN8n(message);
+                    
+                    // Verificar modo de mantenimiento
+                    const maintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY);
+                    if (maintenanceMode === 'true' && !checkIfAdminForWorkflow(message.from)) {
+                        await sendWhatsAppMessage(
+                            message.from,
+                            '🔧 Estamos en mantenimiento. El servicio estará disponible pronto. Gracias por tu paciencia.'
+                        );
+                        continue;
+                    }
+
+                    // Procesar el mensaje normalmente
+                    await processIncomingMessage(message);
+                }
+            }
+        }
+        
+        res.status(200).send('OK');
+    } catch (error) {
+        console.error('❌ Error procesando webhook:', error);
+        res.status(500).send('Error interno del servidor');
+    }
 });
+
 
 // --- API PARA EL DASHBOARD ---
 
@@ -330,183 +365,262 @@ async function sendToN8n(message, extraData = {}) {
   }
 }
 
+// 1. FUNCIÓN MEJORADA PARA REGISTRAR RESPUESTAS DEL BOT
 /**
- * Envía los detalles de un pedido completado a n8n.
- * @param {string} from El número del cliente.
- * @param {object} state El estado completo del usuario con los detalles del pedido.
+ * Registra la respuesta del bot en el webhook de n8n con el formato esperado por el workflow.
+ * @param {string} to El número de WhatsApp del destinatario.
+ * @param {object} messagePayload El payload del mensaje que se envía.
  */
-function sendOrderCompletionToN8n(from, state) {
-    const totalMatch = state.orderText.match(/Total del pedido: $(\d+\.\d{2})/i);
-    const total = totalMatch ? parseFloat(totalMatch[1]) : null;
+function registerBotResponseToN8n(to, messagePayload) {
+    const payload = {
+        source: 'bot',
+        recipient: to,
+        timestamp: Math.floor(Date.now() / 1000),
+        messagePayload: messagePayload
+    };
 
+    console.log('Registrando respuesta del bot en n8n:', JSON.stringify(payload, null, 2));
+
+    axios.post(N8N_WEBHOOK_URL, payload)
+        .then(response => {
+            console.log('Respuesta del bot registrada en n8n:', response.data);
+        })
+        .catch(error => {
+            console.error('Error registrando respuesta del bot en n8n:', error.message);
+        });
+}
+
+// 2. FUNCIÓN MEJORADA PARA ENVÍO DE PEDIDOS COMPLETADOS
+/**
+ * Envía los detalles de un pedido completado a n8n con el formato exacto esperado.
+ * @param {string} from El número del cliente.
+ * @param {object} orderDetails Los detalles del pedido.
+ */
+function sendOrderCompletionToN8nEnhanced(from, orderDetails) {
     const payload = {
         from: from,
         type: 'order_completed',
         timestamp: Math.floor(Date.now() / 1000),
         order: {
-            summary: extractOrderItems(state.orderText),
-            total: total,
-            fullText: state.orderText
+            summary: orderDetails.summary || '',
+            total: orderDetails.total || 0,
+            fullText: orderDetails.fullText || ''
         },
         delivery: {
-            address: state.address,
-            accessCodeRequired: state.accessCodeInfo === 'access_code_yes'
+            address: orderDetails.address || '',
+            accessCodeRequired: orderDetails.accessCodeRequired || false
         },
         payment: {
-            method: state.paymentMethod,
-            // Añade detalles específicos del pago
-            ...(state.paymentMethod === 'Efectivo' && { cashDenomination: state.cashDenomination }),
-            ...(state.paymentMethod === 'Transferencia' && { proofImageId: state.proofImageId })
+            method: orderDetails.paymentMethod || '',
+            // Añade detalles específicos del pago según el método
+            ...(orderDetails.paymentMethod === 'Efectivo' && { 
+                cashDenomination: orderDetails.cashDenomination 
+            }),
+            ...(orderDetails.paymentMethod === 'Transferencia' && { 
+                proofImageId: orderDetails.proofImageId 
+            })
         }
     };
 
-    console.log('Enviando pedido completo a n8n:', JSON.stringify(payload, null, 2));
+    console.log('Enviando pedido completo a n8n (enhanced):', JSON.stringify(payload, null, 2));
 
     axios.post(N8N_WEBHOOK_URL, payload)
-        .then(response => console.log('Respuesta de n8n (pedido completo):', response.data))
+        .then(response => {
+            console.log('Respuesta de n8n (pedido completo enhanced):', response.data);
+        })
         .catch(error => {
-            console.error('Error enviando pedido completo a n8n:', error.message);
+            console.error('Error enviando pedido completo a n8n (enhanced):', error.message);
         });
 }
 
+// 3. FUNCIÓN PARA ENVÍO DE ACTUALIZACIONES DE DIRECCIÓN
 /**
- * Registra la respuesta del bot en un webhook de n8n.
- * @param {string} to El número de WhatsApp del destinatario.
- * @param {object} payload El payload del mensaje que se envía.
+ * Envía una actualización de dirección al workflow de n8n.
+ * @param {string} from El número del cliente.
+ * @param {string} address La nueva dirección.
  */
-async function logBotResponseToN8n(to, payload) {
-  // Construimos un payload específico para las respuestas del bot
-  const n8nPayload = {
-    recipient: to, // A quién se le envía
-    source: 'bot', // Para identificar que el origen es el bot
-    type: 'bot_response', // Un tipo de evento claro
-    timestamp: Math.floor(Date.now() / 1000),
-    messagePayload: payload, // El contenido real del mensaje
-  };
+function sendAddressUpdateToN8n(from, address) {
+    const payload = {
+        from: from,
+        type: 'address_update',
+        timestamp: Math.floor(Date.now() / 1000),
+        address: address
+    };
 
-  // Reutilizamos la lógica de envío y manejo de errores
-  try {
-    console.log('Registrando respuesta del bot en n8n:', JSON.stringify(n8nPayload, null, 2));
-    // Usamos un timeout para no bloquear el bot si n8n no responde rápido
-    await axios.post(N8N_WEBHOOK_URL, n8nPayload, { timeout: 5000 });
-    console.log('Respuesta del bot registrada exitosamente en n8n.');
-  } catch (error) {
-    if (error.response) {
-      console.error('Error registrando respuesta del bot en n8n (el servidor respondió con un error):', { status: error.response.status, data: error.response.data });
-    } else if (error.request) {
-      console.error('Error registrando respuesta del bot en n8n (sin respuesta): Asegúrate de que n8n esté corriendo y el webhook esté activo y sea de tipo POST.');
-    } else if (error.code === 'ECONNABORTED') {
-      console.error('Error registrando respuesta del bot en n8n: La petición tardó demasiado (timeout).');
-    } else {
-      console.error('Error registrando respuesta del bot en n8n (error de configuración de Axios):', error.message);
-    }
-  }
+    console.log('Enviando actualización de dirección a n8n:', JSON.stringify(payload, null, 2));
+
+    axios.post(N8N_WEBHOOK_URL, payload)
+        .then(response => {
+            console.log('Actualización de dirección enviada a n8n:', response.data);
+        })
+        .catch(error => {
+            console.error('Error enviando actualización de dirección a n8n:', error.message);
+        });
 }
 
+// 4. FUNCIÓN AUXILIAR PARA VERIFICAR ADMINISTRADORES (debe coincidir con el workflow)
 /**
- * Procesa el mensaje entrante y lo dirige al manejador correcto.
- * @param {object} message El objeto de mensaje de la API de WhatsApp.
+ * Función auxiliar que debe coincidir con checkIfAdmin del workflow
+ * @param {string} phoneNumber Número de teléfono a verificar
+ * @returns {boolean} True si es admin
  */
-async function processMessage(message) {
-  logMessageToFile({ type: 'incoming', message: message }); // Log incoming message
-  sendToN8n(message); // Envía cada mensaje a n8n
-  const from = message.from; // Número de teléfono del remitente
-  
-  // Los mensajes de administradores se manejan por separado y no se ven afectados por el modo de servicio.
-  if (isAdmin(from)) {
-    await handleAdminMessage(message);
-    return; // Detenemos el procesamiento para que no se ejecute la lógica de cliente.
-  }
-
-  // Mostramos el indicador de "escribiendo..." para mejorar la experiencia del usuario.
-  sendTypingOn(from);
-
-  // AÑADIMOS UN PEQUEÑO RETRASO ARTIFICIAL
-  // Esto da tiempo a que el indicador "escribiendo..." aparezca en el dispositivo del usuario,
-  // especialmente para respuestas rápidas que de otro modo serían instantáneas.
-  // Un valor entre 1000ms y 2000ms (1-2 segundos) suele ser efectivo.
-  await sleep(1500);
-
-  // Revisamos si el usuario está en medio de un flujo de conversación (pedido o chat con admin).
-  const userState = await getUserState(from);
-  const isMaintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY) === 'true';
-
-  // NUEVO: Si el modo "fuera de servicio" está activo y el usuario está en medio de un pedido,
-  // se le notifica y se cancela su estado para evitar que quede atascado.
-  if (isMaintenanceMode && userState && userState.step && userState.step.startsWith('awaiting_')) {
-    await sendTextMessage(from, 'Hola, te informamos que hemos suspendido temporalmente la toma de pedidos. Tu orden actual ha sido cancelada. ¡Disculpa las molestias!');
-    await deleteUserState(from);
-    return;
-  }
-
-
-  // NUEVO: Si el cliente está en modo chat con un admin, reenviamos su mensaje al admin.
-  if (userState && userState.mode === 'in_conversation_with_admin') {
-    const adminNumber = userState.admin;
-    if (message.type === 'text') {
-      await sendTextMessage(adminNumber, `💬 *Cliente* (${formatDisplayNumber(from)}):\n${message.text.body}`);
-    } else {
-      // Por ahora, solo notificamos al admin que se envió un mensaje que no es de texto.
-      await sendTextMessage(adminNumber, `💬 *Cliente* (${formatDisplayNumber(from)}) ha enviado un mensaje que no es de texto (ej. imagen, audio). Por ahora no se puede reenviar.`);
+function checkIfAdminForWorkflow(phoneNumber) {
+    if (!phoneNumber || !ADMIN_WHATSAPP_NUMBERS) {
+        return false;
     }
-    return; // Detenemos el procesamiento normal.
-  }
+    const adminNumbers = ADMIN_WHATSAPP_NUMBERS.split(',').map(num => num.trim());
+    return adminNumbers.includes(phoneNumber);
+}
 
-  if (userState) {
-    if (userState.step === 'awaiting_address' && message.type === 'text') {
-      await handleAddressResponse(from, message.text.body);
-      return; // Detenemos el procesamiento para no interpretar la dirección como un comando.
-    }
-    if (userState.step === 'awaiting_access_code_info' && message.type === 'interactive' && message.interactive.type === 'button_reply') {
-      await handleAccessCodeResponse(from, message.interactive.button_reply.id);
-      return; // Detenemos el procesamiento.
-    }
-    if (userState.step === 'awaiting_payment_method' && message.type === 'interactive' && message.interactive.type === 'button_reply') {
-      await handlePaymentMethodResponse(from, message.interactive.button_reply.id);
-      return; // Detenemos el procesamiento.
-    }
-    if (userState.step === 'awaiting_cash_denomination' && message.type === 'text') {
-      await handleCashDenominationResponse(from, message.text.body);
-      return; // Detenemos el procesamiento.
-    }
-    if (userState.step === 'awaiting_payment_proof') {
-      if (message.type === 'image') {
-        await handlePaymentProofImage(from, message.image);
-      } else {
-        await sendTextMessage(from, 'Por favor, para confirmar tu pedido, envía únicamente la imagen de tu comprobante de pago.');
-      }
-      return; // Detenemos el procesamiento.
-    }
-  }
 
-  if (message.type === 'text') {
-    const messageBody = message.text.body; // Mantenemos el texto original para el pedido
-    const lowerCaseMessage = messageBody.toLowerCase().trim();
+// 6. FUNCIÓN MODIFICADA PARA PROCESAR MENSAJES ENTRANTES
+/**
+ * Procesa mensajes entrantes con integración completa al workflow
+ */
+async function processIncomingMessage(message) {
+    const from = message.from;
+    const messageType = message.type;
+    
+    console.log(`🔄 Procesando mensaje de ${from}, tipo: ${messageType}`);
 
-    // --- MANEJO DE RESPUESTA DE ENCUESTA ---
-    // Verificamos si el mensaje es un número único entre 0 y 5.
-    const rating = parseInt(lowerCaseMessage, 10);
-    // Esta condición asegura que el mensaje sea únicamente un número en el rango esperado.
-    if (String(rating) === lowerCaseMessage && rating >= 0 && rating <= 5) {
-        await handleSurveyResponse(from, rating);
-        return; // Importante: detenemos el procesamiento aquí para no pasarlo a Gemini.
+    try {
+        // Obtener estado del usuario desde Redis
+        let userState = await getUserState(from);
+
+        switch (messageType) {
+            case 'text':
+                const text = message.text.body;
+                
+                // Verificar si es un pedido completado (del menú web)
+                if (text.includes('Total del pedido:') || text.includes('Total a pagar:')) {
+                    console.log('🛒 Pedido completado detectado');
+                    await handleOrderCompletion(from, text, userState);
+                } else {
+                    // Procesar como mensaje de texto normal
+                    await handleTextMessage(from, text, userState);
+                }
+                break;
+
+            case 'interactive':
+                await handleInteractiveMessage(from, message.interactive, userState);
+                break;
+
+            case 'image':
+                await handleImageMessage(from, message.image, userState);
+                break;
+
+            case 'location':
+                await handleLocationMessage(from, message.location, userState);
+                break;
+
+            default:
+                console.log(`⚠️ Tipo de mensaje no manejado: ${messageType}`);
+                break;
+        }
+    } catch (error) {
+        console.error('❌ Error procesando mensaje:', error);
+        await sendWhatsAppMessage(
+            from,
+            'Lo siento, hubo un error procesando tu mensaje. Por favor intenta de nuevo.'
+        );
+    }
+}
+
+// 7. FUNCIÓN PARA MANEJAR FINALIZACIÓN DE PEDIDOS
+/**
+ * Maneja la finalización de pedidos desde el menú web
+ */
+async function handleOrderCompletion(from, orderText, userState) {
+    console.log('🍹 Procesando finalización de pedido para:', from);
+
+    // Actualizar estado del usuario
+    userState.orderText = orderText;
+    userState.currentStep = 'awaiting_address';
+    userState.orderTimestamp = Math.floor(Date.now() / 1000);
+    
+    await setUserState(from, userState);
+
+    // Extraer información del pedido
+    const orderInfo = extractOrderInfo(orderText);
+    
+    // Enviar a n8n como pedido completado
+    await sendOrderCompletionToN8nEnhanced(from, {
+        summary: orderInfo.summary,
+        total: orderInfo.total,
+        fullText: orderText
+    });
+
+    // Solicitar dirección de entrega
+    const addressMessage = {
+        type: 'interactive',
+        interactive: {
+            type: 'button',
+            body: {
+                text: `¡Perfecto! Tu pedido ha sido recibido 🎉
+
+${orderInfo.summary}
+
+*Total: $${orderInfo.total}*
+
+Para continuar, necesito tu dirección de entrega:`
+            },
+            action: {
+                buttons: [
+                    {
+                        type: 'reply',
+                        reply: {
+                            id: 'send_location',
+                            title: '📍 Enviar ubicación'
+                        }
+                    },
+                    {
+                        type: 'reply',
+                        reply: {
+                            id: 'type_address',
+                            title: '✏️ Escribir dirección'
+                        }
+                    }
+                ]
+            }
+        }
+    };
+
+    await sendWhatsAppMessage(from, addressMessage);
+    
+    // Registrar respuesta del bot en n8n
+    registerBotResponseToN8n(from, addressMessage);
+}
+
+// 8. FUNCIÓN AUXILIAR PARA EXTRAER INFORMACIÓN DEL PEDIDO
+/**
+ * Extrae información relevante del texto del pedido
+ */
+function extractOrderInfo(orderText) {
+    // Buscar el total
+    const totalMatch = orderText.match(/Total (?:del pedido|a pagar):\s*\$?(\d+(?:\.\d{2})?)/i);
+    const total = totalMatch ? parseFloat(totalMatch[1]) : 0;
+
+    // Extraer resumen de items (líneas entre el inicio y el total)
+    const lines = orderText.split('\n').map(line => line.trim()).filter(Boolean);
+    const totalLineIndex = lines.findIndex(line => 
+        line.toLowerCase().includes('total del pedido:') || 
+        line.toLowerCase().includes('total a pagar:')
+    );
+
+    let summary = '';
+    if (totalLineIndex > 0) {
+        // Buscar líneas que parecen items
+        const itemLines = lines.slice(1, totalLineIndex).filter(line => 
+            line.includes('x ') || line.includes('$') || /\d+. *\w+/ .test(line)
+        );
+        summary = itemLines.join('\n');
     }
 
-    // Busca un manejador para el comando de texto
-    const handler = findCommandHandler(lowerCaseMessage);
-    if (handler) {
-      // Pasamos el texto original del mensaje por si el manejador lo necesita (ej. para un pedido)
-      await handler(from, messageBody);
-    } else {
-      // Si no es un comando conocido, se lo pasamos a Gemini
-      await handleFreeformQuery(from, messageBody);
-    }
-  } else if (message.type === 'interactive' && message.interactive.type === 'button_reply') {
-    const buttonId = message.interactive.button_reply.id;
-    // Busca un manejador para el ID del botón y lo llama. Si no lo encuentra, usa el manejador por defecto.
-    const handler = buttonCommandHandlers[buttonId] || defaultHandler;
-    await handler(from);
-  }
+    return {
+        total: total,
+        summary: summary || 'Pedido personalizado',
+        fullText: orderText
+    };
 }
 
 /**
@@ -588,10 +702,47 @@ Para terminar, escribe "terminar chat".`);
 
     console.log(`Mensaje recibido del administrador ${from}: "${messageBody}"`);
 
-    if (lowerCaseMessage === 'hola admin') {
-        await sendTextMessage(from, `🤖 Saludos, administrador. Estoy a tu disposición. Puedes usar "hablar con <numero>" para chatear con un cliente.`);
+    switch (lowerCaseMessage) {
+        case '/test_webhook':
+            const testPayload = {
+                from: from,
+                type: 'test_message',
+                timestamp: Math.floor(Date.now() / 1000),
+                test: true,
+                message: 'Mensaje de prueba del webhook'
+            };
+            
+            await axios.post(N8N_WEBHOOK_URL, testPayload);
+            await sendWhatsAppMessage(from, '✅ Mensaje de prueba enviado al webhook de n8n');
+            break;
+
+        case '/test_order':
+            const testOrder = `🍹 Tu pedido de CapiBobba
+
+1x Frappé de Chocolate - $45.00
+2x Bubble Tea de Taro - $90.00
+1x Smoothie de Mango - $38.00
+
+Total del pedido: $173.00
+
+¡Gracias por tu preferencia!`;
+            
+            await handleOrderCompletion(from, testOrder, await getUserState(from));
+            break;
+
+        case '/webhook_status':
+            try {
+                const response = await axios.get(N8N_WEBHOOK_URL.replace('/webhook/', '/health'), { timeout: 5000 });
+                await sendWhatsAppMessage(from, '✅ Webhook de n8n está funcionando correctamente');
+            } catch (error) {
+                await sendWhatsAppMessage(from, `❌ Error conectando con webhook: ${error.message}`);
+            }
+            break;
+
+        case 'hola admin':
+            await sendTextMessage(from, `🤖 Saludos, administrador. Estoy a tu disposición. Puedes usar "hablar con <numero>" para chatear con un cliente.`);
+            break;
     }
-    // Si no es un comando conocido, no hacemos nada para evitar spam.
 }
 
 /**
@@ -825,7 +976,9 @@ async function handleInitiateOrder(to, text) {
     await handleNewOrderFromMenu(to, text);
   } else {
     // Si solo es la intención, guía al usuario.
-    const guideText = `¡Genial! Para tomar tu pedido de la forma más rápida y sin errores, por favor, créalo en nuestro menú interactivo y cuando termines, copia y pega el resumen de tu orden aquí.\n\nAquí tienes el enlace: https://feyomx.github.io/menucapibobba/`;
+    const guideText = `¡Genial! Para tomar tu pedido de la forma más rápida y sin errores, por favor, créalo en nuestro menú interactivo y cuando termines, copia y pega el resumen de tu orden aquí.
+
+Aquí tienes el enlace: https://feyomx.github.io/menucapibobba/`;
     await sendTextMessage(to, guideText);
   }
 }
@@ -1244,6 +1397,7 @@ async function sendTypingOn(to) {
   }
 }
 
+
 /**
  * Envía un mensaje a través de la API de WhatsApp.
  * @param {string} to El número de teléfono del destinatario.
@@ -1254,7 +1408,7 @@ async function sendMessage(to, payload) {
   // NUEVO: Registramos la respuesta del bot en n8n antes de enviarla.
   // Es una acción de "disparar y olvidar" para no retrasar la respuesta al usuario.
   // Esto nos permite tener un log de todas las comunicaciones salientes.
-  logBotResponseToN8n(to, payload);
+  registerBotResponseToN8n(to, payload);
 
   const url = `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`;
   const data = {
@@ -1275,6 +1429,7 @@ async function sendMessage(to, payload) {
     console.error('Error al enviar el mensaje:', error.response ? error.response.data : error.message);
   }
 }
+
 
 // --- Funciones de Logging ---
 
