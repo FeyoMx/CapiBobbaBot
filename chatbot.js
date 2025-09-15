@@ -593,6 +593,152 @@ Para continuar, necesito tu dirección de entrega:`
 
 // 8. FUNCIÓN AUXILIAR PARA EXTRAER INFORMACIÓN DEL PEDIDO
 /**
+ * Maneja los mensajes de texto procesando comandos, estados del usuario y consultas libres.
+ * @param {string} from El número del remitente.
+ * @param {string} text El texto del mensaje.
+ * @param {object} userState El estado actual del usuario.
+ */
+async function handleTextMessage(from, text, userState) {
+    console.log(`💬 Procesando mensaje de texto de ${from}: "${text}"`);
+    
+    // 1. Verificar si es un administrador
+    if (isAdmin(from)) {
+        await handleAdminMessage({ from, type: 'text', text: { body: text } });
+        return;
+    }
+
+    // 2. Manejar estados específicos del usuario
+    if (userState && userState.step) {
+        switch (userState.step) {
+            case 'awaiting_address':
+                await handleAddressResponse(from, text);
+                return;
+            
+            case 'awaiting_cash_denomination':
+                await handleCashDenominationResponse(from, text);
+                return;
+            
+            case 'in_conversation_with_admin':
+                // El usuario está en chat con un admin, reenviar el mensaje
+                const adminNumber = userState.admin;
+                await sendTextMessage(adminNumber, `👤 Cliente ${formatDisplayNumber(from)}: ${text}`);
+                return;
+                
+            default:
+                // Estado no reconocido, continuar con el procesamiento normal
+                break;
+        }
+    }
+
+    // 3. Normalizar el texto para búsqueda de comandos
+    const normalizedText = text.toLowerCase().trim();
+    
+    // 4. Buscar manejador de comandos
+    const commandHandler = findCommandHandler(normalizedText);
+    if (commandHandler) {
+        await commandHandler(from, normalizedText);
+        return;
+    }
+    
+    // 5. Si no se encontró comando, usar Gemini para responder
+    await handleFreeformQuery(from, text);
+}
+
+/**
+ * Maneja los mensajes interactivos (botones, listas).
+ * @param {string} from El número del remitente.
+ * @param {object} interactive El objeto interactive del mensaje.
+ * @param {object} userState El estado actual del usuario.
+ */
+async function handleInteractiveMessage(from, interactive, userState) {
+    console.log(`🎯 Procesando mensaje interactivo de ${from}:`, interactive);
+    
+    if (interactive.type === 'button_reply') {
+        const buttonId = interactive.button_reply?.id;
+        const buttonTitle = interactive.button_reply?.title;
+        
+        console.log(`Botón presionado: ${buttonId} - ${buttonTitle}`);
+        
+        // Verificar si hay un manejador específico para este botón
+        if (buttonCommandHandlers[buttonId]) {
+            await buttonCommandHandlers[buttonId](from);
+            return;
+        }
+        
+        // Manejar botones específicos del flujo de pedidos
+        if (userState && userState.step) {
+            switch (userState.step) {
+                case 'awaiting_access_code_info':
+                    if (buttonId === 'access_code_yes' || buttonId === 'access_code_no') {
+                        await handleAccessCodeResponse(from, buttonId);
+                        return;
+                    }
+                    break;
+                    
+                case 'awaiting_payment_method':
+                    if (buttonId === 'payment_cash' || buttonId === 'payment_transfer') {
+                        await handlePaymentMethodResponse(from, buttonId);
+                        return;
+                    }
+                    break;
+                    
+                case 'awaiting_address':
+                    if (buttonId === 'send_location') {
+                        await sendTextMessage(from, '📍 Por favor, envía tu ubicación usando el botón de WhatsApp para compartir ubicación.');
+                        return;
+                    } else if (buttonId === 'type_address') {
+                        await sendTextMessage(from, '✏️ Por favor, escribe tu dirección completa (calle, número, colonia, referencias).');
+                        return;
+                    }
+                    break;
+            }
+        }
+        
+        // Si no se maneja específicamente, responder de forma general
+        await sendTextMessage(from, 'He recibido tu selección. ¿En qué más puedo ayudarte?');
+    }
+}
+
+/**
+ * Maneja los mensajes de imagen.
+ * @param {string} from El número del remitente.
+ * @param {object} image El objeto image del mensaje.
+ * @param {object} userState El estado actual del usuario.
+ */
+async function handleImageMessage(from, image, userState) {
+    console.log(`📷 Procesando imagen de ${from}:`, image);
+    
+    // Verificar si el usuario está esperando un comprobante de pago
+    if (userState && userState.step === 'awaiting_payment_proof') {
+        await handlePaymentProofImage(from, image);
+        return;
+    }
+    
+    // Para otras imágenes, responder de forma general
+    await sendTextMessage(from, 'He recibido tu imagen. Si es un comprobante de pago, por favor asegúrate de que esté en el proceso de pedido correcto.');
+}
+
+/**
+ * Maneja los mensajes de ubicación.
+ * @param {string} from El número del remitente.
+ * @param {object} location El objeto location del mensaje.
+ * @param {object} userState El estado actual del usuario.
+ */
+async function handleLocationMessage(from, location, userState) {
+    console.log(`📍 Procesando ubicación de ${from}:`, location);
+    
+    // Verificar si el usuario está en el proceso de proporcionar su dirección
+    if (userState && userState.step === 'awaiting_address') {
+        const address = `Ubicación: Lat ${location.latitude}, Lng ${location.longitude}`;
+        await handleAddressResponse(from, address);
+        return;
+    }
+    
+    // Para ubicaciones fuera del flujo de pedidos
+    await sendTextMessage(from, 'He recibido tu ubicación. Si necesitas hacer un pedido, por favor usa el menú principal.');
+}
+
+/**
  * Extrae información relevante del texto del pedido
  */
 function extractOrderInfo(orderText) {
