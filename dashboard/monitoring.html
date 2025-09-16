@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CapiBobba - Monitor en Tiempo Real</title>
+    <link rel="stylesheet" href="css/monitoring.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+</head>
+<body>
+    <div class="monitoring-container">
+        <!-- Header -->
+        <header class="monitoring-header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <h1><i class="fas fa-chart-line"></i> CapiBobba Monitor</h1>
+                    <div class="connection-status">
+                        <span class="status-indicator" id="connection-status">
+                            <i class="fas fa-circle"></i> Conectando...
+                        </span>
+                    </div>
+                </div>
+
+                <div class="header-actions">
+                    <button class="btn btn-secondary" id="toggle-auto-refresh">
+                        <i class="fas fa-sync-alt"></i> Auto-refresh: ON
+                    </button>
+                    <button class="btn btn-primary" id="refresh-now">
+                        <i class="fas fa-refresh"></i> Actualizar
+                    </button>
+                    <button class="btn btn-danger" id="emergency-maintenance">
+                        <i class="fas fa-exclamation-triangle"></i> Mantenimiento
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- System Status Overview -->
+        <section class="status-overview">
+            <div class="status-card system-health" id="system-health-card">
+                <div class="status-icon">
+                    <i class="fas fa-heartbeat"></i>
+                </div>
+                <div class="status-info">
+                    <h3>Estado del Sistema</h3>
+                    <div class="status-value" id="system-status">Verificando...</div>
+                    <div class="status-detail" id="system-uptime">Uptime: --</div>
+                </div>
+            </div>
+
+            <div class="status-card bot-status" id="bot-status-card">
+                <div class="status-icon">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="status-info">
+                    <h3>Bot WhatsApp</h3>
+                    <div class="status-value" id="bot-status">Verificando...</div>
+                    <div class="status-detail" id="bot-response-time">Respuesta: --ms</div>
+                </div>
+            </div>
+
+            <div class="status-card webhook-status" id="webhook-status-card">
+                <div class="status-icon">
+                    <i class="fas fa-link"></i>
+                </div>
+                <div class="status-info">
+                    <h3>Webhook n8n</h3>
+                    <div class="status-value" id="webhook-status">Verificando...</div>
+                    <div class="status-detail" id="webhook-calls">Calls 24h: --</div>
+                </div>
+            </div>
+
+            <div class="status-card redis-status" id="redis-status-card">
+                <div class="status-icon">
+                    <i class="fas fa-database"></i>
+                </div>
+                <div class="status-info">
+                    <h3>Redis</h3>
+                    <div class="status-value" id="redis-status">Verificando...</div>
+                    <div class="status-detail" id="redis-memory">Memoria: --MB</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Column: Metrics -->
+            <div class="metrics-column">
+                <!-- System Resources -->
+                <div class="metric-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-server"></i> Recursos del Sistema</h3>
+                        <div class="card-actions">
+                            <button class="btn-icon" id="expand-system-metrics">
+                                <i class="fas fa-expand"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="metrics-grid">
+                            <div class="metric-item">
+                                <div class="metric-label">CPU</div>
+                                <div class="metric-value" id="cpu-usage">--%</div>
+                                <div class="metric-bar">
+                                    <div class="metric-fill" id="cpu-bar"></div>
+                                </div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">Memoria</div>
+                                <div class="metric-value" id="memory-usage">--%</div>
+                                <div class="metric-bar">
+                                    <div class="metric-fill" id="memory-bar"></div>
+                                </div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">Disco</div>
+                                <div class="metric-value" id="disk-usage">--%</div>
+                                <div class="metric-bar">
+                                    <div class="metric-fill" id="disk-bar"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <canvas id="system-chart" height="200"></canvas>
+                    </div>
+                </div>
+
+                <!-- Business Metrics -->
+                <div class="metric-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-chart-bar"></i> Métricas de Negocio</h3>
+                        <div class="time-selector">
+                            <select id="business-timeframe">
+                                <option value="1h">Última hora</option>
+                                <option value="24h" selected>Últimas 24h</option>
+                                <option value="7d">Última semana</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="business-metrics-grid">
+                            <div class="business-metric">
+                                <div class="metric-icon orders">
+                                    <i class="fas fa-shopping-cart"></i>
+                                </div>
+                                <div class="metric-data">
+                                    <div class="metric-number" id="orders-today">0</div>
+                                    <div class="metric-label">Pedidos Hoy</div>
+                                    <div class="metric-change positive" id="orders-change">--</div>
+                                </div>
+                            </div>
+
+                            <div class="business-metric">
+                                <div class="metric-icon revenue">
+                                    <i class="fas fa-dollar-sign"></i>
+                                </div>
+                                <div class="metric-data">
+                                    <div class="metric-number" id="revenue-today">$0</div>
+                                    <div class="metric-label">Ingresos 24h</div>
+                                    <div class="metric-change positive" id="revenue-change">--</div>
+                                </div>
+                            </div>
+
+                            <div class="business-metric">
+                                <div class="metric-icon messages">
+                                    <i class="fas fa-comments"></i>
+                                </div>
+                                <div class="metric-data">
+                                    <div class="metric-number" id="messages-hour">0</div>
+                                    <div class="metric-label">Mensajes/Hora</div>
+                                    <div class="metric-change neutral" id="messages-change">--</div>
+                                </div>
+                            </div>
+
+                            <div class="business-metric">
+                                <div class="metric-icon conversion">
+                                    <i class="fas fa-percentage"></i>
+                                </div>
+                                <div class="metric-data">
+                                    <div class="metric-number" id="conversion-rate">0%</div>
+                                    <div class="metric-label">Conversión</div>
+                                    <div class="metric-change positive" id="conversion-change">--</div>
+                                </div>
+                            </div>
+                        </div>
+                        <canvas id="business-chart" height="250"></canvas>
+                    </div>
+                </div>
+
+                <!-- Performance Metrics -->
+                <div class="metric-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-tachometer-alt"></i> Rendimiento</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="performance-metrics">
+                            <div class="perf-metric">
+                                <div class="perf-label">Tiempo de Respuesta</div>
+                                <div class="perf-value" id="avg-response-time">--ms</div>
+                                <div class="perf-trend" id="response-time-trend">
+                                    <i class="fas fa-arrow-up"></i>
+                                </div>
+                            </div>
+                            <div class="perf-metric">
+                                <div class="perf-label">Tasa de Error</div>
+                                <div class="perf-value" id="error-rate">--%</div>
+                                <div class="perf-trend" id="error-rate-trend">
+                                    <i class="fas fa-arrow-down"></i>
+                                </div>
+                            </div>
+                            <div class="perf-metric">
+                                <div class="perf-label">Throughput</div>
+                                <div class="perf-value" id="throughput">-- msg/s</div>
+                                <div class="perf-trend" id="throughput-trend">
+                                    <i class="fas fa-arrow-up"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <canvas id="performance-chart" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Alerts & Activity -->
+            <div class="activity-column">
+                <!-- Active Alerts -->
+                <div class="alert-panel">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-exclamation-triangle"></i> Alertas Activas</h3>
+                        <div class="alert-counter">
+                            <span id="alert-count">0</span>
+                        </div>
+                    </div>
+                    <div class="panel-content">
+                        <div class="alerts-container" id="alerts-container">
+                            <div class="no-alerts">
+                                <i class="fas fa-check-circle"></i>
+                                <p>No hay alertas activas</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Real-time Activity Feed -->
+                <div class="activity-panel">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-stream"></i> Actividad en Tiempo Real</h3>
+                        <div class="activity-controls">
+                            <button class="btn-icon" id="pause-activity">
+                                <i class="fas fa-pause"></i>
+                            </button>
+                            <button class="btn-icon" id="clear-activity">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="panel-content">
+                        <div class="activity-feed" id="activity-feed">
+                            <div class="activity-item system">
+                                <div class="activity-icon">
+                                    <i class="fas fa-cog"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <div class="activity-title">Monitor iniciado</div>
+                                    <div class="activity-time">Hace unos segundos</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Info -->
+                <div class="info-panel">
+                    <div class="panel-header">
+                        <h3><i class="fas fa-info-circle"></i> Información del Sistema</h3>
+                    </div>
+                    <div class="panel-content">
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <label>Versión Node.js</label>
+                                <span id="node-version">--</span>
+                            </div>
+                            <div class="info-item">
+                                <label>Platform</label>
+                                <span id="platform">--</span>
+                            </div>
+                            <div class="info-item">
+                                <label>Hostname</label>
+                                <span id="hostname">--</span>
+                            </div>
+                            <div class="info-item">
+                                <label>Última actualización</label>
+                                <span id="last-update">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Status Bar -->
+        <footer class="status-bar">
+            <div class="status-bar-left">
+                <span class="status-item">
+                    <i class="fas fa-circle" id="ws-status-icon"></i>
+                    WebSocket: <span id="ws-status-text">Desconectado</span>
+                </span>
+                <span class="status-item">
+                    <i class="fas fa-clock"></i>
+                    Último update: <span id="last-update-time">--</span>
+                </span>
+            </div>
+            <div class="status-bar-right">
+                <span class="status-item">
+                    <i class="fas fa-users"></i>
+                    Clientes conectados: <span id="connected-clients">0</span>
+                </span>
+                <span class="status-item">
+                    <i class="fas fa-exchange-alt"></i>
+                    Mensajes: <span id="total-messages">0</span>
+                </span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal" id="maintenance-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Modo Mantenimiento</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que quieres activar el modo mantenimiento?</p>
+                <p>Esto impedirá que el bot procese nuevos pedidos.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancel-maintenance">Cancelar</button>
+                <button class="btn btn-danger" id="confirm-maintenance">Activar Mantenimiento</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/monitoring-client.js"></script>
+</body>
+</html>

@@ -10,6 +10,12 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { BUSINESS_CONTEXT } = require('./business_data'); // Importa el contexto del negocio
 const path = require('path');
 
+// === SISTEMA DE MONITOREO ===
+const MetricsCollector = require('./monitoring/metrics');
+const HealthChecker = require('./monitoring/health-checker');
+const MonitoringWebSocketServer = require('./monitoring/websocket-server');
+const cron = require('node-cron');
+
 // --- CONFIGURACIÓN ---
 // Lee las variables de entorno de forma segura. ¡No dejes tokens en el código!
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
@@ -38,6 +44,14 @@ app.use(bodyParser.json());
 
 // Servir la aplicación de React
 app.use('/dashboard', express.static(path.join(__dirname, 'dashboard/build')));
+// Servir archivos estáticos del dashboard de monitoreo
+app.use('/css', express.static(path.join(__dirname, 'dashboard/css')));
+app.use('/js', express.static(path.join(__dirname, 'dashboard/js')));
+
+// === VARIABLES GLOBALES PARA MONITOREO ===
+let metricsCollector = null;
+let healthChecker = null;
+let wsServer = null;
 
 
 
@@ -1791,6 +1805,241 @@ app.delete('/api/redis-states/:key', async (req, res) => {
     console.error(`Error al eliminar estado para la clave ${key}:`, error);
     res.status(500).json({ error: 'Error al eliminar estado de Redis.' });
   }
+});
+
+// === SISTEMA DE MONITOREO ===
+
+// Inicialización del sistema de monitoreo
+async function initializeMonitoring() {
+    try {
+        console.log('🚀 Inicializando sistema de monitoreo...');
+
+        // Inicializar MetricsCollector
+        metricsCollector = new MetricsCollector(redisClient, {
+            webhookUrl: N8N_WEBHOOK_URL,
+            whatsappToken: WHATSAPP_TOKEN,
+            phoneNumberId: PHONE_NUMBER_ID,
+            whatsappApiVersion: WHATSAPP_API_VERSION,
+            maintenanceModeKey: MAINTENANCE_MODE_KEY
+        });
+
+        // Inicializar HealthChecker
+        healthChecker = new HealthChecker(metricsCollector, {
+            checkInterval: parseInt(process.env.HEALTH_CHECK_INTERVAL) || 30000,
+            cpuThreshold: parseInt(process.env.CPU_THRESHOLD) || 80,
+            memoryThreshold: parseInt(process.env.MEMORY_THRESHOLD) || 85,
+            responseTimeThreshold: parseInt(process.env.RESPONSE_TIME_THRESHOLD) || 5000,
+            errorRateThreshold: parseFloat(process.env.ERROR_RATE_THRESHOLD) || 0.05,
+            telegramToken: process.env.TELEGRAM_BOT_TOKEN,
+            telegramChatId: process.env.TELEGRAM_CHAT_ID
+        });
+
+        // Inicializar WebSocket Server
+        const wsPort = parseInt(process.env.WEBSOCKET_PORT) || 3001;
+        wsServer = new MonitoringWebSocketServer(metricsCollector, healthChecker, wsPort);
+
+        console.log('✅ Sistema de monitoreo inicializado exitosamente');
+
+        // Programar tareas de mantenimiento
+        scheduleMaintenanceTasks();
+
+    } catch (error) {
+        console.error('❌ Error inicializando sistema de monitoreo:', error);
+    }
+}
+
+// Tareas de mantenimiento programadas
+function scheduleMaintenanceTasks() {
+    // Backup diario a las 3 AM
+    cron.schedule(process.env.BACKUP_SCHEDULE || '0 3 * * *', async () => {
+        try {
+            console.log('🔄 Ejecutando backup diario...');
+            await createSystemBackup();
+        } catch (error) {
+            console.error('❌ Error en backup diario:', error);
+            if (metricsCollector) {
+                metricsCollector.recordError('backup');
+            }
+        }
+    });
+
+    // Limpieza semanal los domingos a las 2 AM
+    cron.schedule(process.env.CLEANUP_SCHEDULE || '0 2 * * 0', async () => {
+        try {
+            console.log('🧹 Ejecutando limpieza semanal...');
+            await cleanupOldData();
+        } catch (error) {
+            console.error('❌ Error en limpieza:', error);
+        }
+    });
+}
+
+// Crear backup del sistema
+async function createSystemBackup() {
+    try {
+        const backupData = {
+            timestamp: new Date().toISOString(),
+            version: require('./package.json').version,
+
+            // Estados de usuarios activos
+            userStates: await getAllUserStates(),
+
+            // Configuración del bot
+            configuration: {
+                adminNumbers: ADMIN_WHATSAPP_NUMBERS.split(','),
+                maintenanceMode: await redisClient.get(MAINTENANCE_MODE_KEY),
+                phoneNumberId: PHONE_NUMBER_ID
+            },
+
+            // Métricas del sistema
+            systemMetrics: metricsCollector ? await metricsCollector.getSystemMetrics() : null,
+
+            // Estado de salud
+            healthStatus: healthChecker ? await healthChecker.performHealthCheck() : null
+        };
+
+        // Guardar en Redis como backup
+        await redisClient.setEx('system:backup:latest', 604800, JSON.stringify(backupData)); // 7 días
+
+        console.log('✅ Backup del sistema creado exitosamente');
+        return backupData;
+
+    } catch (error) {
+        console.error('❌ Error creando backup:', error);
+        throw error;
+    }
+}
+
+// Obtener todos los estados de usuario
+async function getAllUserStates() {
+    try {
+        const keys = await redisClient.keys('*');
+        const userStates = {};
+
+        for (const key of keys) {
+            if (key.match(/^\d+$/)) { // Solo claves que son números (estados de usuario)
+                const state = await redisClient.get(key);
+                if (state) {
+                    userStates[key] = JSON.parse(state);
+                }
+            }
+        }
+
+        return userStates;
+    } catch (error) {
+        console.error('Error obteniendo estados de usuario:', error);
+        return {};
+    }
+}
+
+// Limpiar datos antiguos
+async function cleanupOldData() {
+    try {
+        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+        const keys = await redisClient.keys('metrics:*');
+        let cleanedCount = 0;
+
+        for (const key of keys) {
+            const ttl = await redisClient.ttl(key);
+            if (ttl < 0) {
+                const keyData = await redisClient.get(key);
+                if (keyData) {
+                    const data = JSON.parse(keyData);
+                    if (data.timestamp && new Date(data.timestamp).getTime() < thirtyDaysAgo) {
+                        await redisClient.del(key);
+                        cleanedCount++;
+                    }
+                }
+            }
+        }
+
+        console.log(`🧹 Limpieza completada: ${cleanedCount} métricas antiguas eliminadas`);
+
+    } catch (error) {
+        console.error('❌ Error en limpieza:', error);
+    }
+}
+
+// === ENDPOINTS DE MONITOREO ===
+
+// Endpoint para métricas
+app.get('/api/metrics', async (req, res) => {
+    try {
+        if (!metricsCollector) {
+            return res.status(503).json({ error: 'Sistema de monitoreo no disponible' });
+        }
+        const metrics = await metricsCollector.getSystemMetrics();
+        res.json(metrics);
+    } catch (error) {
+        console.error('Error obteniendo métricas:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Endpoint para estado de salud
+app.get('/api/health', async (req, res) => {
+    try {
+        if (!healthChecker) {
+            return res.status(503).json({ error: 'Health checker no disponible' });
+        }
+        const health = await healthChecker.performHealthCheck();
+        res.json(health);
+    } catch (error) {
+        console.error('Error obteniendo estado de salud:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Endpoint para dashboard de monitoreo
+app.get('/monitoring', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dashboard', 'monitoring.html'));
+});
+
+// Endpoint para backup manual
+app.post('/api/backup', async (req, res) => {
+    try {
+        const backup = await createSystemBackup();
+        res.json({
+            success: true,
+            message: 'Backup creado exitosamente',
+            timestamp: backup.timestamp
+        });
+    } catch (error) {
+        console.error('Error creando backup:', error);
+        res.status(500).json({ error: 'Error creando backup' });
+    }
+});
+
+// Inicializar monitoreo cuando Redis esté listo
+redisClient.on('ready', async () => {
+    try {
+        await initializeMonitoring();
+        console.log('🎯 Sistema completo inicializado');
+    } catch (error) {
+        console.error('❌ Error en inicialización de monitoreo:', error);
+    }
+});
+
+// Manejo de cierre limpio
+process.on('SIGINT', async () => {
+    console.log('\n🔄 Cerrando sistema...');
+
+    try {
+        if (metricsCollector) {
+            await createSystemBackup();
+        }
+
+        if (wsServer) {
+            wsServer.close();
+        }
+
+        console.log('✅ Sistema cerrado limpiamente');
+        process.exit(0);
+
+    } catch (error) {
+        console.error('❌ Error en cierre:', error);
+        process.exit(1);
+    }
 });
 
 app.listen(PORT, () => {
