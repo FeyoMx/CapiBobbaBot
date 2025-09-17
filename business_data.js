@@ -145,5 +145,6 @@ const BUSINESS_CONTEXT = generateBusinessContext(businessData);
 // Exportamos el contexto para que el chatbot.js pueda usarlo sin cambios.
 module.exports = {
     BUSINESS_CONTEXT,
-    businessData // Opcional: exportar también el objeto por si se necesita en otro lado
+    businessData, // Opcional: exportar también el objeto por si se necesita en otro lado
+    generateBusinessContext // Exportar también la función para testing
 };

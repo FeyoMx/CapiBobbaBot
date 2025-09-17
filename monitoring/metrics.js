@@ -104,7 +104,17 @@ class MetricsCollector {
             };
         } catch (error) {
             console.error('Error obteniendo métricas de CPU:', error);
-            return { error: 'Unable to fetch CPU metrics' };
+            // Fallback básico usando información del proceso
+            return {
+                currentLoad: 0,
+                avgLoad: 0,
+                temperature: null,
+                cores: require('os').cpus().length,
+                usage1min: 0,
+                usage5min: 0,
+                usage15min: 0,
+                error: 'Limited CPU metrics available'
+            };
         }
     }
 
@@ -113,10 +123,10 @@ class MetricsCollector {
             const mem = await si.mem();
             const processMemory = process.memoryUsage();
 
-            // Agregar a histórico
+            // Agregar a histórico (memoria optimizada)
             const memUsagePercent = (mem.used / mem.total) * 100;
             this.performance.memoryUsage.push(memUsagePercent);
-            if (this.performance.memoryUsage.length > 60) {
+            if (this.performance.memoryUsage.length > 12) {
                 this.performance.memoryUsage.shift();
             }
 
@@ -135,7 +145,26 @@ class MetricsCollector {
             };
         } catch (error) {
             console.error('Error obteniendo métricas de memoria:', error);
-            return { error: 'Unable to fetch memory metrics' };
+            // Fallback usando solo métricas del proceso
+            const processMemory = process.memoryUsage();
+            const totalSystemMemory = require('os').totalmem();
+            const freeSystemMemory = require('os').freemem();
+            const usedSystemMemory = totalSystemMemory - freeSystemMemory;
+
+            return {
+                total: Math.round(totalSystemMemory / 1024 / 1024), // MB
+                used: Math.round(usedSystemMemory / 1024 / 1024), // MB
+                free: Math.round(freeSystemMemory / 1024 / 1024), // MB
+                usagePercent: Math.round((usedSystemMemory / totalSystemMemory) * 100 * 100) / 100,
+                process: {
+                    rss: Math.round(processMemory.rss / 1024 / 1024), // MB
+                    heapUsed: Math.round(processMemory.heapUsed / 1024 / 1024), // MB
+                    heapTotal: Math.round(processMemory.heapTotal / 1024 / 1024), // MB
+                    external: Math.round(processMemory.external / 1024 / 1024) // MB
+                },
+                trend: 'stable',
+                error: 'Limited memory metrics available'
+            };
         }
     }
 
@@ -392,25 +421,8 @@ class MetricsCollector {
     }
 
     // Limpieza automática de memoria optimizada
-    async cleanupOldMetrics() {
+    async cleanupMemoryMetrics() {
         try {
-            const keys = await this.redis.keys('metrics:*');
-            const now = Date.now();
-            const cleanupPromises = [];
-
-            for (const key of keys) {
-                const ttl = await this.redis.ttl(key);
-                // Si la clave no tiene TTL o tiene más de 24 horas, eliminarla
-                if (ttl === -1 || ttl > 86400) {
-                    cleanupPromises.push(this.redis.del(key));
-                }
-            }
-
-            if (cleanupPromises.length > 0) {
-                await Promise.all(cleanupPromises);
-                console.log(`🧹 Limpieza automática: ${cleanupPromises.length} métricas antiguas eliminadas`);
-            }
-
             // Limpiar arrays en memoria si están creciendo demasiado
             if (this.performance.responseTime.length > 20) {
                 this.performance.responseTime = this.performance.responseTime.slice(-10);
@@ -422,8 +434,9 @@ class MetricsCollector {
                 this.performance.memoryUsage = this.performance.memoryUsage.slice(-6);
             }
 
+            console.log('🧹 Arrays de memoria optimizados');
         } catch (error) {
-            console.error('Error en limpieza de métricas:', error);
+            console.error('Error en limpieza de memoria:', error);
         }
     }
 
@@ -449,11 +462,16 @@ class MetricsCollector {
     // === RECOLECCIÓN AUTOMÁTICA ===
 
     startMetricsCollection() {
+        console.log('🚀 Iniciando sistema de métricas...');
+
         // Recolectar métricas de sistema cada minuto
         setInterval(async () => {
             try {
+                console.log('📊 Recolectando métricas del sistema...');
                 const metrics = await this.getSystemMetrics();
                 await this.setMetricInRedis('system:latest', metrics, 300); // 5 minutos
+
+                console.log(`✅ Métricas guardadas - CPU: ${metrics.system.cpu.currentLoad}%, Memoria: ${metrics.system.memory.usagePercent}%`);
 
                 // Limpiar métricas antiguas cada hora
                 if (Date.now() - this.timestamps.lastMetricReset > 60 * 60 * 1000) {
@@ -461,11 +479,23 @@ class MetricsCollector {
                     this.timestamps.lastMetricReset = Date.now();
                 }
             } catch (error) {
-                console.error('Error en recolección de métricas:', error);
+                console.error('❌ Error en recolección de métricas:', error);
             }
         }, 60000); // Cada minuto
 
-        console.log('🚀 Sistema de métricas iniciado');
+        // Ejecutar una recolección inicial inmediatamente
+        setTimeout(async () => {
+            try {
+                console.log('🔄 Ejecutando recolección inicial de métricas...');
+                const metrics = await this.getSystemMetrics();
+                await this.setMetricInRedis('system:latest', metrics, 300);
+                console.log('✅ Métricas iniciales guardadas exitosamente');
+            } catch (error) {
+                console.error('❌ Error en recolección inicial:', error);
+            }
+        }, 5000); // Después de 5 segundos
+
+        console.log('🚀 Sistema de métricas iniciado exitosamente');
     }
 
     async cleanupOldMetrics() {

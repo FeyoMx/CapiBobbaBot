@@ -155,7 +155,12 @@ app.post('/webhook', async (req, res) => {
                     }
 
                     // Procesar el mensaje normalmente
-                    await processIncomingMessage(message);
+                    try {
+                        await processIncomingMessage(message);
+                    } catch (processingError) {
+                        console.error('❌ Error procesando mensaje específico:', processingError);
+                        // Continuar con el siguiente mensaje en lugar de fallar completamente
+                    }
                 }
             }
         }
@@ -648,12 +653,15 @@ async function handleTextMessage(from, text, userState) {
     const normalizedText = text.toLowerCase().trim();
     
     // 4. Buscar manejador de comandos
+    console.log(`🔍 Buscando comando para texto normalizado: "${normalizedText}"`);
     const commandHandler = findCommandHandler(normalizedText);
     if (commandHandler) {
+        console.log(`✅ Comando encontrado, ejecutando handler`);
         await commandHandler(from, normalizedText);
         return;
     }
-    
+
+    console.log(`⚠️ No se encontró comando específico, usando Gemini para: "${text}"`);
     // 5. Si no se encontró comando, usar Gemini para responder
     await handleFreeformQuery(from, text);
 }
@@ -1086,16 +1094,25 @@ const commandHandlers = [
  * @returns {Function|null} La función manejadora o null si no se encuentra.
  */
 function findCommandHandler(text) {
+  console.log(`🔎 Verificando comandos para: "${text}"`);
+
   for (const command of commandHandlers) {
+    console.log(`📋 Verificando comando: ${command.name}`);
+
     // Estrategia 1: Función de match personalizada (la más flexible)
     if (command.match && command.match(text)) {
+      console.log(`✅ Match encontrado con función personalizada: ${command.name}`);
       return command.handler;
     }
+
     // Estrategia 2: Coincidencia por palabras clave
     if (command.keywords && command.keywords.some(keyword => text.includes(keyword))) {
+      console.log(`✅ Match encontrado con palabra clave: ${command.name}`);
       return command.handler;
     }
   }
+
+  console.log(`❌ No se encontró ningún comando para: "${text}"`);
   // Si ninguna de las palabras clave coincide, no devolvemos nada para que lo maneje Gemini.
   return null;
 }
@@ -1212,17 +1229,23 @@ async function handleServiceStatusCheck(to, text) {
  * @param {string} text El texto completo del mensaje del usuario.
  */
 async function handleInitiateOrder(to, text) {
+  console.log(`🚀 INICIANDO INTENCIÓN DE PEDIDO para ${to}`);
+  console.log(`📝 Texto recibido: "${text}"`);
+
   // NUEVO: Verificación del modo "fuera de servicio"
   const isMaintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY) === 'true';
   if (isMaintenanceMode) {
+    console.log(`⚠️ Intención de pedido rechazada por modo mantenimiento`);
     await sendTextMessage(to, '¡Hola! En este momento no estamos tomando pedidos, pero con gusto puedo darte información sobre nuestro menú o promociones. ¿En qué te puedo ayudar? 😊');
     return;
   }
 
   // Comprueba si el texto del mensaje ya contiene un pedido formateado con el texto correcto.
   if (text.toLowerCase().includes('total del pedido:')) {
+    console.log(`✅ Pedido completo detectado, procesando directamente`);
     await handleNewOrderFromMenu(to, text);
   } else {
+    console.log(`📋 Solo intención de pedido, enviando guía del menú`);
     // Si solo es la intención, guía al usuario.
     const guideText = `¡Genial! Para tomar tu pedido de la forma más rápida y sin errores, por favor, créalo en nuestro menú interactivo y cuando termines, copia y pega el resumen de tu orden aquí.
 
@@ -1306,12 +1329,20 @@ function buildAdminNotification(title, userState, from, extraDetails = {}) {
  * @param {string} orderText El texto completo del pedido del cliente.
  */
 async function handleNewOrderFromMenu(to, orderText) {
+  console.log(`🛒 INICIANDO PROCESO DE PEDIDO para ${to}`);
+  console.log(`📋 Texto del pedido: ${orderText.substring(0, 200)}...`);
+
   // NUEVO: Verificación del modo "fuera de servicio"
   const isMaintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY) === 'true';
+  console.log(`🔧 Modo mantenimiento: ${isMaintenanceMode}`);
+
   if (isMaintenanceMode) {
+    console.log(`⚠️ Pedido rechazado por modo mantenimiento`);
     await sendTextMessage(to, '¡Hola! En este momento no estamos tomando pedidos, pero con gusto puedo darte información sobre nuestro menú o promociones. ¿En qué te puedo ayudar? 😊');
     return;
   }
+
+  console.log(`✅ Procesando pedido normalmente`);
 
   const totalMatch = orderText.match(/Total del pedido: $(\d+\.\d{2})/i);
   const total = totalMatch ? totalMatch[1] : null;
@@ -1834,8 +1865,13 @@ async function initializeMonitoring() {
             telegramChatId: process.env.TELEGRAM_CHAT_ID
         });
 
-        // Inicializar WebSocket Server usando el servidor HTTP principal
-        wsServer = new MonitoringWebSocketServer(metricsCollector, healthChecker, server);
+        // Inicializar WebSocket Server usando el servidor HTTP principal con manejo de errores
+        try {
+            wsServer = new MonitoringWebSocketServer(metricsCollector, healthChecker, server);
+        } catch (wsError) {
+            console.error('❌ Error inicializando WebSocket server:', wsError);
+            // Continuar sin WebSocket si hay problemas
+        }
 
         console.log('✅ Sistema de monitoreo inicializado exitosamente');
 
@@ -1877,7 +1913,7 @@ function scheduleMaintenanceTasks() {
         try {
             console.log('🧹 Ejecutando limpieza de memoria...');
             if (metricsCollector) {
-                await metricsCollector.cleanupOldMetrics();
+                await metricsCollector.cleanupMemoryMetrics();
             }
 
             // Forzar garbage collection si está disponible
@@ -2062,6 +2098,14 @@ const server = http.createServer(app);
 server.listen(PORT, () => {
   console.log(`Servidor escuchando en el puerto ${PORT}`);
 
-  // Inicializar sistema de monitoreo
-  initializeMonitoring();
+  // Inicializar sistema de monitoreo con manejo de errores
+  setTimeout(async () => {
+    try {
+      await initializeMonitoring();
+      console.log('✅ Sistema de monitoreo inicializado correctamente');
+    } catch (error) {
+      console.error('❌ Error inicializando monitoreo (continuando sin monitoreo):', error);
+      // El chatbot continuará funcionando sin monitoreo
+    }
+  }, 2000); // Esperar 2 segundos para asegurar que todo esté listo
 });
