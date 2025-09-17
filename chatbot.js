@@ -157,6 +157,11 @@ app.post('/webhook', async (req, res) => {
                     // Procesar el mensaje normalmente
                     try {
                         await processIncomingMessage(message);
+
+                        // Registrar actividad del bot para monitoreo interno
+                        if (metricsCollector) {
+                            await metricsCollector.setMetricInRedis('bot:last_activity', Date.now(), 7200); // 2 horas
+                        }
                     } catch (processingError) {
                         console.error('❌ Error procesando mensaje específico:', processingError);
                         // Continuar con el siguiente mensaje en lugar de fallar completamente
@@ -239,6 +244,8 @@ app.post('/api/business-data', (req, res) => {
         res.json({ success: true });
     });
 });
+
+// Nota: Las encuestas son manejadas por n8n, no necesitamos endpoints para enviarlas
 
 // --- LÓGICA DEL BOT ---
 
@@ -649,10 +656,17 @@ async function handleTextMessage(from, text, userState) {
         }
     }
 
-    // 3. Normalizar el texto para búsqueda de comandos
+    // 3. Verificar si es una posible respuesta de encuesta de satisfacción (0-5)
+    const surveyResponse = await detectSurveyResponse(from, text);
+    if (surveyResponse !== null) {
+        await handleSurveyResponse(from, surveyResponse);
+        return;
+    }
+
+    // 4. Normalizar el texto para búsqueda de comandos
     const normalizedText = text.toLowerCase().trim();
-    
-    // 4. Buscar manejador de comandos
+
+    // 5. Buscar manejador de comandos
     console.log(`🔍 Buscando comando para texto normalizado: "${normalizedText}"`);
     const commandHandler = findCommandHandler(normalizedText);
     if (commandHandler) {
@@ -662,7 +676,7 @@ async function handleTextMessage(from, text, userState) {
     }
 
     console.log(`⚠️ No se encontró comando específico, usando Gemini para: "${text}"`);
-    // 5. Si no se encontró comando, usar Gemini para responder
+    // 6. Si no se encontró comando, usar Gemini para responder
     await handleFreeformQuery(from, text);
 }
 
@@ -998,6 +1012,122 @@ Total del pedido: $75.00
         case 'hola admin':
             await sendTextMessage(from, `🤖 Saludos, administrador. Estoy a tu disposición. Puedes usar "hablar con <numero>" para chatear con un cliente.`);
             break;
+    }
+}
+
+/**
+ * Detecta si un mensaje de texto contiene una respuesta de encuesta de satisfacción.
+ * Esta función es universal y funciona para pedidos de cualquier canal.
+ * @param {string} from El número del remitente.
+ * @param {string} text El texto del mensaje.
+ * @returns {number|null} El rating numérico (0-5) si es una respuesta válida, null en caso contrario.
+ */
+async function detectSurveyResponse(from, text) {
+    // Limpiar el texto y extraer solo números
+    const cleanText = text.trim();
+
+    // Buscar un número entre 0 y 5 en el mensaje
+    const ratingMatch = cleanText.match(/^[0-5]$/);
+
+    if (!ratingMatch) {
+        // Si no es un número simple 0-5, buscar patrones más complejos
+        const complexMatch = cleanText.match(/(?:calific|punt|rate|star|estrell)[^\d]*([0-5])/i) ||
+                            cleanText.match(/([0-5])\s*(?:de\s*5|\/5|\*|star|estrell)/i) ||
+                            cleanText.match(/^.*?([0-5]).*$/);
+
+        if (!complexMatch) {
+            return null;
+        }
+
+        const potentialRating = parseInt(complexMatch[1]);
+        if (potentialRating < 0 || potentialRating > 5) {
+            return null;
+        }
+
+        // Para patrones complejos, verificar que el mensaje tenga contexto de calificación
+        const hasRatingContext = /calific|punt|rate|star|estrell|satisf|servicio|experiencia|opinion/i.test(cleanText);
+        if (!hasRatingContext && cleanText.length > 3) {
+            return null; // Probable que no sea una calificación
+        }
+
+        return potentialRating;
+    }
+
+    const rating = parseInt(ratingMatch[0]);
+
+    // Verificar si el usuario tiene actividad reciente o es conocido
+    try {
+        const userState = await getUserState(from);
+
+        // Si el usuario tiene un estado activo, es más probable que sea una respuesta de encuesta
+        if (userState && userState.state) {
+            console.log(`🎯 Usuario ${from} tiene estado activo: ${userState.state}, interpretando ${rating} como encuesta`);
+            return rating;
+        }
+
+        // Verificar si hay registros recientes de este usuario (últimas 24 horas)
+        const recentActivity = await checkRecentUserActivity(from);
+        if (recentActivity) {
+            console.log(`🎯 Usuario ${from} tiene actividad reciente, interpretando ${rating} como encuesta`);
+            return rating;
+        }
+
+        // Si no hay contexto pero es un número válido y el mensaje es muy corto, asumir que es encuesta
+        if (cleanText.length <= 2) {
+            console.log(`🎯 Mensaje muy corto (${cleanText}) de ${from}, interpretando como posible encuesta`);
+            return rating;
+        }
+
+    } catch (error) {
+        console.error('Error verificando contexto de usuario para encuesta:', error);
+        // En caso de error, si es un número simple, asumir que es encuesta
+        if (cleanText.length <= 2) {
+            return rating;
+        }
+    }
+
+    return null;
+}
+
+// Nota: Las encuestas son enviadas por n8n cuando se registra la entrega en Google Sheets
+// Este sistema solo detecta y procesa las respuestas de encuesta
+
+/**
+ * Verifica si un usuario ha tenido actividad reciente (últimas 24 horas).
+ * @param {string} from El número del usuario.
+ * @returns {boolean} True si hay actividad reciente, false en caso contrario.
+ */
+async function checkRecentUserActivity(from) {
+    try {
+        // Buscar en logs de mensajes recientes
+        const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
+
+        // Verificar si hay logs de este usuario en las últimas 24 horas
+        // Esto es una implementación simple - en un sistema más robusto usarías una base de datos
+        const fs = require('fs').promises;
+
+        try {
+            const logsPath = './logs/orders.log';
+            const logsContent = await fs.readFile(logsPath, 'utf8');
+            const recentLogs = logsContent.split('\n')
+                .filter(line => line.includes(from))
+                .filter(line => {
+                    const match = line.match(/^\[([\d\-T:\.Z]+)\]/);
+                    if (match) {
+                        const logTime = new Date(match[1]).getTime();
+                        return logTime > twentyFourHoursAgo;
+                    }
+                    return false;
+                });
+
+            return recentLogs.length > 0;
+        } catch (fileError) {
+            // Si no se puede leer el archivo de logs, asumir que no hay actividad reciente
+            return false;
+        }
+    } catch (error) {
+        console.error('Error verificando actividad reciente:', error);
+        return false;
     }
 }
 
@@ -1563,7 +1693,7 @@ async function handlePaymentProofImage(from, imageObject) {
   logOrderToFile(finalState); // Log the completed order
 
   console.log(`Pedido finalizado y comprobante reenviado para ${from}.`);
-  
+
   // 5. Limpiar el estado del usuario
   await deleteUserState(from); // <-- CORRECCIÓN: Usar la función async de Redis.
 }
