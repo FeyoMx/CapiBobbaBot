@@ -3,12 +3,22 @@ const WebSocket = require('ws');
 const http = require('http');
 
 class MonitoringWebSocketServer {
-    constructor(metricsCollector, healthChecker, port = 3001) {
+    constructor(metricsCollector, healthChecker, serverOrPort = 3001) {
         this.metrics = metricsCollector;
         this.health = healthChecker;
-        this.port = port;
+
+        // Determinar si se pasó un servidor HTTP o un puerto
+        if (typeof serverOrPort === 'number') {
+            this.port = serverOrPort;
+            this.server = null;
+            this.useExistingServer = false;
+        } else {
+            this.server = serverOrPort;
+            this.port = null;
+            this.useExistingServer = true;
+        }
+
         this.clients = new Set();
-        this.server = null;
         this.wss = null;
 
         // Configuración de broadcast
@@ -28,57 +38,74 @@ class MonitoringWebSocketServer {
 
     initializeWebSocketServer() {
         try {
-            // Crear servidor HTTP para WebSocket
-            this.server = http.createServer((req, res) => {
-                // Health check endpoint
-                if (req.url === '/health') {
-                    res.writeHead(200, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({
-                        status: 'healthy',
-                        stats: this.stats,
-                        uptime: Date.now() - this.stats.startTime
-                    }));
-                    return;
-                }
+            if (this.useExistingServer) {
+                // Usar servidor HTTP existente
+                console.log('🌐 Configurando WebSocket en servidor HTTP existente');
 
-                // Endpoint de estadísticas del WebSocket
-                if (req.url === '/ws-stats') {
-                    res.writeHead(200, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({
-                        ...this.stats,
-                        uptime: Date.now() - this.stats.startTime,
-                        connectedClients: Array.from(this.clients).map(client => ({
-                            id: client.id,
-                            connectedAt: client.connectedAt,
-                            lastPing: client.lastPing,
-                            subscriptions: client.subscriptions
-                        }))
-                    }));
-                    return;
-                }
+                // Crear servidor WebSocket usando el servidor existente
+                this.wss = new WebSocket.Server({
+                    server: this.server,
+                    clientTracking: true,
+                    perMessageDeflate: true
+                });
 
-                res.writeHead(404);
-                res.end('Not Found');
-            });
+            } else {
+                // Crear servidor HTTP nuevo para WebSocket (modo desarrollo)
+                this.server = http.createServer((req, res) => {
+                    // Health check endpoint
+                    if (req.url === '/health') {
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({
+                            status: 'healthy',
+                            stats: this.stats,
+                            uptime: Date.now() - this.stats.startTime
+                        }));
+                        return;
+                    }
 
-            // Crear servidor WebSocket
-            this.wss = new WebSocket.Server({
-                server: this.server,
-                clientTracking: true,
-                perMessageDeflate: true
-            });
+                    // Endpoint de estadísticas del WebSocket
+                    if (req.url === '/ws-stats') {
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({
+                            ...this.stats,
+                            uptime: Date.now() - this.stats.startTime,
+                            connectedClients: Array.from(this.clients).map(client => ({
+                                id: client.id,
+                                connectedAt: client.connectedAt,
+                                lastPing: client.lastPing,
+                                subscriptions: client.subscriptions
+                            }))
+                        }));
+                        return;
+                    }
+
+                    res.writeHead(404);
+                    res.end('Not Found');
+                });
+
+                // Crear servidor WebSocket
+                this.wss = new WebSocket.Server({
+                    server: this.server,
+                    clientTracking: true,
+                    perMessageDeflate: true
+                });
+
+                // Iniciar servidor solo si no estamos usando uno existente
+                this.server.listen(this.port, () => {
+                    console.log(`🌐 WebSocket server iniciado en puerto ${this.port}`);
+                    console.log(`📊 Health check disponible en http://localhost:${this.port}/health`);
+                    console.log(`📈 WebSocket stats en http://localhost:${this.port}/ws-stats`);
+                });
+            }
 
             this.setupWebSocketHandlers();
 
-            // Iniciar servidor
-            this.server.listen(this.port, () => {
-                console.log(`🌐 WebSocket server iniciado en puerto ${this.port}`);
-                console.log(`📊 Health check disponible en http://localhost:${this.port}/health`);
-                console.log(`📈 WebSocket stats en http://localhost:${this.port}/ws-stats`);
-            });
-
             // Iniciar broadcast de métricas
             this.startMetricsBroadcast();
+
+            if (this.useExistingServer) {
+                console.log('✅ WebSocket configurado en servidor HTTP principal');
+            }
 
         } catch (error) {
             console.error('❌ Error iniciando WebSocket server:', error);

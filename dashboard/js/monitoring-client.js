@@ -83,9 +83,19 @@ class MonitoringClient {
         try {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const host = window.location.hostname;
-            const port = '3001'; // Puerto del WebSocket server
 
-            this.ws = new WebSocket(`${protocol}//${host}:${port}`);
+            // En producción (Render.com), usar el mismo puerto que la aplicación
+            // En desarrollo local, usar puerto específico 3001
+            let wsUrl;
+            if (host === 'localhost' || host === '127.0.0.1') {
+                // Desarrollo local
+                wsUrl = `${protocol}//${host}:3001`;
+            } else {
+                // Producción - usar el mismo puerto/host
+                wsUrl = `${protocol}//${host}`;
+            }
+
+            this.ws = new WebSocket(wsUrl);
 
             this.ws.onopen = (event) => {
                 this.onWebSocketOpen(event);

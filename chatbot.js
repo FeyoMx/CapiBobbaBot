@@ -1834,9 +1834,8 @@ async function initializeMonitoring() {
             telegramChatId: process.env.TELEGRAM_CHAT_ID
         });
 
-        // Inicializar WebSocket Server
-        const wsPort = parseInt(process.env.WEBSOCKET_PORT) || 3001;
-        wsServer = new MonitoringWebSocketServer(metricsCollector, healthChecker, wsPort);
+        // Inicializar WebSocket Server usando el servidor HTTP principal
+        wsServer = new MonitoringWebSocketServer(metricsCollector, healthChecker, server);
 
         console.log('✅ Sistema de monitoreo inicializado exitosamente');
 
@@ -2010,14 +2009,9 @@ app.post('/api/backup', async (req, res) => {
     }
 });
 
-// Inicializar monitoreo cuando Redis esté listo
-redisClient.on('ready', async () => {
-    try {
-        await initializeMonitoring();
-        console.log('🎯 Sistema completo inicializado');
-    } catch (error) {
-        console.error('❌ Error en inicialización de monitoreo:', error);
-    }
+// Redis está listo
+redisClient.on('ready', () => {
+    console.log('🎯 Redis conectado y listo');
 });
 
 // Manejo de cierre limpio
@@ -2042,6 +2036,14 @@ process.on('SIGINT', async () => {
     }
 });
 
-app.listen(PORT, () => {
+// Crear servidor HTTP para integrar WebSocket
+const http = require('http');
+const server = http.createServer(app);
+
+// Inicializar monitoreo después de crear el servidor
+server.listen(PORT, () => {
   console.log(`Servidor escuchando en el puerto ${PORT}`);
+
+  // Inicializar sistema de monitoreo
+  initializeMonitoring();
 });
