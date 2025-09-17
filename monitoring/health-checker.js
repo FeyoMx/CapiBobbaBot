@@ -7,11 +7,11 @@ class HealthChecker {
         this.config = {
             checkInterval: config.checkInterval || 30000, // 30 segundos
             alertThresholds: {
-                cpuUsage: config.cpuThreshold || 80,
-                memoryUsage: config.memoryThreshold || 85,
-                responseTime: config.responseTimeThreshold || 5000,
-                errorRate: config.errorRateThreshold || 0.05, // 5%
-                diskSpace: config.diskThreshold || 90
+                cpuUsage: config.cpuThreshold || 90,        // Aumentado de 80 a 90
+                memoryUsage: config.memoryThreshold || 90,   // Aumentado de 85 a 90
+                responseTime: config.responseTimeThreshold || 8000, // Aumentado de 5000 a 8000
+                errorRate: config.errorRateThreshold || 0.1, // Aumentado de 5% a 10%
+                diskSpace: config.diskThreshold || 95       // Aumentado de 90 a 95
             },
             telegramBot: {
                 token: config.telegramToken,

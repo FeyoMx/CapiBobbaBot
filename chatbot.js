@@ -1871,6 +1871,24 @@ function scheduleMaintenanceTasks() {
             console.error('❌ Error en limpieza:', error);
         }
     });
+
+    // Limpieza de memoria cada 6 horas para optimización
+    cron.schedule('0 */6 * * *', async () => {
+        try {
+            console.log('🧹 Ejecutando limpieza de memoria...');
+            if (metricsCollector) {
+                await metricsCollector.cleanupOldMetrics();
+            }
+
+            // Forzar garbage collection si está disponible
+            if (global.gc) {
+                global.gc();
+                console.log('♻️ Garbage collection ejecutado');
+            }
+        } catch (error) {
+            console.error('❌ Error en limpieza de memoria:', error);
+        }
+    });
 }
 
 // Crear backup del sistema

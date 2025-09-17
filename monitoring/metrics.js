@@ -31,11 +31,11 @@ class MetricsCollector {
             lastBackup: 0
         };
 
-        // Métricas de rendimiento
+        // Métricas de rendimiento (optimizado para menor uso de memoria)
         this.performance = {
-            responseTime: new Array(100).fill(0),
-            memoryUsage: new Array(60).fill(0),
-            cpuUsage: new Array(60).fill(0)
+            responseTime: new Array(20).fill(0), // Reducido de 100 a 20
+            memoryUsage: new Array(12).fill(0),  // Reducido de 60 a 12 (12 intervalos de 5 min = 1 hora)
+            cpuUsage: new Array(12).fill(0)      // Reducido de 60 a 12
         };
 
         this.startMetricsCollection();
@@ -87,9 +87,9 @@ class MetricsCollector {
             const cpuLoad = await si.currentLoad();
             const cpuTemp = await si.cpuTemperature();
 
-            // Agregar a histórico
+            // Agregar a histórico (memoria optimizada)
             this.performance.cpuUsage.push(cpuLoad.currentLoad);
-            if (this.performance.cpuUsage.length > 60) {
+            if (this.performance.cpuUsage.length > 12) {
                 this.performance.cpuUsage.shift();
             }
 
@@ -226,9 +226,9 @@ class MetricsCollector {
 
             const responseTime = Date.now() - startTime;
 
-            // Agregar tiempo de respuesta al histórico
+            // Agregar tiempo de respuesta al histórico (memoria optimizada)
             this.performance.responseTime.push(responseTime);
-            if (this.performance.responseTime.length > 100) {
+            if (this.performance.responseTime.length > 20) {
                 this.performance.responseTime.shift();
             }
 
@@ -388,6 +388,42 @@ class MetricsCollector {
             await this.redis.setEx(key, expireSeconds, JSON.stringify(value));
         } catch (error) {
             console.error(`Error guardando métrica ${key}:`, error);
+        }
+    }
+
+    // Limpieza automática de memoria optimizada
+    async cleanupOldMetrics() {
+        try {
+            const keys = await this.redis.keys('metrics:*');
+            const now = Date.now();
+            const cleanupPromises = [];
+
+            for (const key of keys) {
+                const ttl = await this.redis.ttl(key);
+                // Si la clave no tiene TTL o tiene más de 24 horas, eliminarla
+                if (ttl === -1 || ttl > 86400) {
+                    cleanupPromises.push(this.redis.del(key));
+                }
+            }
+
+            if (cleanupPromises.length > 0) {
+                await Promise.all(cleanupPromises);
+                console.log(`🧹 Limpieza automática: ${cleanupPromises.length} métricas antiguas eliminadas`);
+            }
+
+            // Limpiar arrays en memoria si están creciendo demasiado
+            if (this.performance.responseTime.length > 20) {
+                this.performance.responseTime = this.performance.responseTime.slice(-10);
+            }
+            if (this.performance.cpuUsage.length > 12) {
+                this.performance.cpuUsage = this.performance.cpuUsage.slice(-6);
+            }
+            if (this.performance.memoryUsage.length > 12) {
+                this.performance.memoryUsage = this.performance.memoryUsage.slice(-6);
+            }
+
+        } catch (error) {
+            console.error('Error en limpieza de métricas:', error);
         }
     }
 

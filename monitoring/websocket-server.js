@@ -21,8 +21,8 @@ class MonitoringWebSocketServer {
         this.clients = new Set();
         this.wss = null;
 
-        // Configuración de broadcast
-        this.broadcastInterval = 5000; // 5 segundos
+        // Configuración de broadcast (optimizado para memoria)
+        this.broadcastInterval = 10000; // Aumentado de 5 a 10 segundos para reducir carga
         this.lastBroadcast = 0;
 
         // Estadísticas del servidor WebSocket
@@ -412,7 +412,7 @@ class MonitoringWebSocketServer {
             } catch (error) {
                 console.error('Error en broadcast de métricas:', error);
             }
-        }, 2000); // Verificar cada 2 segundos, pero respetar broadcastInterval
+        }, 5000); // Aumentado de 2 a 5 segundos para reducir carga de CPU/memoria
     }
 
     startHeartbeat() {
