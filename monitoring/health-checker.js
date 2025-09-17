@@ -5,7 +5,7 @@ class HealthChecker {
     constructor(metricsCollector, config = {}) {
         this.metrics = metricsCollector;
         this.config = {
-            checkInterval: config.checkInterval || 30000, // 30 segundos
+            checkInterval: config.checkInterval || 60000, // Aumentado de 30s a 60s para reducir carga
             alertThresholds: {
                 cpuUsage: config.cpuThreshold || 90,        // Aumentado de 80 a 90
                 memoryUsage: config.memoryThreshold || 90,   // Aumentado de 85 a 90
@@ -176,10 +176,21 @@ class HealthChecker {
             let message = 'Bot conectado y funcionando';
             let details = {};
 
-            if (botMetrics.status !== 'healthy') {
+            if (botMetrics.status === 'unhealthy') {
                 status = 'fail';
                 message = `Bot no disponible: ${botMetrics.error || 'Unknown error'}`;
                 details.offline = true;
+            } else if (botMetrics.status === 'degraded') {
+                // Problemas de red no son críticos si el bot funciona
+                if (botMetrics.networkIssue) {
+                    status = 'warn';
+                    message = `Conectividad limitada: ${botMetrics.error}`;
+                    details.networkIssue = true;
+                } else {
+                    status = 'fail';
+                    message = `Bot degradado: ${botMetrics.error}`;
+                    details.degraded = true;
+                }
             } else {
                 // Verificar tiempo de respuesta
                 if (botMetrics.responseTime > this.config.alertThresholds.responseTime) {

@@ -21,8 +21,8 @@ class MonitoringWebSocketServer {
         this.clients = new Set();
         this.wss = null;
 
-        // Configuración de broadcast (optimizado para memoria)
-        this.broadcastInterval = 10000; // Aumentado de 5 a 10 segundos para reducir carga
+        // Configuración de broadcast (optimizado para memoria y rendimiento)
+        this.broadcastInterval = 15000; // Aumentado de 10 a 15 segundos para reducir carga en Render.com
         this.lastBroadcast = 0;
 
         // Estadísticas del servidor WebSocket
