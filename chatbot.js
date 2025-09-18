@@ -538,6 +538,15 @@ async function processIncomingMessage(message) {
         // Obtener estado del usuario desde Redis
         let userState = await getUserState(from);
 
+        // Si no existe estado, crear uno por defecto
+        if (!userState) {
+            userState = {
+                currentStep: 'initial',
+                orderText: '',
+                orderTimestamp: Math.floor(Date.now() / 1000)
+            };
+        }
+
         switch (messageType) {
             case 'text':
                 const text = message.text.body;
@@ -583,6 +592,16 @@ async function processIncomingMessage(message) {
  */
 async function handleOrderCompletion(from, orderText, userState) {
     console.log('🍹 Procesando finalización de pedido para:', from);
+
+    // Validar que userState existe
+    if (!userState) {
+        console.error('❌ Error: userState es null en handleOrderCompletion');
+        userState = {
+            currentStep: 'initial',
+            orderText: '',
+            orderTimestamp: Math.floor(Date.now() / 1000)
+        };
+    }
 
     // Actualizar estado del usuario
     userState.orderText = orderText;
