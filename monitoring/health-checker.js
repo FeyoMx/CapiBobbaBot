@@ -151,6 +151,9 @@ class HealthChecker {
                 details.memoryWarning = true;
             }
 
+            // Agregar información de disco (simulada para Render)
+            const diskUsage = 10; // 10% para entornos managed
+
             return {
                 name: 'system_resources',
                 status,
@@ -158,7 +161,9 @@ class HealthChecker {
                 details: {
                     cpu: cpu.currentLoad,
                     memory: memory.usagePercent,
+                    disk: diskUsage,
                     trend: memory.trend,
+                    diskManaged: true,
                     ...details
                 },
                 timestamp: new Date().toISOString()
@@ -168,6 +173,13 @@ class HealthChecker {
                 name: 'system_resources',
                 status: 'error',
                 message: `Error verificando recursos: ${error.message}`,
+                details: {
+                    cpu: 0,
+                    memory: 0,
+                    disk: 10,
+                    diskManaged: true,
+                    error: true
+                },
                 timestamp: new Date().toISOString()
             };
         }
