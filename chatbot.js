@@ -400,6 +400,11 @@ async function sendToN8n(message, extraData = {}) {
     console.log('Enviando payload a n8n:', JSON.stringify(payload, null, 2));
     const response = await axios.post(N8N_WEBHOOK_URL, payload, { timeout: 5000 }); // Timeout de 5 segundos
     console.log('Respuesta de n8n recibida:', response.data);
+
+    // Registrar llamada exitosa en métricas
+    if (metricsCollector) {
+      metricsCollector.recordWebhookCall();
+    }
   } catch (error) {
     if (error.response) {
       // El servidor respondió con un código de estado fuera del rango 2xx
@@ -435,6 +440,10 @@ function registerBotResponseToN8n(to, messagePayload) {
     axios.post(N8N_WEBHOOK_URL, payload)
         .then(response => {
             console.log('Respuesta del bot registrada en n8n:', response.data);
+            // Registrar llamada exitosa en métricas
+            if (metricsCollector) {
+                metricsCollector.recordWebhookCall();
+            }
         })
         .catch(error => {
             console.error('Error registrando respuesta del bot en n8n:', error.message);
@@ -478,6 +487,10 @@ function sendOrderCompletionToN8nEnhanced(from, orderDetails) {
     axios.post(N8N_WEBHOOK_URL, payload)
         .then(response => {
             console.log('Respuesta de n8n (pedido completo enhanced):', response.data);
+            // Registrar llamada exitosa en métricas
+            if (metricsCollector) {
+                metricsCollector.recordWebhookCall();
+            }
         })
         .catch(error => {
             console.error('Error enviando pedido completo a n8n (enhanced):', error.message);
@@ -503,6 +516,10 @@ function sendAddressUpdateToN8n(from, address) {
     axios.post(N8N_WEBHOOK_URL, payload)
         .then(response => {
             console.log('Actualización de dirección enviada a n8n:', response.data);
+            // Registrar llamada exitosa en métricas
+            if (metricsCollector) {
+                metricsCollector.recordWebhookCall();
+            }
         })
         .catch(error => {
             console.error('Error enviando actualización de dirección a n8n:', error.message);
