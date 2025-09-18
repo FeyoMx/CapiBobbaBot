@@ -123,39 +123,44 @@ class MetricsCollector {
             const mem = await si.mem();
             const processMemory = process.memoryUsage();
 
-            // Agregar a histórico (memoria optimizada)
-            const memUsagePercent = (mem.used / mem.total) * 100;
-            this.performance.memoryUsage.push(memUsagePercent);
+            // CONFIGURACIÓN PARA 512MB: Usar memoria del proceso en lugar del sistema
+            const containerMemoryLimit = 512 * 1024 * 1024; // 512MB en bytes
+            const processMemoryUsed = processMemory.rss; // Memoria real usada por el proceso
+            const processMemoryPercent = (processMemoryUsed / containerMemoryLimit) * 100;
+
+            // Agregar a histórico (usar memoria del proceso, no del sistema)
+            this.performance.memoryUsage.push(processMemoryPercent);
             if (this.performance.memoryUsage.length > 5) {
                 this.performance.memoryUsage.shift();
             }
 
             return {
-                total: Math.round(mem.total / 1024 / 1024), // MB
-                used: Math.round(mem.used / 1024 / 1024), // MB
-                free: Math.round(mem.free / 1024 / 1024), // MB
-                usagePercent: Math.round(memUsagePercent * 100) / 100,
+                total: 512, // MB - Límite del contenedor
+                used: Math.round(processMemoryUsed / 1024 / 1024), // MB - Memoria real usada
+                free: 512 - Math.round(processMemoryUsed / 1024 / 1024), // MB - Memoria libre
+                usagePercent: Math.round(processMemoryPercent * 100) / 100,
                 process: {
                     rss: Math.round(processMemory.rss / 1024 / 1024), // MB
                     heapUsed: Math.round(processMemory.heapUsed / 1024 / 1024), // MB
                     heapTotal: Math.round(processMemory.heapTotal / 1024 / 1024), // MB
                     external: Math.round(processMemory.external / 1024 / 1024) // MB
                 },
-                trend: this.calculateTrend(this.performance.memoryUsage.slice(-10))
+                trend: this.calculateTrend(this.performance.memoryUsage.slice(-5)),
+                containerLimit: true // Indicar que se está usando límite de contenedor
             };
         } catch (error) {
             console.error('Error obteniendo métricas de memoria:', error);
-            // Fallback usando solo métricas del proceso
+            // Fallback usando solo métricas del proceso para 512MB
             const processMemory = process.memoryUsage();
-            const totalSystemMemory = require('os').totalmem();
-            const freeSystemMemory = require('os').freemem();
-            const usedSystemMemory = totalSystemMemory - freeSystemMemory;
+            const containerMemoryLimit = 512 * 1024 * 1024; // 512MB
+            const processMemoryUsed = processMemory.rss;
+            const processMemoryPercent = (processMemoryUsed / containerMemoryLimit) * 100;
 
             return {
-                total: Math.round(totalSystemMemory / 1024 / 1024), // MB
-                used: Math.round(usedSystemMemory / 1024 / 1024), // MB
-                free: Math.round(freeSystemMemory / 1024 / 1024), // MB
-                usagePercent: Math.round((usedSystemMemory / totalSystemMemory) * 100),
+                total: 512, // MB
+                used: Math.round(processMemoryUsed / 1024 / 1024), // MB
+                free: 512 - Math.round(processMemoryUsed / 1024 / 1024), // MB
+                usagePercent: Math.round(processMemoryPercent),
                 process: {
                     rss: Math.round(processMemory.rss / 1024 / 1024), // MB
                     heapUsed: Math.round(processMemory.heapUsed / 1024 / 1024), // MB
@@ -163,7 +168,8 @@ class MetricsCollector {
                     external: Math.round(processMemory.external / 1024 / 1024) // MB
                 },
                 trend: 'stable',
-                error: 'Limited memory metrics available'
+                containerLimit: true,
+                fallback: 'Using process memory for 512MB container'
             };
         }
     }

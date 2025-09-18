@@ -8,7 +8,7 @@ class HealthChecker {
             checkInterval: config.checkInterval || 60000, // Aumentado de 30s a 60s para reducir carga
             alertThresholds: {
                 cpuUsage: config.cpuThreshold || 90,        // Aumentado de 80 a 90
-                memoryUsage: config.memoryThreshold || 90,   // Aumentado de 85 a 90
+                memoryUsage: config.memoryThreshold || 70,   // Ajustado para 512MB: 70% = ~358MB
                 responseTime: config.responseTimeThreshold || 8000, // Aumentado de 5000 a 8000
                 errorRate: config.errorRateThreshold || 0.1, // Aumentado de 5% a 10%
                 diskSpace: config.diskThreshold || 95       // Aumentado de 90 a 95

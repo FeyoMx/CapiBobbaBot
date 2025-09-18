@@ -25,40 +25,40 @@ class MemoryMonitor {
     async checkMemoryUsage() {
         try {
             const memInfo = process.memoryUsage();
-            const totalSystem = require('os').totalmem();
-            const freeSystem = require('os').freemem();
-            const usedSystem = totalSystem - freeSystem;
 
-            const systemUsagePercent = (usedSystem / totalSystem) * 100;
+            // Usar límite de contenedor de 512MB en lugar del sistema completo
+            const containerMemoryLimit = 512 * 1024 * 1024; // 512MB en bytes
+            const processMemoryUsed = memInfo.rss; // Memoria real usada por el proceso
+            const containerUsagePercent = (processMemoryUsed / containerMemoryLimit) * 100;
             const processHeapPercent = (memInfo.heapUsed / memInfo.heapTotal) * 100;
 
             // Log detallado cada 5 minutos
             if (Date.now() % 300000 < 30000) {
                 console.log('📊 Estado de memoria:');
-                console.log(`   Sistema: ${Math.round(systemUsagePercent)}% (${Math.round(usedSystem/1024/1024)}MB/${Math.round(totalSystem/1024/1024)}MB)`);
+                console.log(`   Contenedor: ${Math.round(containerUsagePercent)}% (${Math.round(processMemoryUsed/1024/1024)}MB/512MB)`);
                 console.log(`   Proceso heap: ${Math.round(processHeapPercent)}% (${Math.round(memInfo.heapUsed/1024/1024)}MB/${Math.round(memInfo.heapTotal/1024/1024)}MB)`);
                 console.log(`   RSS: ${Math.round(memInfo.rss/1024/1024)}MB`);
                 console.log(`   External: ${Math.round(memInfo.external/1024/1024)}MB`);
             }
 
-            // Alertas por uso crítico
+            // Alertas por uso crítico (usar memoria del contenedor)
             const now = Date.now();
 
-            if (systemUsagePercent >= this.criticalThreshold && (now - this.lastCritical) > this.alertCooldown) {
-                await this.handleCriticalMemory(systemUsagePercent);
+            if (containerUsagePercent >= this.criticalThreshold && (now - this.lastCritical) > this.alertCooldown) {
+                await this.handleCriticalMemory(containerUsagePercent);
                 this.lastCritical = now;
-            } else if (systemUsagePercent >= this.warningThreshold && (now - this.lastWarning) > this.alertCooldown) {
-                await this.handleWarningMemory(systemUsagePercent);
+            } else if (containerUsagePercent >= this.warningThreshold && (now - this.lastWarning) > this.alertCooldown) {
+                await this.handleWarningMemory(containerUsagePercent);
                 this.lastWarning = now;
             }
 
             // Guardar métricas en Redis
             await this.saveMemoryMetrics({
                 timestamp: new Date().toISOString(),
-                system: {
-                    total: Math.round(totalSystem / 1024 / 1024),
-                    used: Math.round(usedSystem / 1024 / 1024),
-                    usagePercent: Math.round(systemUsagePercent * 100) / 100
+                container: {
+                    total: 512,
+                    used: Math.round(processMemoryUsed / 1024 / 1024),
+                    usagePercent: Math.round(containerUsagePercent * 100) / 100
                 },
                 process: {
                     heapUsed: Math.round(memInfo.heapUsed / 1024 / 1024),
@@ -159,16 +159,16 @@ class MemoryMonitor {
 
     getMemoryReport() {
         const memInfo = process.memoryUsage();
-        const totalSystem = require('os').totalmem();
-        const freeSystem = require('os').freemem();
-        const usedSystem = totalSystem - freeSystem;
+        const containerMemoryLimit = 512 * 1024 * 1024; // 512MB
+        const processMemoryUsed = memInfo.rss;
+        const containerUsagePercent = (processMemoryUsed / containerMemoryLimit) * 100;
 
         return {
-            system: {
-                total: Math.round(totalSystem / 1024 / 1024),
-                used: Math.round(usedSystem / 1024 / 1024),
-                free: Math.round(freeSystem / 1024 / 1024),
-                usagePercent: Math.round((usedSystem / totalSystem) * 100 * 100) / 100
+            container: {
+                total: 512,
+                used: Math.round(processMemoryUsed / 1024 / 1024),
+                free: 512 - Math.round(processMemoryUsed / 1024 / 1024),
+                usagePercent: Math.round(containerUsagePercent * 100) / 100
             },
             process: {
                 heapUsed: Math.round(memInfo.heapUsed / 1024 / 1024),
@@ -177,27 +177,29 @@ class MemoryMonitor {
                 external: Math.round(memInfo.external / 1024 / 1024),
                 arrayBuffers: Math.round(memInfo.arrayBuffers / 1024 / 1024)
             },
-            recommendations: this.getRecommendations(usedSystem, totalSystem, memInfo)
+            recommendations: this.getRecommendations(processMemoryUsed, containerMemoryLimit, memInfo)
         };
     }
 
-    getRecommendations(usedSystem, totalSystem, memInfo) {
-        const systemUsagePercent = (usedSystem / totalSystem) * 100;
+    getRecommendations(usedMemory, totalMemory, memInfo) {
+        const containerUsagePercent = (usedMemory / totalMemory) * 100;
         const recommendations = [];
 
-        if (systemUsagePercent > 90) {
+        if (containerUsagePercent > 80) {
             recommendations.push('Uso crítico: Considerar reiniciar la aplicación');
             recommendations.push('Revisar memory leaks en el código');
-        } else if (systemUsagePercent > 80) {
-            recommendations.push('Uso alto: Ejecutar garbage collection más frecuentemente');
+        } else if (containerUsagePercent > 60) {
+            recommendations.push('Uso moderado: Ejecutar garbage collection más frecuentemente');
             recommendations.push('Reducir tiempo de retención de métricas');
+        } else if (containerUsagePercent < 30) {
+            recommendations.push('Uso óptimo: Sistema funcionando eficientemente');
         }
 
         if (memInfo.heapUsed / memInfo.heapTotal > 0.8) {
             recommendations.push('Heap alto: Revisar objetos almacenados en memoria');
         }
 
-        if (memInfo.rss > 400 * 1024 * 1024) { // > 400MB
+        if (memInfo.rss > 300 * 1024 * 1024) { // > 300MB para 512MB container
             recommendations.push('RSS alto: Revisar uso de buffers y streams');
         }
 
