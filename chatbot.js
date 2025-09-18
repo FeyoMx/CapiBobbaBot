@@ -1,6 +1,29 @@
 // chatbot.js
 require('dotenv').config(); // Carga las variables de entorno desde el archivo .env
 
+// === OPTIMIZACIONES DE MEMORIA PARA 512MB ===
+// Configurar Node.js para usar menos memoria en entorno de 512MB
+if (process.env.NODE_ENV === 'production') {
+  // Reducir tamaño máximo del heap a 400MB (dejando 112MB para el sistema)
+  process.env.NODE_OPTIONS = '--max-old-space-size=400';
+
+  // Habilitar garbage collection agresivo
+  process.env.NODE_OPTIONS += ' --expose-gc';
+
+  // Configurar timeout para conexiones HTTP más corto
+  process.env.UV_THREADPOOL_SIZE = '2'; // Reducir threads para ahorrar memoria
+}
+
+// Forzar garbage collection cada 5 minutos en producción
+if (process.env.NODE_ENV === 'production') {
+  setInterval(() => {
+    if (global.gc) {
+      global.gc();
+      console.log('🗑️ Garbage collection ejecutado - Memoria liberada');
+    }
+  }, 300000); // 5 minutos
+}
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
@@ -14,6 +37,7 @@ const path = require('path');
 const MetricsCollector = require('./monitoring/metrics');
 const HealthChecker = require('./monitoring/health-checker');
 const MonitoringWebSocketServer = require('./monitoring/websocket-server');
+const MemoryMonitor = require('./monitoring/memory-monitor');
 const cron = require('node-cron');
 
 // --- CONFIGURACIÓN ---
@@ -52,6 +76,7 @@ app.use('/js', express.static(path.join(__dirname, 'dashboard/js')));
 let metricsCollector = null;
 let healthChecker = null;
 let wsServer = null;
+let memoryMonitor = null;
 
 
 
@@ -2003,6 +2028,14 @@ async function initializeMonitoring() {
             // Continuar sin WebSocket si hay problemas
         }
 
+        // Inicializar Monitor de Memoria para entorno de 512MB
+        try {
+            memoryMonitor = new MemoryMonitor(redisClient, 80, 90); // Umbrales más bajos para 512MB
+            console.log('✅ Monitor de memoria inicializado para entorno de 512MB');
+        } catch (memError) {
+            console.error('❌ Error inicializando monitor de memoria:', memError);
+        }
+
         console.log('✅ Sistema de monitoreo inicializado exitosamente');
 
         // Programar tareas de mantenimiento
@@ -2190,6 +2223,25 @@ app.post('/api/backup', async (req, res) => {
     } catch (error) {
         console.error('Error creando backup:', error);
         res.status(500).json({ error: 'Error creando backup' });
+    }
+});
+
+// Endpoint para reporte de memoria específico
+app.get('/api/memory-report', (req, res) => {
+    try {
+        if (!memoryMonitor) {
+            return res.status(503).json({ error: 'Monitor de memoria no disponible' });
+        }
+
+        const report = memoryMonitor.getMemoryReport();
+        res.json({
+            success: true,
+            data: report,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Error obteniendo reporte de memoria:', error);
+        res.status(500).json({ error: 'Error obteniendo reporte de memoria' });
     }
 });
 

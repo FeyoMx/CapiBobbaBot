@@ -516,18 +516,18 @@ class MonitoringClient {
 
         this.data.activities.unshift(activity);
 
-        // Mantener solo las últimas 50 actividades
-        if (this.data.activities.length > 50) {
-            this.data.activities = this.data.activities.slice(0, 50);
+        // Mantener solo las últimas 10 actividades para 512MB
+        if (this.data.activities.length > 10) {
+            this.data.activities = this.data.activities.slice(0, 10);
         }
 
         const activityElement = this.createActivityElement(activity);
         activityFeed.insertBefore(activityElement, activityFeed.firstChild);
 
-        // Remover actividades antiguas del DOM
+        // Remover actividades antiguas del DOM (reducido para 512MB)
         const activityElements = activityFeed.querySelectorAll('.activity-item');
-        if (activityElements.length > 20) {
-            for (let i = 20; i < activityElements.length; i++) {
+        if (activityElements.length > 5) {
+            for (let i = 5; i < activityElements.length; i++) {
                 activityElements[i].remove();
             }
         }
@@ -586,16 +586,16 @@ class MonitoringClient {
             this.charts.system = new Chart(systemCanvas, {
                 type: 'line',
                 data: {
-                    labels: Array.from({length: 20}, (_, i) => i),
+                    labels: Array.from({length: 5}, (_, i) => i),
                     datasets: [{
                         label: 'CPU %',
-                        data: Array(20).fill(0),
+                        data: Array(5).fill(0),
                         borderColor: 'rgba(37, 99, 235, 0.8)',
                         backgroundColor: 'rgba(37, 99, 235, 0.1)',
                         tension: 0.4
                     }, {
                         label: 'Memoria %',
-                        data: Array(20).fill(0),
+                        data: Array(5).fill(0),
                         borderColor: 'rgba(16, 185, 129, 0.8)',
                         backgroundColor: 'rgba(16, 185, 129, 0.1)',
                         tension: 0.4
@@ -735,8 +735,8 @@ class MonitoringClient {
             this.charts.system.data.datasets[0].data.push(cpu);
             this.charts.system.data.datasets[1].data.push(memory);
 
-            // Mantener solo los últimos 20 puntos
-            if (this.charts.system.data.datasets[0].data.length > 20) {
+            // Mantener solo los últimos 5 puntos para 512MB
+            if (this.charts.system.data.datasets[0].data.length > 5) {
                 this.charts.system.data.datasets[0].data.shift();
                 this.charts.system.data.datasets[1].data.shift();
             }

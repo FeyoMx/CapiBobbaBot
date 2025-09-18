@@ -1,0 +1,16 @@
+# Configuración para Render.com optimizada para 512MB de RAM
+services:
+  - type: web
+    name: capibobbabot
+    env: node
+    buildCommand: npm install --production
+    startCommand: node --max-old-space-size=400 --expose-gc chatbot.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: UV_THREADPOOL_SIZE
+        value: "2"
+    autoDeploy: true
+    scaling:
+      minInstances: 1
+      maxInstances: 1

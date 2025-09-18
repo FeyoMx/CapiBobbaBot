@@ -31,11 +31,11 @@ class MetricsCollector {
             lastBackup: 0
         };
 
-        // Métricas de rendimiento (optimizado para menor uso de memoria)
+        // Métricas de rendimiento (ultra-optimizado para 512MB)
         this.performance = {
-            responseTime: new Array(20).fill(0), // Reducido de 100 a 20
-            memoryUsage: new Array(12).fill(0),  // Reducido de 60 a 12 (12 intervalos de 5 min = 1 hora)
-            cpuUsage: new Array(12).fill(0)      // Reducido de 60 a 12
+            responseTime: new Array(5).fill(0), // Reducido a 5 para 512MB
+            memoryUsage: new Array(5).fill(0),  // Reducido a 5 para 512MB
+            cpuUsage: new Array(5).fill(0)      // Reducido a 5 para 512MB
         };
 
         this.startMetricsCollection();
@@ -89,7 +89,7 @@ class MetricsCollector {
 
             // Agregar a histórico (memoria optimizada)
             this.performance.cpuUsage.push(cpuLoad.currentLoad);
-            if (this.performance.cpuUsage.length > 12) {
+            if (this.performance.cpuUsage.length > 5) {
                 this.performance.cpuUsage.shift();
             }
 
@@ -126,7 +126,7 @@ class MetricsCollector {
             // Agregar a histórico (memoria optimizada)
             const memUsagePercent = (mem.used / mem.total) * 100;
             this.performance.memoryUsage.push(memUsagePercent);
-            if (this.performance.memoryUsage.length > 12) {
+            if (this.performance.memoryUsage.length > 5) {
                 this.performance.memoryUsage.shift();
             }
 
@@ -155,7 +155,7 @@ class MetricsCollector {
                 total: Math.round(totalSystemMemory / 1024 / 1024), // MB
                 used: Math.round(usedSystemMemory / 1024 / 1024), // MB
                 free: Math.round(freeSystemMemory / 1024 / 1024), // MB
-                usagePercent: Math.round((usedSystemMemory / totalSystemMemory) * 100 * 100) / 100,
+                usagePercent: Math.round((usedSystemMemory / totalSystemMemory) * 100),
                 process: {
                     rss: Math.round(processMemory.rss / 1024 / 1024), // MB
                     heapUsed: Math.round(processMemory.heapUsed / 1024 / 1024), // MB
@@ -279,7 +279,7 @@ class MetricsCollector {
 
             // Agregar tiempo de respuesta al histórico (memoria optimizada)
             this.performance.responseTime.push(responseTime);
-            if (this.performance.responseTime.length > 20) {
+            if (this.performance.responseTime.length > 5) {
                 this.performance.responseTime.shift();
             }
 
@@ -459,14 +459,14 @@ class MetricsCollector {
     async cleanupMemoryMetrics() {
         try {
             // Limpiar arrays en memoria si están creciendo demasiado
-            if (this.performance.responseTime.length > 20) {
-                this.performance.responseTime = this.performance.responseTime.slice(-10);
+            if (this.performance.responseTime.length > 5) {
+                this.performance.responseTime = this.performance.responseTime.slice(-3);
             }
-            if (this.performance.cpuUsage.length > 12) {
-                this.performance.cpuUsage = this.performance.cpuUsage.slice(-6);
+            if (this.performance.cpuUsage.length > 5) {
+                this.performance.cpuUsage = this.performance.cpuUsage.slice(-3);
             }
-            if (this.performance.memoryUsage.length > 12) {
-                this.performance.memoryUsage = this.performance.memoryUsage.slice(-6);
+            if (this.performance.memoryUsage.length > 5) {
+                this.performance.memoryUsage = this.performance.memoryUsage.slice(-3);
             }
 
             console.log('🧹 Arrays de memoria optimizados');
@@ -508,15 +508,22 @@ class MetricsCollector {
 
                 console.log(`✅ Métricas guardadas - CPU: ${metrics.system.cpu.currentLoad}%, Memoria: ${metrics.system.memory.usagePercent}%`);
 
-                // Limpiar métricas antiguas cada hora
-                if (Date.now() - this.timestamps.lastMetricReset > 60 * 60 * 1000) {
+                // Limpiar métricas antiguas cada 30 minutos para 512MB
+                if (Date.now() - this.timestamps.lastMetricReset > 30 * 60 * 1000) {
                     await this.cleanupOldMetrics();
+                    await this.cleanupMemoryMetrics();
                     this.timestamps.lastMetricReset = Date.now();
+
+                    // Forzar garbage collection si está disponible
+                    if (global.gc) {
+                        global.gc();
+                        console.log('🗑️ Garbage collection ejecutado');
+                    }
                 }
             } catch (error) {
                 console.error('❌ Error en recolección de métricas:', error);
             }
-        }, 120000); // Aumentado de 60s a 120s (2 minutos) para reducir carga en Render.com
+        }, 300000); // Aumentado a 5 minutos para reducir uso de memoria en 512MB
 
         // Ejecutar una recolección inicial inmediatamente
         setTimeout(async () => {
