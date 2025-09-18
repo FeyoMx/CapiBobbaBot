@@ -61,6 +61,16 @@ class HealthChecker {
                     healthReport.checks.push(result.value);
                     healthReport.summary.totalChecks++;
 
+                    // Extraer métricas de sistema para el nivel superior
+                    if (result.value.name === 'system_resources' && result.value.details) {
+                        healthReport.systemMetrics = {
+                            cpu: result.value.details.cpu,
+                            memory: result.value.details.memory,
+                            disk: result.value.details.disk || 10,
+                            diskManaged: result.value.details.diskManaged || true
+                        };
+                    }
+
                     if (result.value.status === 'pass') {
                         healthReport.summary.passedChecks++;
                     } else if (result.value.status === 'fail') {

@@ -270,6 +270,35 @@ class MonitoringClient {
                 else if (memoryValue > 70) memoryBar.classList.add('warning');
             }
         }
+
+        // Disco (agregar soporte para mostrar porcentaje de disco)
+        const diskElement = document.getElementById('disk-usage');
+        const diskBar = document.getElementById('disk-bar');
+
+        if (diskElement && diskBar) {
+            // Buscar datos de disco en múltiples ubicaciones posibles
+            let diskValue = 10; // Valor por defecto para Render managed
+
+            if (system.disk !== undefined) {
+                diskValue = Math.round(system.disk);
+            } else if (this.data.health && this.data.health.systemMetrics && this.data.health.systemMetrics.disk !== undefined) {
+                diskValue = Math.round(this.data.health.systemMetrics.disk);
+            } else if (this.data.health && this.data.health.checks) {
+                // Buscar en los checks individuales
+                const diskCheck = this.data.health.checks.find(check => check.name === 'disk_space');
+                if (diskCheck && diskCheck.details && diskCheck.details.disks && diskCheck.details.disks.length > 0) {
+                    diskValue = Math.round(diskCheck.details.disks[0].usagePercent || 10);
+                }
+            }
+
+            diskElement.textContent = `${diskValue}%`;
+            diskBar.style.width = `${diskValue}%`;
+
+            // Cambiar color según el valor
+            diskBar.className = 'metric-fill';
+            if (diskValue > 90) diskBar.classList.add('danger');
+            else if (diskValue > 80) diskBar.classList.add('warning');
+        }
     }
 
     updateBusinessMetrics(business) {
