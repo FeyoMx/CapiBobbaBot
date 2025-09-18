@@ -255,10 +255,10 @@ class HealthChecker {
                     details.highMemoryUsage = true;
                 }
 
-                // Verificar hit rate (más permisivo para Redis compartido)
-                if (redisMetrics.hitRate < 50 && redisMetrics.hitRate > 0) {
+                // Verificar hit rate (muy permisivo para Redis compartido en Render)
+                if (redisMetrics.hitRate < 5 && redisMetrics.hitRate > 0) {
                     status = status === 'fail' ? 'fail' : 'warn';
-                    message = `Hit rate bajo de Redis: ${redisMetrics.hitRate}%`;
+                    message = `Hit rate muy bajo de Redis: ${redisMetrics.hitRate}%`;
                     details.lowHitRate = true;
                 }
             }
