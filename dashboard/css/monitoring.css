@@ -827,6 +827,7 @@ body {
 canvas {
     max-width: 100%;
     height: auto !important;
+    max-height: 150px !important;
 }
 
 /* Modals */
