@@ -1,5 +1,4 @@
 import React from 'react';
-import { Container, AppBar, Toolbar, Typography } from '@mui/material';
 import MaintenanceMode from './MaintenanceMode';
 import BusinessDataEditor from './BusinessDataEditor';
 import MessageLogViewer from './MessageLogViewer';
@@ -10,23 +9,100 @@ import SurveyResultsDashboard from './SurveyResultsDashboard';
 
 function App() {
   return (
-    <div>
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6">
-            CapiBobba Bot Dashboard
-          </Typography>
-        </Toolbar>
-      </AppBar>
-      <Container sx={{ mt: 2 }}>
-        <MaintenanceMode />
-        <BusinessDataEditor />
-        <MessageLogViewer />
-        <OrderViewer />
-        <ChatInterface />
-        <RedisStateViewer />
-        <SurveyResultsDashboard />
-      </Container>
+    <div className="dashboard-container">
+      {/* Header */}
+      <header className="dashboard-header">
+        <div className="header-content">
+          <div className="logo-section">
+            <h1><i className="fas fa-robot"></i> CapiBobba Dashboard</h1>
+            <div className="connection-status">
+              <span className="status-indicator connected">
+                <i className="fas fa-circle"></i> Sistema Activo
+              </span>
+            </div>
+          </div>
+          <div className="header-actions">
+            <button className="btn btn-secondary">
+              <i className="fas fa-sync-alt"></i> Actualizar
+            </button>
+            <button className="btn btn-primary">
+              <i className="fas fa-cog"></i> Configuración
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="main-content">
+        {/* Left Column: Main Components */}
+        <div className="components-column">
+          <div className="component-card">
+            <div className="card-header">
+              <h3><i className="fas fa-tools"></i> Modo Mantenimiento</h3>
+            </div>
+            <div className="card-content">
+              <MaintenanceMode />
+            </div>
+          </div>
+
+          <div className="component-card">
+            <div className="card-header">
+              <h3><i className="fas fa-edit"></i> Editor de Datos de Negocio</h3>
+            </div>
+            <div className="card-content">
+              <BusinessDataEditor />
+            </div>
+          </div>
+
+          <div className="component-card">
+            <div className="card-header">
+              <h3><i className="fas fa-shopping-cart"></i> Visualizador de Pedidos</h3>
+            </div>
+            <div className="card-content">
+              <OrderViewer />
+            </div>
+          </div>
+
+          <div className="component-card">
+            <div className="card-header">
+              <h3><i className="fas fa-chart-bar"></i> Dashboard de Encuestas</h3>
+            </div>
+            <div className="card-content">
+              <SurveyResultsDashboard />
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Activity & Tools */}
+        <div className="activity-column">
+          <div className="component-card">
+            <div className="card-header">
+              <h3><i className="fas fa-comments"></i> Interfaz de Chat</h3>
+            </div>
+            <div className="card-content">
+              <ChatInterface />
+            </div>
+          </div>
+
+          <div className="component-card">
+            <div className="card-header">
+              <h3><i className="fas fa-list"></i> Registro de Mensajes</h3>
+            </div>
+            <div className="card-content">
+              <MessageLogViewer />
+            </div>
+          </div>
+
+          <div className="component-card">
+            <div className="card-header">
+              <h3><i className="fas fa-database"></i> Estado de Redis</h3>
+            </div>
+            <div className="card-content">
+              <RedisStateViewer />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
