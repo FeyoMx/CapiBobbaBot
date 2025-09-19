@@ -700,17 +700,29 @@ async function handleTextMessage(from, text, userState) {
             case 'awaiting_address':
                 await handleAddressResponse(from, text);
                 return;
-            
+
+            case 'awaiting_access_code_info':
+                // Manejar respuestas de texto para código de acceso
+                const normalizedText = text.toLowerCase().trim();
+                if (normalizedText.includes('sí') || normalizedText.includes('si') || normalizedText === 's') {
+                    await handleAccessCodeResponse(from, 'access_code_yes');
+                } else if (normalizedText.includes('no') || normalizedText === 'n') {
+                    await handleAccessCodeResponse(from, 'access_code_no');
+                } else {
+                    await sendTextMessage(from, 'Por favor responde "sí" si necesitas código de acceso o "no" si no lo necesitas.');
+                }
+                return;
+
             case 'awaiting_cash_denomination':
                 await handleCashDenominationResponse(from, text);
                 return;
-            
+
             case 'in_conversation_with_admin':
                 // El usuario está en chat con un admin, reenviar el mensaje
                 const adminNumber = userState.admin;
                 await sendTextMessage(adminNumber, `👤 Cliente ${formatDisplayNumber(from)}: ${text}`);
                 return;
-                
+
             default:
                 // Estado no reconocido, continuar con el procesamiento normal
                 break;
@@ -823,14 +835,15 @@ async function handleImageMessage(from, image, userState) {
  */
 async function handleLocationMessage(from, location, userState) {
     console.log(`📍 Procesando ubicación de ${from}:`, location);
-    
+
     // Verificar si el usuario está en el proceso de proporcionar su dirección
     if (userState && userState.step === 'awaiting_address') {
         const address = `Ubicación: Lat ${location.latitude}, Lng ${location.longitude}`;
+        console.log(`Procesando ubicación como dirección para usuario ${from}`);
         await handleAddressResponse(from, address);
         return;
     }
-    
+
     // Para ubicaciones fuera del flujo de pedidos
     await sendTextMessage(from, 'He recibido tu ubicación. Si necesitas hacer un pedido, por favor usa el menú principal.');
 }
@@ -1575,6 +1588,8 @@ async function handleAddressResponse(from, address) {
     return; // Detenemos la ejecución para esperar la dirección correcta.
   }
 
+  console.log(`Procesando dirección válida para ${from}, enviando pregunta de código de acceso...`);
+
   // Pregunta si se necesita código de acceso con botones.
   const payload = {
     type: 'interactive',
@@ -1589,11 +1604,20 @@ async function handleAddressResponse(from, address) {
       }
     }
   };
-  await sendMessage(from, payload);
+
+  try {
+    await sendMessage(from, payload);
+    console.log(`Mensaje de código de acceso enviado exitosamente a ${from}`);
+  } catch (error) {
+    console.error(`Error enviando mensaje de código de acceso a ${from}:`, error);
+    // Enviar mensaje de texto simple como fallback
+    await sendTextMessage(from, '¡Perfecto! Gracias por tu dirección.\n\n¿Tu domicilio está en una privada y se necesita código de acceso para entrar?\n\nResponde "sí" o "no".');
+  }
 
   // Actualiza el estado del usuario preservando el estado anterior (como orderText).
   const currentState = await getUserState(from) || {};
   await setUserState(from, { ...currentState, step: 'awaiting_access_code_info', address: address });
+  console.log(`Estado actualizado para ${from}: awaiting_access_code_info`);
 
   // Notifica a n8n que la dirección fue actualizada.
   // Se crea un payload personalizado para este evento específico,

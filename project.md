@@ -589,6 +589,13 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.1.1 (2025-01-19)
+- 🔧 **Fix flujo de ubicación**: Corregido problema donde el bot terminaba el flujo cuando el usuario seleccionaba "dar ubicación"
+- 🔧 **Mejora manejo de errores**: Agregado try-catch en envío de mensajes interactivos con fallback a texto simple
+- 🔧 **Soporte texto y botones**: Permite responder tanto con botones como con texto en pregunta de código de acceso
+- 🔧 **Logs mejorados**: Agregados logs de debugging para rastrear el flujo de ubicación
+- 🔧 **Estado awaiting_access_code_info**: Agregado manejo completo para este estado en handleTextMessage
+
 ### v2.1.0 (2025-01-19)
 - ✅ **Dashboard UI Redesign**: Implementado tema oscuro moderno
 - ✅ **Layout responsive**: Grid 2-columnas con breakpoints móviles
@@ -604,8 +611,8 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ---
 
-**Última actualización**: 19 de Enero, 2025 - Dashboard UI v2.1.0
-**Versión del proyecto**: 2.1.0
+**Última actualización**: 19 de Enero, 2025 - Fix flujo ubicación v2.1.1
+**Versión del proyecto**: 2.1.1
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones
