@@ -631,7 +631,7 @@ async function handleOrderCompletion(from, orderText, userState) {
     const orderInfo = extractOrderInfo(orderText);
     
     // Enviar a n8n como pedido completado
-    await sendOrderCompletionToN8nEnhanced(from, {
+    sendOrderCompletionToN8nEnhanced(from, {
         summary: orderInfo.summary,
         total: orderInfo.total,
         fullText: orderText
