@@ -1833,8 +1833,15 @@ async function notifyAdmin(text) {
 
   console.log(`Enviando notificación a los administradores: ${adminNumbers.join(', ')}`);
 
-  // Crea una promesa para cada envío de mensaje
-  const promises = adminNumbers.map(number => sendTextMessage(number, text));
+  // Crea una promesa para cada envío de mensaje con manejo de errores
+  const promises = adminNumbers.map(async (number) => {
+    try {
+      await sendTextMessage(number, text);
+    } catch (error) {
+      console.error(`Error enviando notificación al admin ${number}:`, error);
+      // No relanzamos el error para evitar interrumpir el flujo principal
+    }
+  });
 
   // Espera a que todas las notificaciones se envíen en paralelo para mayor eficiencia
   await Promise.all(promises);
