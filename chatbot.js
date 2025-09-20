@@ -622,7 +622,7 @@ async function handleOrderCompletion(from, orderText, userState) {
 
     // Actualizar estado del usuario
     userState.orderText = orderText;
-    userState.currentStep = 'awaiting_address';
+    userState.step = 'awaiting_address';
     userState.orderTimestamp = Math.floor(Date.now() / 1000);
     
     await setUserState(from, userState);
@@ -637,45 +637,21 @@ async function handleOrderCompletion(from, orderText, userState) {
         fullText: orderText
     });
 
-    // Solicitar dirección de entrega
-    const addressMessage = {
-        type: 'interactive',
-        interactive: {
-            type: 'button',
-            body: {
-                text: `¡Perfecto! Tu pedido ha sido recibido 🎉
+    // Enviar mensaje de confirmación del pedido
+    const confirmationText = `¡Perfecto! Tu pedido ha sido recibido 🎉
 
 ${orderInfo.summary}
 
-*Total: $${orderInfo.total}*
+*Total: $${orderInfo.total}*`;
 
-Para continuar, necesito tu dirección de entrega:`
-            },
-            action: {
-                buttons: [
-                    {
-                        type: 'reply',
-                        reply: {
-                            id: 'send_location',
-                            title: '📍 Enviar ubicación'
-                        }
-                    },
-                    {
-                        type: 'reply',
-                        reply: {
-                            id: 'type_address',
-                            title: '✏️ Escribir dirección'
-                        }
-                    }
-                ]
-            }
-        }
-    };
+    await sendTextMessage(from, confirmationText);
 
-    await sendMessage(from, addressMessage);
+    // Solicitar dirección de entrega
+    const addressRequestText = `Para continuar, por favor, indícanos tu dirección completa (calle, número, colonia y alguna referencia). 🏠`;
+    await sendTextMessage(from, addressRequestText);
     
     // Registrar respuesta del bot en n8n
-    registerBotResponseToN8n(from, addressMessage);
+    registerBotResponseToN8n(from, { type: 'text', text: confirmationText + '\n\n' + addressRequestText });
 }
 
 // 8. FUNCIÓN AUXILIAR PARA EXTRAER INFORMACIÓN DEL PEDIDO
