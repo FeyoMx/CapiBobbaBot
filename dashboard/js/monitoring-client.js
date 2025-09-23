@@ -522,10 +522,10 @@ class MonitoringClient {
     }
 
     showAlertDetails(alertId) {
-        const alert = this.data.alerts.find(a => a.id === alertId);
-        if (alert) {
+        const alertData = this.data.alerts.find(a => a.id === alertId);
+        if (alertData) {
             // Crear modal con detalles (implementación simplificada)
-            alert(`Detalles de Alerta:\n\nOrigen: ${alert.source}\nMensaje: ${alert.message}\nTiempo: ${alert.timestamp}\nDetalles: ${JSON.stringify(alert.details, null, 2)}`);
+            alert(`Detalles de Alerta:\n\nOrigen: ${alertData.source}\nMensaje: ${alertData.message}\nTiempo: ${alertData.timestamp}\nDetalles: ${JSON.stringify(alertData.details, null, 2)}`);
         }
     }
 

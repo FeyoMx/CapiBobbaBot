@@ -166,9 +166,23 @@ app.post('/webhook', async (req, res) => {
                         n8nPayload.interactive = message.interactive;
                     }
 
+                    // Registrar métrica de mensaje procesado
+                    if (metricsCollector) {
+                        metricsCollector.recordMessage(message.type || 'text');
+                    }
+
+                    // Notificar al WebSocket sobre el nuevo mensaje
+                    if (wsServer) {
+                        wsServer.notifyNewMessage({
+                            from: message.from,
+                            type: message.type,
+                            timestamp: new Date().toISOString()
+                        });
+                    }
+
                     // Enviar a n8n primero
                     await sendToN8n(message);
-                    
+
                     // Verificar modo de mantenimiento
                     const maintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY);
                     if (maintenanceMode === 'true' && !checkIfAdminForWorkflow(message.from)) {
@@ -483,6 +497,21 @@ function sendOrderCompletionToN8nEnhanced(from, orderDetails) {
     };
 
     console.log('Enviando pedido completo a n8n (enhanced):', JSON.stringify(payload, null, 2));
+
+    // Registrar métrica de pedido
+    if (metricsCollector) {
+        metricsCollector.recordOrder(orderDetails.total || 0);
+    }
+
+    // Notificar al WebSocket sobre el nuevo pedido
+    if (wsServer) {
+        wsServer.notifyNewOrder({
+            from: from,
+            total: orderDetails.total || 0,
+            summary: orderDetails.summary || '',
+            timestamp: new Date().toISOString()
+        });
+    }
 
     axios.post(N8N_WEBHOOK_URL, payload)
         .then(response => {
@@ -981,6 +1010,21 @@ Total del pedido: $173.00
             };
 
             try {
+                // Registrar métrica de pedido de prueba
+                if (metricsCollector) {
+                    metricsCollector.recordOrder(173.00);
+                }
+
+                // Notificar al WebSocket sobre el pedido de prueba
+                if (wsServer) {
+                    wsServer.notifyNewOrder({
+                        from: from,
+                        total: 173.00,
+                        summary: "1x Frappé de Chocolate - $45.00\n2x Bubble Tea de Taro - $90.00\n1x Smoothie de Mango - $38.00",
+                        timestamp: new Date().toISOString()
+                    });
+                }
+
                 // Enviar a n8n como pedido completado
                 await axios.post(N8N_WEBHOOK_URL, orderCompletedPayload);
                 console.log('✅ Pedido de prueba enviado a n8n:', orderCompletedPayload);
