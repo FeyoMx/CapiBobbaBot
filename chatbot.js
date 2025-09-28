@@ -692,10 +692,18 @@ ${orderInfo.summary}
  */
 async function handleTextMessage(from, text, userState) {
     console.log(`💬 Procesando mensaje de texto de ${from}: "${text}"`);
-    
-    // 1. Verificar si es un administrador
+
+    // 1. Verificar si es un administrador en modo chat
     if (isAdmin(from)) {
         await handleAdminMessage({ from, type: 'text', text: { body: text } });
+        return;
+    }
+
+    // Verificar si es un admin en modo chat con cliente
+    const adminState = await getUserState(from);
+    if (adminState && adminState.mode === 'chatting') {
+        const clientNumber = adminState.targetUser;
+        await sendTextMessage(clientNumber, `🧑‍💼 Agente: ${text}`);
         return;
     }
 
@@ -707,15 +715,11 @@ async function handleTextMessage(from, text, userState) {
                 return;
 
             case 'awaiting_access_code_info':
-                // Manejar respuestas de texto para código de acceso
-                const normalizedText = text.toLowerCase().trim();
-                if (normalizedText.includes('sí') || normalizedText.includes('si') || normalizedText === 's') {
-                    await handleAccessCodeResponse(from, 'access_code_yes');
-                } else if (normalizedText.includes('no') || normalizedText === 'n') {
-                    await handleAccessCodeResponse(from, 'access_code_no');
-                } else {
-                    await sendTextMessage(from, 'Por favor responde "sí" si necesitas código de acceso o "no" si no lo necesitas.');
-                }
+                await handleAccessCodeTextResponse(from, text);
+                return;
+
+            case 'awaiting_payment_method':
+                await handlePaymentMethodTextResponse(from, text);
                 return;
 
             case 'awaiting_cash_denomination':
@@ -744,7 +748,7 @@ async function handleTextMessage(from, text, userState) {
     // 4. Normalizar el texto para búsqueda de comandos
     const normalizedText = text.toLowerCase().trim();
 
-    // 5. Buscar manejador de comandos
+    // 5. Buscar manejador de comandos específicos
     console.log(`🔍 Buscando comando para texto normalizado: "${normalizedText}"`);
     const commandHandler = findCommandHandler(normalizedText);
     if (commandHandler) {
@@ -753,8 +757,9 @@ async function handleTextMessage(from, text, userState) {
         return;
     }
 
+    // ✅ CORRECCIÓN PRINCIPAL: En lugar de ir directo a defaultHandler,
+    // siempre usar handleFreeformQuery para consultas no reconocidas
     console.log(`⚠️ No se encontró comando específico, usando Gemini para: "${text}"`);
-    // 6. Si no se encontró comando, usar Gemini para responder
     await handleFreeformQuery(from, text);
 }
 
@@ -1318,27 +1323,78 @@ const commandHandlers = [
  * @returns {Function|null} La función manejadora o null si no se encuentra.
  */
 function findCommandHandler(text) {
-  console.log(`🔎 Verificando comandos para: "${text}"`);
+    const lowerText = text.toLowerCase().trim();
+    console.log(`🔎 Verificando comandos para: "${lowerText}"`);
 
-  for (const command of commandHandlers) {
-    console.log(`📋 Verificando comando: ${command.name}`);
+    // Comandos exactos
+    const exactCommands = {
+        'hola': sendMainMenu,
+        'ayuda': sendMainMenu,
+        'menú': handleShowMenu,
+        'menu': handleShowMenu,
+        'promociones': handleShowPromotions,
+        'promos': handleShowPromotions,
+        'horario': handleShowHours,
+        'horarios': handleShowHours,
+        'ubicación': handleShowLocation,
+        'ubicacion': handleShowLocation,
+        'agente': handleContactAgent,
+        'contacto': handleContactAgent,
+        'hablar': handleContactAgent
+    };
 
-    // Estrategia 1: Función de match personalizada (la más flexible)
-    if (command.match && command.match(text)) {
-      console.log(`✅ Match encontrado con función personalizada: ${command.name}`);
-      return command.handler;
+    if (exactCommands[lowerText]) {
+        console.log(`✅ Comando exacto encontrado: ${lowerText}`);
+        return exactCommands[lowerText];
     }
 
-    // Estrategia 2: Coincidencia por palabras clave
-    if (command.keywords && command.keywords.some(keyword => text.includes(keyword))) {
-      console.log(`✅ Match encontrado con palabra clave: ${command.name}`);
-      return command.handler;
-    }
-  }
+    // ✅ NUEVO: Patrones de texto para consultas comunes
+    const patterns = [
+        {
+            keywords: ['envío', 'envio', 'delivery', 'domicilio', 'entrega'],
+            handler: handleDeliveryInquiry
+        },
+        {
+            keywords: ['precio', 'costo', 'cuanto', 'vale'],
+            handler: handlePriceInquiry
+        },
+        {
+            keywords: ['abierto', 'cerrado', 'horario', 'abren', 'cierran'],
+            handler: handleServiceStatusCheck
+        },
+        {
+            keywords: ['pedido', 'ordenar', 'comprar', 'quiero'],
+            handler: handleInitiateOrder
+        }
+    ];
 
-  console.log(`❌ No se encontró ningún comando para: "${text}"`);
-  // Si ninguna de las palabras clave coincide, no devolvemos nada para que lo maneje Gemini.
-  return null;
+    // Buscar patrones que coincidan
+    for (const pattern of patterns) {
+        if (pattern.keywords.some(keyword => lowerText.includes(keyword))) {
+            console.log(`✅ Patrón encontrado: ${pattern.keywords.join(', ')}`);
+            return pattern.handler;
+        }
+    }
+
+    // Compatibilidad con el sistema anterior de commandHandlers
+    for (const command of commandHandlers) {
+        console.log(`📋 Verificando comando legacy: ${command.name}`);
+
+        // Estrategia 1: Función de match personalizada (la más flexible)
+        if (command.match && command.match(lowerText)) {
+            console.log(`✅ Match encontrado con función personalizada: ${command.name}`);
+            return command.handler;
+        }
+
+        // Estrategia 2: Coincidencia por palabras clave
+        if (command.keywords && command.keywords.some(keyword => lowerText.includes(keyword))) {
+            console.log(`✅ Match encontrado con palabra clave legacy: ${command.name}`);
+            return command.handler;
+        }
+    }
+
+    console.log(`❌ No se encontró ningún comando para: "${lowerText}"`);
+    return null; // No se encontró comando
 }
 
 // --- ACCIONES DEL BOT (Las respuestas de tu negocio) ---
@@ -1678,6 +1734,38 @@ async function handleAccessCodeResponse(from, buttonId) {
 }
 
 /**
+ * Maneja respuestas de texto para código de acceso.
+ * @param {string} from El número del remitente.
+ * @param {string} text El texto del mensaje.
+ */
+async function handleAccessCodeTextResponse(from, text) {
+    const normalizedText = text.toLowerCase().trim();
+    if (normalizedText.includes('sí') || normalizedText.includes('si') || normalizedText === 's') {
+        await handleAccessCodeResponse(from, 'access_code_yes');
+    } else if (normalizedText.includes('no') || normalizedText === 'n') {
+        await handleAccessCodeResponse(from, 'access_code_no');
+    } else {
+        await sendTextMessage(from, 'Por favor responde "sí" si necesitas código de acceso o "no" si no lo necesitas.');
+    }
+}
+
+/**
+ * Maneja respuestas de texto para método de pago.
+ * @param {string} from El número del remitente.
+ * @param {string} text El texto del mensaje.
+ */
+async function handlePaymentMethodTextResponse(from, text) {
+    const normalizedText = text.toLowerCase().trim();
+    if (normalizedText.includes('efectivo') || normalizedText.includes('cash')) {
+        await handlePaymentMethodResponse(from, 'payment_cash');
+    } else if (normalizedText.includes('transferencia') || normalizedText.includes('transfer')) {
+        await handlePaymentMethodResponse(from, 'payment_transfer');
+    } else {
+        await sendTextMessage(from, 'Por favor responde "efectivo" o "transferencia" para seleccionar tu método de pago.');
+    }
+}
+
+/**
  * Maneja la respuesta del usuario sobre el método de pago.
  * @param {string} from El número del remitente.
  * @param {string} buttonId El ID del botón presionado ('payment_cash' o 'payment_transfer').
@@ -1808,44 +1896,207 @@ async function handlePaymentProofImage(from, imageObject) {
  * @param {string} userQuery La pregunta del usuario.
  */
 async function handleFreeformQuery(to, userQuery) {
-  try {
-    // Inicializa el modelo de IA Generativa 
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+    console.log(`🤖 Gemini procesando consulta libre: "${userQuery}"`);
 
-    // ¡Importante! Aquí le das contexto al bot para que sepa cómo comportarse.
-    const prompt = `
-    Eres "Capi", un asistente virtual experto y amigable de la bubble tea shop "CapiBoba".
-    Tu ÚNICA fuente de información es el siguiente contexto del negocio. No debes inventar productos, precios o promociones que no estén en esta lista.
-    Si te preguntan por una bebida, recomienda únicamente las que están en el menú.
+    try {
+        // Verificar modo mantenimiento
+        const isMaintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY) === 'true';
 
-    --- CONTEXTO DEL NEGOCIO ---
-    ${BUSINESS_CONTEXT}
-    --- FIN DEL CONTEXTO ---
+        // Inicializa el modelo de IA Generativa
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
-    Basándote ESTRICTAMENTE en la información del contexto, responde la siguiente pregunta del cliente de forma breve y servicial.
-    Si la pregunta no se puede responder con la información proporcionada, responde amablemente que no tienes esa información y sugiere que pregunten por el menú o las promociones.
+        // Crear prompt mejorado con contexto de negocio
+        const prompt = `Eres el asistente virtual de CapiBobba, una tienda especializada en bubble tea y frappes.
 
-    Pregunta del cliente: "${userQuery}"`;
+INFORMACIÓN DEL NEGOCIO:
+- Nombre: CapiBobba
+- Productos: Frappes (base agua y base leche), bubble tea, bebidas calientes, especialidades
+- Horarios: Lunes a Viernes 6:00 PM - 10:00 PM, Sábados y Domingos 12:00 PM - 10:00 PM
+- Envío: GRATIS en fraccionamientos aledaños a Viñedos
+- Promociones: Combo Día Lluvioso (2 bebidas calientes x $110), Combo Amigos (2 frappes base agua x $130)
+- Menú completo: https://feyomx.github.io/menucapibobba/
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const geminiText = response.text();
+ESTADO DEL SERVICIO: ${isMaintenanceMode ? 'CERRADO (mantenimiento)' : 'ABIERTO'}
 
-    sendTextMessage(to, geminiText);
-  } catch (error) {
-    console.error('Error al contactar la API de Gemini:', error);
-    // En caso de error con Gemini, envía una respuesta por defecto.
-    defaultHandler(to);
-  }
+INSTRUCCIONES:
+1. Responde de manera amigable y profesional
+2. Si preguntan sobre productos, menciona el menú web
+3. Si quieren hacer pedidos y el servicio está abierto, guíalos al menú web
+4. Si el servicio está cerrado, informa que no estamos tomando pedidos
+5. Para preguntas sobre envío, confirma que es gratis en nuestra zona
+6. Mantén las respuestas concisas pero informativas
+7. Si no sabes algo específico, sugiere contactar directamente
+
+Pregunta del cliente: "${userQuery}"
+
+Responde como el asistente de CapiBobba:`;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const geminiText = response.text();
+
+        await sendTextMessage(to, geminiText);
+        console.log(`✅ Gemini respondió exitosamente a ${to}`);
+
+    } catch (error) {
+        console.error('Error al contactar la API de Gemini:', error);
+        // En caso de error con Gemini, usar defaultHandler sin el mensaje original
+        // para evitar bucle infinito
+        await defaultHandler(to);
+    }
 }
 
 /**
  * Maneja los mensajes no reconocidos.
  * @param {string} to Número del destinatario.
  */
-async function defaultHandler(to) {
-  await sendTextMessage(to, `No entendí tu mensaje. Escribe "hola" o "ayuda" para ver las opciones disponibles.`);
+async function defaultHandler(to, originalMessage = null) {
+    console.log(`⚠️ Ejecutando defaultHandler para ${to}`);
+
+    // Si tenemos el mensaje original, intentar una vez más con Gemini
+    if (originalMessage) {
+        try {
+            console.log(`🔄 Intentando Gemini como último recurso para: "${originalMessage}"`);
+            await handleFreeformQuery(to, originalMessage);
+            return;
+        } catch (error) {
+            console.error('Error en último intento con Gemini:', error);
+        }
+    }
+
+    // Solo si todo lo demás falla, usar el mensaje por defecto
+    await sendTextMessage(to, `Lo siento, no pude entender tu mensaje.
+
+Puedes intentar:
+• Escribir "hola" para ver el menú principal
+• Escribir "menu" para ver nuestros productos
+• Escribir "ayuda" para más opciones
+
+O simplemente pregúntame sobre nuestros productos, horarios o precios 😊`);
+}
+
+// ✅ NUEVAS FUNCIONES PARA CONSULTAS ESPECÍFICAS
+
+/**
+ * Maneja consultas específicas sobre envío/delivery.
+ * @param {string} to Número del destinatario.
+ * @param {string} text El texto original del mensaje.
+ */
+async function handleDeliveryInquiry(to, text) {
+    console.log(`📦 Manejando consulta de envío para ${to}`);
+
+    // Verificar modo mantenimiento
+    const isMaintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY) === 'true';
+    if (isMaintenanceMode) {
+        await sendTextMessage(to, 'En este momento no estamos tomando pedidos. ¡Agradecemos tu comprensión y esperamos verte pronto! 👋');
+        return;
+    }
+
+    // Respuesta específica sobre envíos
+    const deliveryInfo = `🚚 **Información de Envío**
+
+✅ ¡Tenemos servicio a domicilio GRATIS!
+
+📍 **Cobertura:** Fraccionamientos aledaños a Viñedos
+🕒 **Horarios de entrega:**
+   • Lunes a Viernes: 6:00 PM - 10:00 PM
+   • Sábados y Domingos: 12:00 PM - 10:00 PM
+
+💰 **Sin costo adicional** por envío
+⏱️ **Tiempo estimado:** 20-30 minutos
+
+¿Te gustaría hacer un pedido? 😊`;
+
+    await sendTextMessage(to, deliveryInfo);
+}
+
+/**
+ * Maneja consultas sobre precios.
+ * @param {string} to Número del destinatario.
+ * @param {string} text El texto original del mensaje.
+ */
+async function handlePriceInquiry(to, text) {
+    console.log(`💰 Manejando consulta de precios para ${to}`);
+
+    const priceInfo = `💰 **Nuestros Precios**
+
+🧋 **Frappes Base Agua:** $75
+🥛 **Frappes Base Leche:** $75
+🍓 **Especialidades:** $75 - $80
+
+✨ **Promociones actuales:**
+🌧️ Combo Día Lluvioso: 2 bebidas calientes x $110
+👥 Combo Amigos: 2 Frappes base agua x $130
+
+Para ver el menú completo con todos los precios: https://feyomx.github.io/menucapibobba/
+
+¿Te gustaría hacer un pedido? 😊`;
+
+    await sendTextMessage(to, priceInfo);
+}
+
+/**
+ * Maneja consultas sobre horarios y estado del servicio.
+ * @param {string} to Número del destinatario.
+ * @param {string} text El texto original del mensaje.
+ */
+async function handleServiceStatusCheck(to, text) {
+    console.log(`🕒 Manejando consulta de horarios para ${to}`);
+
+    // Verificar modo mantenimiento
+    const isMaintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY) === 'true';
+
+    const statusInfo = `🕒 **Horarios de CapiBobba**
+
+📅 **Lunes a Viernes:** 6:00 PM - 10:00 PM
+📅 **Sábados y Domingos:** 12:00 PM - 10:00 PM
+
+${isMaintenanceMode ?
+    '🔴 **Estado actual:** CERRADO (Mantenimiento)\nNo estamos tomando pedidos en este momento.' :
+    '🟢 **Estado actual:** ABIERTO\n¡Estamos tomando pedidos!'
+}
+
+🚚 **Envío gratuito** en fraccionamientos aledaños a Viñedos
+
+¿Te gustaría ver nuestro menú? 😊`;
+
+    await sendTextMessage(to, statusInfo);
+}
+
+/**
+ * Maneja intención de iniciar un pedido.
+ * @param {string} to Número del destinatario.
+ * @param {string} text El texto original del mensaje.
+ */
+async function handleInitiateOrder(to, text) {
+    console.log(`🛒 Manejando inicio de pedido para ${to}`);
+
+    // Verificar modo mantenimiento
+    const isMaintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY) === 'true';
+    if (isMaintenanceMode) {
+        await sendTextMessage(to, 'En este momento no estamos tomando pedidos. ¡Agradecemos tu comprensión y esperamos verte pronto! 👋');
+        return;
+    }
+
+    // Dirigir al menú web para hacer el pedido
+    const orderInfo = `🛒 **¡Perfecto! Vamos a hacer tu pedido**
+
+Para ver todo nuestro menú y realizar tu pedido:
+👉 https://feyomx.github.io/menucapibobba/
+
+**Pasos sencillos:**
+1️⃣ Selecciona tus bebidas favoritas
+2️⃣ Personaliza ingredientes
+3️⃣ Confirma tu pedido
+4️⃣ Te pediremos tu dirección de entrega
+
+🚚 **Envío GRATIS** en fraccionamientos aledaños a Viñedos
+⏱️ **Tiempo de entrega:** 20-30 minutos
+
+¿Listo para ordenar? 😊`;
+
+    await sendTextMessage(to, orderInfo);
 }
 
 /**

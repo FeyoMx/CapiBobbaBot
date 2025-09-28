@@ -541,6 +541,18 @@ Grid Principal (2 columnas desktop, 1 móvil)
 - [ ] Analytics avanzados
 - [ ] A/B testing
 - [ ] Voice messages support
+- [ ] Web widget para sitio web
+- [ ] Seguimiento en tiempo real de pedidos
+- [ ] Notificaciones push/SMS
+- [ ] Sistema de feedback y reseñas
+- [ ] Gestión de inventario en tiempo real
+- [ ] Encuestas post-entrega automáticas
+- [ ] QR codes para pagos inmediatos
+- [ ] Ofertas personalizadas basadas en historial
+- [ ] Chatbot para Telegram
+- [ ] Instagram DM integration
+- [ ] Facebook Messenger integration
+- [ ] Sistema de quejas/reclamos
 
 ### Mejoras Técnicas
 - [ ] Tests automatizados
@@ -549,6 +561,34 @@ Grid Principal (2 columnas desktop, 1 móvil)
 - [ ] Kubernetes deployment
 - [ ] Rate limiting avanzado
 - [ ] Caché distribuido
+- [ ] APM (Application Performance Monitoring)
+- [ ] Alertas inteligentes con ML
+- [ ] Logs estructurados con ELK stack
+- [ ] Backup automático de Redis
+- [ ] Replicación de datos críticos
+- [ ] Plan de recuperación ante desastres
+- [ ] Detección de spam/abuse
+- [ ] Audit logs de acciones críticas
+- [ ] Compresión de imágenes automática
+- [ ] CDN para assets estáticos
+- [ ] Predicción de demanda con IA
+- [ ] Versionado de configuraciones
+
+### Mejoras de Analytics y Métricas
+- [ ] Métricas de conversión por producto
+- [ ] Análisis de sentimiento de clientes
+- [ ] Horas pico y tendencias
+- [ ] Dashboard de insights de negocio
+- [ ] Métricas de satisfacción del cliente
+- [ ] Rating de productos
+- [ ] Analytics de widget web
+- [ ] A/B testing de interfaces
+
+### Mejoras de Seguridad
+- [ ] Rate limiting por usuario
+- [ ] Validación mejorada de inputs
+- [ ] Backup y recuperación automática
+- [ ] Monitoreo de seguridad 24/7
 
 ## 📞 Soporte
 
@@ -589,14 +629,30 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
-### v2.1.1 (2025-01-19)
+### v2.2.0 (2025-09-28)
+- 🚀 **Sistema de procesamiento de mensajes mejorado**: Reestructuración completa del manejo de mensajes de texto
+- 🎯 **Detección inteligente de consultas**: Nuevos patrones para reconocer consultas sobre envío, precios, horarios y pedidos
+- 📦 **Funciones especializadas**:
+  - `handleDeliveryInquiry`: Respuestas específicas sobre envío y delivery
+  - `handlePriceInquiry`: Información detallada de precios y promociones
+  - `handleServiceStatusCheck`: Estado del servicio y horarios en tiempo real
+  - `handleInitiateOrder`: Guía optimizada para iniciar pedidos
+- 🤖 **Gemini AI mejorado**: Prompt reestructurado con contexto de negocio más robusto y verificación de estado de mantenimiento
+- 🔧 **Funciones auxiliares agregadas**:
+  - `handleAccessCodeTextResponse`: Manejo de texto para códigos de acceso
+  - `handlePaymentMethodTextResponse`: Procesamiento de texto para métodos de pago
+- 🛡️ **Manejo de errores robusto**: Sistema de fallback mejorado que previene bucles infinitos
+- 📋 **Sistema de comandos actualizado**: Mapeo optimizado de comandos exactos y patrones de palabras clave
+- ✨ **Mejor UX**: Respuestas más específicas y contextuales antes de usar IA como respaldo
+
+### v2.1.1 (2025-09-19)
 - 🔧 **Fix flujo de ubicación**: Corregido problema donde el bot terminaba el flujo cuando el usuario seleccionaba "dar ubicación"
 - 🔧 **Mejora manejo de errores**: Agregado try-catch en envío de mensajes interactivos con fallback a texto simple
 - 🔧 **Soporte texto y botones**: Permite responder tanto con botones como con texto en pregunta de código de acceso
 - 🔧 **Logs mejorados**: Agregados logs de debugging para rastrear el flujo de ubicación
 - 🔧 **Estado awaiting_access_code_info**: Agregado manejo completo para este estado en handleTextMessage
 
-### v2.1.0 (2025-01-19)
+### v2.1.0 (2025-09-19)
 - ✅ **Dashboard UI Redesign**: Implementado tema oscuro moderno
 - ✅ **Layout responsive**: Grid 2-columnas con breakpoints móviles
 - ✅ **FontAwesome integration**: Iconografía profesional
@@ -611,8 +667,8 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ---
 
-**Última actualización**: 19 de Enero, 2025 - Fix flujo ubicación v2.1.1
-**Versión del proyecto**: 2.1.1
+**Última actualización**: 28 de Septiembre, 2025 - Sistema de procesamiento mejorado v2.2.0
+**Versión del proyecto**: 2.2.0
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones
