@@ -629,6 +629,15 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.2.1 (2025-09-29)
+- 🐛 **Fix crítico función no definida**: Corregido ReferenceError `sendOrderCompletionToN8n is not defined` en `chatbot.js:1885`
+  - Reemplazadas llamadas a `sendOrderCompletionToN8n` por `sendOrderCompletionToN8nEnhanced` (nombre correcto de la función)
+  - Afectaba el flujo de finalización de pedidos con comprobante de pago y efectivo
+- 🔧 **Enhanced Message Normalizer**: Implementada lógica para evitar clasificar mensajes del bot como `customer_inquiry`
+  - Agregada condición `!normalizedBody.isFromBot` en la detección de consultas de clientes
+  - Previene clasificación incorrecta de respuestas automáticas del bot
+- ✅ **Estabilidad mejorada**: El bot ya no genera errores al procesar comprobantes de pago y denominaciones de efectivo
+
 ### v2.2.0 (2025-09-28)
 - 🚀 **Sistema de procesamiento de mensajes mejorado**: Reestructuración completa del manejo de mensajes de texto
 - 🎯 **Detección inteligente de consultas**: Nuevos patrones para reconocer consultas sobre envío, precios, horarios y pedidos
@@ -667,8 +676,8 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ---
 
-**Última actualización**: 28 de Septiembre, 2025 - Sistema de procesamiento mejorado v2.2.0
-**Versión del proyecto**: 2.2.0
+**Última actualización**: 29 de Septiembre, 2025 - Fixes críticos y mejoras al normalizador v2.2.1
+**Versión del proyecto**: 2.2.1
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones

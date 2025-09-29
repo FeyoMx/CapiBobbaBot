@@ -1835,7 +1835,7 @@ async function handleCashDenominationResponse(from, denomination) {
 
   // Guardamos la denominación y enviamos el pedido completo a n8n
   const finalState = { ...userState, cashDenomination: sanitizedDenomination };
-  sendOrderCompletionToN8n(from, finalState);
+  sendOrderCompletionToN8nEnhanced(from, finalState);
   logOrderToFile(finalState); // Log the completed order
 
   console.log(`Pedido finalizado para ${from}. Dirección: ${address}. Pago: Efectivo (${sanitizedDenomination}).`);
@@ -1882,7 +1882,7 @@ async function handlePaymentProofImage(from, imageObject) {
 
   // Guardamos el ID de la imagen y enviamos el pedido completo a n8n
   const finalState = { ...userState, proofImageId: imageObject.id };
-  sendOrderCompletionToN8n(from, finalState);
+  sendOrderCompletionToN8nEnhanced(from, finalState);
   logOrderToFile(finalState); // Log the completed order
 
   console.log(`Pedido finalizado y comprobante reenviado para ${from}.`);
