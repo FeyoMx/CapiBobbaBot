@@ -40,6 +40,9 @@ const MonitoringWebSocketServer = require('./monitoring/websocket-server');
 const MemoryMonitor = require('./monitoring/memory-monitor');
 const cron = require('node-cron');
 
+// === SISTEMA DE SEGURIDAD ===
+const { initializeSecurity, securityMiddleware, validateInput } = require('./security');
+
 // --- CONFIGURACIÓN ---
 // Lee las variables de entorno de forma segura. ¡No dejes tokens en el código!
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
@@ -77,6 +80,9 @@ let metricsCollector = null;
 let healthChecker = null;
 let wsServer = null;
 let memoryMonitor = null;
+
+// === VARIABLES GLOBALES PARA SEGURIDAD ===
+let security = null;
 
 
 
@@ -144,13 +150,83 @@ app.post('/webhook', async (req, res) => {
         // Verificar si es un mensaje de WhatsApp
         if (body.object === 'whatsapp_business_account' && body.entry && body.entry[0] && body.entry[0].changes) {
             const changes = body.entry[0].changes[0];
-            
+
             if (changes.field === 'messages' && changes.value && changes.value.messages) {
                 const messages = changes.value.messages;
-                
+
                 for (const message of messages) {
                     console.log('📱 Procesando mensaje de WhatsApp:', JSON.stringify(message, null, 2));
-                    
+
+                    const phoneNumber = message.from;
+
+                    // === VALIDACIONES DE SEGURIDAD ===
+                    if (security) {
+                        // 1. Verificar si el usuario está bloqueado
+                        const isBlocked = await security.securityMonitor.isUserBlocked(phoneNumber);
+                        if (isBlocked) {
+                            console.log(`🚫 Usuario bloqueado: ${phoneNumber}`);
+                            await security.securityMonitor.logSecurityEvent('blocked_user_attempt', {
+                                phoneNumber,
+                                messageType: message.type
+                            });
+                            continue; // Saltar este mensaje
+                        }
+
+                        // 2. Verificar rate limiting
+                        const rateLimitCheck = await security.rateLimiter.checkAllLimits(phoneNumber);
+                        if (!rateLimitCheck.allowed) {
+                            console.log(`⏱️ Rate limit excedido para ${phoneNumber}: ${rateLimitCheck.reason}`);
+
+                            // Registrar evento de seguridad
+                            await security.securityMonitor.logSecurityEvent('rate_limit_exceeded', {
+                                phoneNumber,
+                                reason: rateLimitCheck.reason
+                            });
+
+                            // Notificar al usuario
+                            await sendTextMessage(
+                                phoneNumber,
+                                `⏱️ Has enviado demasiados mensajes. ${rateLimitCheck.reason}`
+                            );
+                            continue;
+                        }
+
+                        // 3. Validar y sanitizar mensaje
+                        const validation = security.inputValidator.validateWhatsAppMessage(message);
+                        if (!validation.valid) {
+                            console.log(`❌ Mensaje inválido de ${phoneNumber}:`, validation.errors);
+
+                            // Registrar actividad sospechosa
+                            await security.securityMonitor.logSecurityEvent('invalid_input', {
+                                phoneNumber,
+                                errors: validation.errors,
+                                messageType: message.type
+                            });
+
+                            await sendTextMessage(
+                                phoneNumber,
+                                '❌ Tu mensaje contiene contenido inválido. Por favor intenta de nuevo.'
+                            );
+                            continue;
+                        }
+
+                        // 4. Detectar actividad sospechosa
+                        if (validation.suspicious) {
+                            console.log(`⚠️ Actividad sospechosa detectada de ${phoneNumber}`);
+
+                            await security.securityMonitor.logSecurityEvent('suspicious_activity', {
+                                phoneNumber,
+                                messageType: message.type,
+                                errors: validation.errors
+                            });
+
+                            // No bloquear todavía, pero monitorear
+                        }
+
+                        // Usar mensaje sanitizado
+                        Object.assign(message, validation.sanitized);
+                    }
+
                     // Enviar mensaje a n8n con el formato esperado por el workflow
                     const n8nPayload = {
                         rawMessage: message,
@@ -203,12 +279,20 @@ app.post('/webhook', async (req, res) => {
                         }
                     } catch (processingError) {
                         console.error('❌ Error procesando mensaje específico:', processingError);
+
+                        // Registrar error de seguridad si está disponible
+                        if (security) {
+                            await security.securityMonitor.logSecurityEvent('message_processing_error', {
+                                phoneNumber,
+                                error: processingError.message
+                            });
+                        }
                         // Continuar con el siguiente mensaje en lugar de fallar completamente
                     }
                 }
             }
         }
-        
+
         res.status(200).send('OK');
     } catch (error) {
         console.error('❌ Error procesando webhook:', error);
@@ -285,6 +369,125 @@ app.post('/api/business-data', (req, res) => {
 });
 
 // Nota: Las encuestas son manejadas por n8n, no necesitamos endpoints para enviarlas
+
+// === ENDPOINTS DE SEGURIDAD ===
+
+// Endpoint para obtener estadísticas de seguridad
+app.get('/api/security/stats', async (req, res) => {
+    try {
+        if (!security) {
+            return res.status(503).json({ error: 'Sistema de seguridad no inicializado' });
+        }
+
+        const stats = await security.securityMonitor.getSecurityStats();
+        res.json(stats);
+    } catch (error) {
+        console.error('Error obteniendo estadísticas de seguridad:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Endpoint para obtener alertas activas
+app.get('/api/security/alerts', async (req, res) => {
+    try {
+        if (!security) {
+            return res.status(503).json({ error: 'Sistema de seguridad no inicializado' });
+        }
+
+        const alerts = await security.securityMonitor.getActiveAlerts();
+        res.json({ alerts });
+    } catch (error) {
+        console.error('Error obteniendo alertas de seguridad:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Endpoint para desbloquear un usuario manualmente
+app.post('/api/security/unblock', async (req, res) => {
+    try {
+        const { userId } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({ error: 'userId es requerido' });
+        }
+
+        if (!security) {
+            return res.status(503).json({ error: 'Sistema de seguridad no inicializado' });
+        }
+
+        await security.securityMonitor.unblockUser(userId);
+        await security.rateLimiter.resetUserLimits(userId);
+
+        res.json({ success: true, message: `Usuario ${userId} desbloqueado` });
+    } catch (error) {
+        console.error('Error desbloqueando usuario:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Endpoint para obtener estadísticas de uso de un usuario
+app.get('/api/security/user-stats/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        if (!security) {
+            return res.status(503).json({ error: 'Sistema de seguridad no inicializado' });
+        }
+
+        const stats = await security.rateLimiter.getUserStats(userId);
+        const isBlocked = await security.securityMonitor.isUserBlocked(userId);
+
+        res.json({
+            userId,
+            isBlocked,
+            stats
+        });
+    } catch (error) {
+        console.error('Error obteniendo estadísticas de usuario:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Endpoint para crear un backup manual
+app.post('/api/security/backup', async (req, res) => {
+    try {
+        if (!security) {
+            return res.status(503).json({ error: 'Sistema de seguridad no inicializado' });
+        }
+
+        const result = await security.redisBackup.createBackup();
+
+        if (result.success) {
+            res.json({
+                success: true,
+                message: 'Backup creado exitosamente',
+                file: result.file,
+                keyCount: result.keyCount,
+                duration: result.duration
+            });
+        } else {
+            res.status(500).json({ error: result.error });
+        }
+    } catch (error) {
+        console.error('Error creando backup:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Endpoint para listar backups disponibles
+app.get('/api/security/backups', async (req, res) => {
+    try {
+        if (!security) {
+            return res.status(503).json({ error: 'Sistema de seguridad no inicializado' });
+        }
+
+        const backups = await security.redisBackup.listBackups();
+        res.json({ backups });
+    } catch (error) {
+        console.error('Error listando backups:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
 
 // --- LÓGICA DEL BOT ---
 
@@ -2384,6 +2587,105 @@ async function initializeMonitoring() {
     }
 }
 
+// === INICIALIZACIÓN DEL SISTEMA DE SEGURIDAD ===
+async function initializeSecurity_system() {
+    try {
+        console.log('🛡️ Inicializando sistema de seguridad...');
+
+        // Configuración del sistema de seguridad
+        const securityConfig = {
+            backup: {
+                enabled: process.env.ENABLE_AUTO_BACKUP !== 'false', // true por defecto
+                schedule: process.env.BACKUP_SCHEDULE || '0 */6 * * *', // Cada 6 horas
+                retentionDays: parseInt(process.env.BACKUP_RETENTION_DAYS) || 7,
+                maxBackups: parseInt(process.env.MAX_BACKUPS) || 30
+            },
+            monitor: {
+                maxFailedLogins: parseInt(process.env.MAX_FAILED_LOGINS) || 5,
+                suspiciousActivityThreshold: parseInt(process.env.SUSPICIOUS_ACTIVITY_THRESHOLD) || 10,
+                ddosThreshold: parseInt(process.env.DDOS_THRESHOLD) || 100,
+                checkInterval: parseInt(process.env.SECURITY_CHECK_INTERVAL) || 60000, // 1 minuto
+                retentionHours: parseInt(process.env.SECURITY_LOG_RETENTION_HOURS) || 24
+            }
+        };
+
+        // Inicializar sistema de seguridad completo
+        security = initializeSecurity(redisClient, securityConfig);
+
+        // Configurar listeners de eventos de seguridad
+        security.securityMonitor.on('alert', async (alert) => {
+            console.log(`🚨 ALERTA DE SEGURIDAD [${alert.severity.toUpperCase()}]: ${alert.type}`);
+            console.log('   Datos:', JSON.stringify(alert.data, null, 2));
+
+            // Notificar a admins en caso de alertas críticas
+            if (alert.severity === 'critical' && ADMIN_WHATSAPP_NUMBERS) {
+                const adminNumbers = ADMIN_WHATSAPP_NUMBERS.split(',');
+                const alertMessage = `🚨 *ALERTA DE SEGURIDAD CRÍTICA*\n\n` +
+                    `Tipo: ${alert.type}\n` +
+                    `Severidad: ${alert.severity}\n` +
+                    `Datos: ${JSON.stringify(alert.data, null, 2)}\n` +
+                    `Timestamp: ${new Date(alert.timestamp).toLocaleString()}`;
+
+                for (const admin of adminNumbers) {
+                    try {
+                        await sendTextMessage(admin.trim(), alertMessage);
+                    } catch (error) {
+                        console.error(`Error notificando alerta a admin ${admin}:`, error);
+                    }
+                }
+            }
+
+            // Registrar en métricas si está disponible
+            if (metricsCollector) {
+                try {
+                    await metricsCollector.setMetricInRedis(
+                        `security:alert:${alert.severity}`,
+                        Date.now(),
+                        3600 // 1 hora
+                    );
+                } catch (error) {
+                    console.error('Error registrando alerta en métricas:', error);
+                }
+            }
+        });
+
+        security.securityMonitor.on('userBlocked', async ({ userId, duration }) => {
+            console.log(`🚫 Usuario bloqueado automáticamente: ${userId} por ${duration}s`);
+
+            // Notificar a admins
+            if (ADMIN_WHATSAPP_NUMBERS) {
+                const adminNumbers = ADMIN_WHATSAPP_NUMBERS.split(',');
+                const message = `🚫 *Usuario Bloqueado*\n\n` +
+                    `Usuario: ${userId}\n` +
+                    `Duración: ${duration}s (${Math.round(duration / 60)} minutos)\n` +
+                    `Razón: Comportamiento anómalo detectado automáticamente`;
+
+                for (const admin of adminNumbers) {
+                    try {
+                        await sendTextMessage(admin.trim(), message);
+                    } catch (error) {
+                        console.error(`Error notificando bloqueo a admin ${admin}:`, error);
+                    }
+                }
+            }
+        });
+
+        security.securityMonitor.on('userUnblocked', ({ userId }) => {
+            console.log(`✅ Usuario desbloqueado: ${userId}`);
+        });
+
+        console.log('✅ Sistema de seguridad inicializado exitosamente');
+        console.log(`   🔒 Rate limiting: Activo`);
+        console.log(`   ✅ Validación de inputs: Activa`);
+        console.log(`   💾 Backups automáticos: ${securityConfig.backup.enabled ? 'Habilitados' : 'Deshabilitados'}`);
+        console.log(`   🚨 Monitoreo 24/7: Activo`);
+
+    } catch (error) {
+        console.error('❌ Error inicializando sistema de seguridad:', error);
+        throw error;
+    }
+}
+
 // Tareas de mantenimiento programadas
 function scheduleMaintenanceTasks() {
     // Backup diario a las 3 AM
@@ -2626,6 +2928,15 @@ server.listen(PORT, () => {
     } catch (error) {
       console.error('❌ Error inicializando monitoreo (continuando sin monitoreo):', error);
       // El chatbot continuará funcionando sin monitoreo
+    }
+
+    // Inicializar sistema de seguridad
+    try {
+      await initializeSecurity_system();
+      console.log('✅ Sistema de seguridad inicializado correctamente');
+    } catch (error) {
+      console.error('❌ Error inicializando sistema de seguridad (continuando sin seguridad):', error);
+      // El chatbot continuará funcionando sin protecciones adicionales
     }
   }, 2000); // Esperar 2 segundos para asegurar que todo esté listo
 });

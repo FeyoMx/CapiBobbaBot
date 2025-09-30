@@ -1,3 +1,7 @@
 node_modules
 .env
 user_states.json
+
+# Backups de Redis (generados automáticamente)
+backups/*.json
+!backups/.gitkeep
