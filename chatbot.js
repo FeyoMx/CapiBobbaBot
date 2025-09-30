@@ -646,6 +646,77 @@ app.post('/api/gemini/cache/invalidate', async (req, res) => {
     }
 });
 
+// Endpoint: GET /api/redis-states - Obtener todos los estados de usuarios
+app.get('/api/redis-states', async (req, res) => {
+    try {
+        const keys = await redisClient.keys('*');
+        const states = [];
+
+        for (const key of keys) {
+            // Excluir claves del sistema (métricas, backups, cache, etc.)
+            if (!key.startsWith('metrics:') &&
+                !key.startsWith('backup:') &&
+                !key.startsWith('gemini:') &&
+                !key.startsWith('security:') &&
+                key !== 'maintenance_mode_status') {
+
+                const value = await redisClient.get(key);
+                try {
+                    const state = JSON.parse(value);
+                    states.push({ key, state });
+                } catch (e) {
+                    // Si no es JSON válido, mostrar el valor raw
+                    states.push({ key, state: value });
+                }
+            }
+        }
+
+        res.json(states);
+    } catch (error) {
+        console.error('Error obteniendo estados de Redis:', error);
+        res.status(500).json({ error: 'Error al obtener estados' });
+    }
+});
+
+// Endpoint: DELETE /api/redis-states/:key - Eliminar estado específico
+app.delete('/api/redis-states/:key', async (req, res) => {
+    try {
+        const { key } = req.params;
+
+        // Evitar eliminar claves críticas del sistema
+        if (key.startsWith('metrics:') ||
+            key.startsWith('backup:') ||
+            key.startsWith('gemini:') ||
+            key.startsWith('security:') ||
+            key === 'maintenance_mode_status') {
+            return res.status(403).json({
+                success: false,
+                message: 'No se puede eliminar una clave del sistema'
+            });
+        }
+
+        const result = await redisClient.del(key);
+
+        if (result === 1) {
+            res.json({
+                success: true,
+                message: `Estado ${key} eliminado correctamente`
+            });
+        } else {
+            res.status(404).json({
+                success: false,
+                message: 'Estado no encontrado'
+            });
+        }
+    } catch (error) {
+        console.error('Error eliminando estado de Redis:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Error al eliminar estado'
+        });
+    }
+});
+
 // --- LÓGICA DEL BOT ---
 
 // --- GESTIÓN DE ESTADO CON REDIS ---

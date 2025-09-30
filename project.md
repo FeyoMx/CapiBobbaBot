@@ -258,6 +258,12 @@ Health → HealthChecker → Alertas → Telegram/Admin
 - `GET /metrics`: Métricas actuales
 - `WebSocket :3001`: Stream de métricas en tiempo real
 
+### Sistema de Caché Gemini
+- `GET /api/gemini/cache/stats`: Estadísticas del caché y hit rate
+- `GET /api/gemini/cache/popular`: Queries más populares en caché
+- `POST /api/gemini/cache/clear`: Limpiar todo el caché
+- `POST /api/gemini/cache/invalidate`: Invalidar entrada específica
+
 ### Sistema de Seguridad
 - `GET /api/security/stats`: Estadísticas de seguridad
 - `GET /api/security/alerts`: Alertas activas
@@ -676,6 +682,51 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.5.0 (2025-09-30) - Sistema de Caché Gemini AI
+- ⚡ **Sistema de Caché Inteligente** (`gemini-cache.js`):
+  - Caché completo para respuestas de Gemini AI con Redis
+  - Normalización inteligente de mensajes para mejorar hit rate
+  - Hash MD5 para generación de claves únicas
+  - TTL configurable (24 horas por defecto)
+  - Límite máximo de entradas (10,000 por defecto)
+  - Limpieza automática cuando se excede el límite
+  - Sistema completo de métricas (hits, misses, saves)
+  - Cálculo de hit rate y eficiencia del caché
+  - Tracking de queries más populares
+
+- 🚀 **Integración en Chatbot** (`chatbot.js`):
+  - Verificación de caché ANTES de llamar a Gemini API
+  - Almacenamiento automático de nuevas respuestas
+  - Fallback a API si hay cache miss
+  - Tracking de tiempo de respuesta (<100ms cached vs ~3s API)
+  - Integración con métricas existentes (contadores Redis)
+  - Función de inicialización `initializeGeminiCache()`
+  - Arranque automático al iniciar el servidor
+
+- 🔌 **Nuevos API Endpoints**:
+  - `GET /api/gemini/cache/stats` - Estadísticas del caché y hit rate
+  - `GET /api/gemini/cache/popular` - Queries más populares en caché
+  - `POST /api/gemini/cache/clear` - Limpiar todo el caché
+  - `POST /api/gemini/cache/invalidate` - Invalidar entrada específica
+
+- 📊 **Resultados Esperados**:
+  - 80-95% reducción en latencia (3000ms → 50-100ms)
+  - 60-80% reducción en costos de Gemini API
+  - 70%+ hit rate objetivo en producción
+  - Mejor experiencia de usuario con respuestas instantáneas
+
+- 🔧 **Configuración** (`.env.example`):
+  - `GEMINI_CACHE_TTL=86400` - Tiempo de vida en segundos (24h)
+  - `GEMINI_CACHE_MAX_KEYS=10000` - Máximo de entradas en caché
+  - `GEMINI_CACHE_NORMALIZATION=true` - Habilitar normalización
+
+- 📝 **Documentación**:
+  - Actualizado `project.md` con logros v2.5.0
+  - Marcado "Caché de respuestas IA" como completado
+  - Progreso total: 14/60 items (23%)
+
+- ✅ **Deploy exitoso**: Commit 9629e00, Deploy dep-d3e4gjvdiees73fpd4vg, Status LIVE
+
 ### v2.4.0 (2025-09-30) - Dashboard de Seguridad
 - 🛡️ **Dashboard Web de Seguridad** (`dashboard/src/SecurityDashboard.js`):
   - Panel completo de visualización de métricas de seguridad en tiempo real
@@ -827,8 +878,8 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ---
 
-**Última actualización**: 30 de Septiembre, 2025 - Dashboard de Seguridad v2.4.0
-**Versión del proyecto**: 2.4.0
+**Última actualización**: 30 de Septiembre, 2025 - Sistema de Caché Gemini AI v2.5.0
+**Versión del proyecto**: 2.5.0
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones
