@@ -43,6 +43,9 @@ const cron = require('node-cron');
 // === SISTEMA DE SEGURIDAD ===
 const { initializeSecurity, securityMiddleware, validateInput } = require('./security');
 
+// === SISTEMA DE CACHÉ GEMINI ===
+const GeminiCache = require('./gemini-cache');
+
 // --- CONFIGURACIÓN ---
 // Lee las variables de entorno de forma segura. ¡No dejes tokens en el código!
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
@@ -83,6 +86,9 @@ let memoryMonitor = null;
 
 // === VARIABLES GLOBALES PARA SEGURIDAD ===
 let security = null;
+
+// === VARIABLES GLOBALES PARA CACHÉ ===
+let geminiCache = null;
 
 
 
@@ -564,6 +570,78 @@ app.post('/api/security/unblock/:userId', async (req, res) => {
         res.json({ success: true, message: `Usuario ${userId} desbloqueado` });
     } catch (error) {
         console.error('Error desbloqueando usuario:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// === ENDPOINTS DE CACHÉ GEMINI ===
+
+// Endpoint para obtener estadísticas de caché
+app.get('/api/gemini/cache/stats', async (req, res) => {
+    try {
+        if (!geminiCache) {
+            return res.status(503).json({ error: 'Sistema de caché no inicializado' });
+        }
+
+        const stats = await geminiCache.getStats();
+        res.json(stats);
+    } catch (error) {
+        console.error('Error obteniendo estadísticas de caché:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Endpoint para obtener entradas populares del caché
+app.get('/api/gemini/cache/popular', async (req, res) => {
+    try {
+        if (!geminiCache) {
+            return res.status(503).json({ error: 'Sistema de caché no inicializado' });
+        }
+
+        const limit = parseInt(req.query.limit) || 10;
+        const entries = await geminiCache.getPopularEntries(limit);
+        res.json({ entries, count: entries.length });
+    } catch (error) {
+        console.error('Error obteniendo entradas populares:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Endpoint para limpiar la caché
+app.post('/api/gemini/cache/clear', async (req, res) => {
+    try {
+        if (!geminiCache) {
+            return res.status(503).json({ error: 'Sistema de caché no inicializado' });
+        }
+
+        const deleted = await geminiCache.clear();
+        res.json({ success: true, deleted, message: `${deleted} entradas eliminadas` });
+    } catch (error) {
+        console.error('Error limpiando caché:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Endpoint para invalidar una entrada específica
+app.post('/api/gemini/cache/invalidate', async (req, res) => {
+    try {
+        const { message } = req.body;
+
+        if (!message) {
+            return res.status(400).json({ error: 'El campo "message" es requerido' });
+        }
+
+        if (!geminiCache) {
+            return res.status(503).json({ error: 'Sistema de caché no inicializado' });
+        }
+
+        const invalidated = await geminiCache.invalidate(message);
+        res.json({
+            success: invalidated,
+            message: invalidated ? 'Entrada invalidada' : 'Entrada no encontrada'
+        });
+    } catch (error) {
+        console.error('Error invalidando entrada:', error);
         res.status(500).json({ error: 'Error del servidor' });
     }
 });
@@ -2181,6 +2259,28 @@ async function handleFreeformQuery(to, userQuery) {
     console.log(`🤖 Gemini procesando consulta libre: "${userQuery}"`);
 
     try {
+        // === PASO 1: Verificar caché primero ===
+        if (geminiCache) {
+            const startTime = Date.now();
+            const cached = await geminiCache.get(userQuery);
+
+            if (cached) {
+                const responseTime = Date.now() - startTime;
+                console.log(`⚡ Cache HIT - Respuesta en ${responseTime}ms (vs ~3000ms con API)`);
+
+                // Registrar métrica de cache hit
+                if (metricsCollector) {
+                    await metricsCollector.incrementCounter('gemini_cache_hits');
+                }
+
+                await sendTextMessage(to, cached.response);
+                return;
+            }
+        }
+
+        // === PASO 2: Si no hay caché, llamar a Gemini API ===
+        const apiStartTime = Date.now();
+
         // Verificar modo mantenimiento
         const isMaintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY) === 'true';
 
@@ -2217,6 +2317,22 @@ Responde como el asistente de CapiBobba:`;
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const geminiText = response.text();
+
+        const apiResponseTime = Date.now() - apiStartTime;
+        console.log(`🤖 Gemini API respondió en ${apiResponseTime}ms`);
+
+        // === PASO 3: Guardar respuesta en caché para futuras consultas ===
+        if (geminiCache) {
+            await geminiCache.set(userQuery, geminiText, {
+                maintenanceMode: isMaintenanceMode,
+                responseTime: apiResponseTime
+            });
+
+            // Registrar métrica de cache miss (nueva entrada)
+            if (metricsCollector) {
+                await metricsCollector.incrementCounter('gemini_cache_misses');
+            }
+        }
 
         await sendTextMessage(to, geminiText);
         console.log(`✅ Gemini respondió exitosamente a ${to}`);
@@ -2765,6 +2881,38 @@ async function initializeSecurity_system() {
     }
 }
 
+// === INICIALIZACIÓN DEL SISTEMA DE CACHÉ GEMINI ===
+async function initializeGeminiCache() {
+    try {
+        console.log('⚡ Inicializando sistema de caché Gemini...');
+
+        const cacheConfig = {
+            ttl: parseInt(process.env.GEMINI_CACHE_TTL) || 86400, // 24 horas por defecto
+            maxKeys: parseInt(process.env.GEMINI_CACHE_MAX_KEYS) || 10000,
+            enableNormalization: process.env.GEMINI_CACHE_NORMALIZATION !== 'false'
+        };
+
+        geminiCache = new GeminiCache(redisClient, cacheConfig);
+
+        // Limpiar entradas antiguas si es necesario
+        await geminiCache.cleanupOldEntries();
+
+        // Obtener estadísticas iniciales
+        const stats = await geminiCache.getStats();
+
+        console.log('✅ Sistema de caché Gemini inicializado exitosamente');
+        console.log(`   💾 TTL: ${cacheConfig.ttl}s (${Math.round(cacheConfig.ttl / 3600)}h)`);
+        console.log(`   📦 Máx. entradas: ${cacheConfig.maxKeys}`);
+        console.log(`   🔄 Normalización: ${cacheConfig.enableNormalization ? 'Activa' : 'Desactivada'}`);
+        console.log(`   📊 Entradas actuales: ${stats.cacheSize}`);
+        console.log(`   📈 Hit rate histórico: ${stats.hitRate}`);
+
+    } catch (error) {
+        console.error('❌ Error inicializando sistema de caché:', error);
+        // No lanzar error, el sistema puede funcionar sin caché
+    }
+}
+
 // Tareas de mantenimiento programadas
 function scheduleMaintenanceTasks() {
     // Backup diario a las 3 AM
@@ -3016,6 +3164,15 @@ server.listen(PORT, () => {
     } catch (error) {
       console.error('❌ Error inicializando sistema de seguridad (continuando sin seguridad):', error);
       // El chatbot continuará funcionando sin protecciones adicionales
+    }
+
+    // Inicializar sistema de caché Gemini
+    try {
+      await initializeGeminiCache();
+      console.log('✅ Sistema de caché Gemini inicializado correctamente');
+    } catch (error) {
+      console.error('❌ Error inicializando sistema de caché (continuando sin caché):', error);
+      // El chatbot continuará funcionando sin caché
     }
   }, 2000); // Esperar 2 segundos para asegurar que todo esté listo
 });
