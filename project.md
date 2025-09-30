@@ -274,6 +274,10 @@ Health → HealthChecker → Alertas → Telegram/Admin
 - `POST /api/security/backup`: Crear backup manual
 - `GET /api/security/backups`: Listar backups
 
+### Sistema de Redis States
+- `GET /api/redis-states`: Obtener todos los estados de usuarios
+- `DELETE /api/redis-states/:key`: Eliminar estado específico
+
 ## 🎯 Funcionalidades Principales
 
 ### 1. Flujo de Pedidos
@@ -682,6 +686,44 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.5.2 (2025-09-30) - Mejoras de UX en Dashboard
+- 🎨 **Mejoras de Layout** (`dashboard/src/App.js`):
+  - Reorganización completa del dashboard: todas las tarjetas ahora en columna principal
+  - Orden optimizado: Mantenimiento → Editor → Pedidos → Encuestas → Seguridad → Chat → Mensajes → Redis
+  - Fix: Las tarjetas ya no desaparecen al abrir la consola del navegador
+  - Mejor distribución vertical del espacio
+
+- ⚡ **RedisStateViewer Optimizado** (`dashboard/src/RedisStateViewer.js`):
+  - Reducido auto-refresh de 10 segundos a 30 segundos (menos parpadeo)
+  - Actualizaciones silenciosas en background sin mostrar loading spinner
+  - Agregado botón "Actualizar Estados" para control manual del usuario
+  - Primera carga muestra loading indicator, actualizaciones automáticas son silenciosas
+  - Mejor UX: los estados ya no parpadean constantemente
+
+- ✅ **Build exitoso**: Compilado sin errores ni warnings
+
+### v2.5.1 (2025-09-30) - Endpoints Redis State Viewer
+- 🔧 **Nuevos Endpoints de Redis States** (`chatbot.js`):
+  - `GET /api/redis-states`: Obtiene todos los estados de usuarios
+    - Filtra automáticamente claves del sistema (metrics, backups, cache, security)
+    - Excluye maintenance_mode_status
+    - Parsea JSON automáticamente o devuelve valor raw
+  - `DELETE /api/redis-states/:key`: Elimina estado específico de usuario
+    - Protección contra eliminación de claves críticas del sistema
+    - Respuesta 403 Forbidden si se intenta eliminar clave del sistema
+    - Respuesta 404 Not Found si la clave no existe
+    - Validación robusta de permisos
+
+- 🐛 **Fix Error de Console**:
+  - Resuelto error "Failed to load resource: net::ERR_NETWORK_CHANGED"
+  - RedisStateViewer.js ahora carga estados correctamente sin errores
+  - Auto-refresh cada 10 segundos funcional (mejorado a 30s en v2.5.2)
+
+- 📝 **Documentación**:
+  - Actualizado project.md con detalles de v2.5.0
+  - Nuevos endpoints de caché documentados en sección de API
+  - Versión del proyecto actualizada a 2.5.0
+
 ### v2.5.0 (2025-09-30) - Sistema de Caché Gemini AI
 - ⚡ **Sistema de Caché Inteligente** (`gemini-cache.js`):
   - Caché completo para respuestas de Gemini AI con Redis
@@ -878,8 +920,8 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ---
 
-**Última actualización**: 30 de Septiembre, 2025 - Sistema de Caché Gemini AI v2.5.0
-**Versión del proyecto**: 2.5.0
+**Última actualización**: 30 de Septiembre, 2025 - Mejoras de UX en Dashboard v2.5.2
+**Versión del proyecto**: 2.5.2
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones
