@@ -489,6 +489,85 @@ app.get('/api/security/backups', async (req, res) => {
     }
 });
 
+// Endpoint para obtener usuarios bloqueados
+app.get('/api/security/blocked-users', async (req, res) => {
+    try {
+        if (!security) {
+            return res.status(503).json({ error: 'Sistema de seguridad no inicializado' });
+        }
+
+        const pattern = 'security:blocked:*';
+        const keys = await redisClient.keys(pattern);
+
+        const blockedUsers = [];
+        for (const key of keys) {
+            const data = await redisClient.get(key);
+            if (data) {
+                const blockInfo = JSON.parse(data);
+                const userId = key.replace('security:blocked:', '');
+                blockedUsers.push({
+                    userId,
+                    ...blockInfo
+                });
+            }
+        }
+
+        res.json(blockedUsers);
+    } catch (error) {
+        console.error('Error obteniendo usuarios bloqueados:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Endpoint para obtener eventos de seguridad recientes
+app.get('/api/security/events', async (req, res) => {
+    try {
+        if (!security) {
+            return res.status(503).json({ error: 'Sistema de seguridad no inicializado' });
+        }
+
+        const limit = parseInt(req.query.limit) || 20;
+        const pattern = 'security:events:*';
+        const keys = await redisClient.keys(pattern);
+
+        const events = [];
+        for (const key of keys) {
+            const data = await redisClient.get(key);
+            if (data) {
+                events.push(JSON.parse(data));
+            }
+        }
+
+        // Ordenar por timestamp descendente y limitar
+        events.sort((a, b) => b.timestamp - a.timestamp);
+        const limitedEvents = events.slice(0, limit);
+
+        res.json(limitedEvents);
+    } catch (error) {
+        console.error('Error obteniendo eventos de seguridad:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Endpoint para desbloquear usuario específico (ruta con parámetro)
+app.post('/api/security/unblock/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        if (!security) {
+            return res.status(503).json({ error: 'Sistema de seguridad no inicializado' });
+        }
+
+        await security.securityMonitor.unblockUser(userId);
+        await security.rateLimiter.resetUserLimits(userId);
+
+        res.json({ success: true, message: `Usuario ${userId} desbloqueado` });
+    } catch (error) {
+        console.error('Error desbloqueando usuario:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
 // --- LÓGICA DEL BOT ---
 
 // --- GESTIÓN DE ESTADO CON REDIS ---

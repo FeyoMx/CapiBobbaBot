@@ -258,6 +258,16 @@ Health → HealthChecker → Alertas → Telegram/Admin
 - `GET /metrics`: Métricas actuales
 - `WebSocket :3001`: Stream de métricas en tiempo real
 
+### Sistema de Seguridad
+- `GET /api/security/stats`: Estadísticas de seguridad
+- `GET /api/security/alerts`: Alertas activas
+- `GET /api/security/blocked-users`: Usuarios bloqueados
+- `GET /api/security/events?limit=N`: Eventos recientes
+- `POST /api/security/unblock/:userId`: Desbloquear usuario
+- `GET /api/security/user-stats/:userId`: Estadísticas de usuario
+- `POST /api/security/backup`: Crear backup manual
+- `GET /api/security/backups`: Listar backups
+
 ## 🎯 Funcionalidades Principales
 
 ### 1. Flujo de Pedidos
@@ -286,6 +296,11 @@ Health → HealthChecker → Alertas → Telegram/Admin
 - Logs de conversaciones
 - Métricas en tiempo real
 - **Header sticky**: Con logo, estado del sistema y botones de acción
+- **Dashboard de Seguridad**: Panel dedicado para monitoreo de seguridad
+  - Estadísticas de alertas y usuarios bloqueados
+  - Visualización de eventos de seguridad
+  - Gestión de usuarios bloqueados
+  - Auto-actualización en tiempo real
 
 ### 4. Sistema de Alertas
 - CPU > 80%
@@ -629,6 +644,39 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.4.0 (2025-09-30) - Dashboard de Seguridad
+- 🛡️ **Dashboard Web de Seguridad** (`dashboard/src/SecurityDashboard.js`):
+  - Panel completo de visualización de métricas de seguridad en tiempo real
+  - Estadísticas generales: alertas totales, alertas críticas, usuarios bloqueados, eventos
+  - Tabla de alertas activas con niveles de severidad (critical, high, medium, low)
+  - Lista de usuarios bloqueados con información de expiración y opción de desbloqueo manual
+  - Visualización de eventos recientes de seguridad (últimos 20)
+  - Contadores de eventos agrupados por tipo
+  - Auto-actualización cada 10 segundos (configurable)
+  - Indicadores visuales de estado con colores por severidad
+  - Interfaz responsive con scroll en tablas
+
+- 🔌 **API Endpoints de Seguridad** (agregados en `chatbot.js`):
+  - `GET /api/security/blocked-users`: Lista de usuarios bloqueados con detalles
+  - `GET /api/security/events?limit=N`: Eventos de seguridad recientes ordenados por fecha
+  - `POST /api/security/unblock/:userId`: Desbloquear usuario específico por ID
+
+- 🎨 **Integración en Dashboard Principal** (`dashboard/src/App.js`):
+  - Nuevo componente SecurityDashboard agregado al layout principal
+  - Tarjeta dedicada en la columna de componentes principales
+  - Integración con el tema oscuro existente
+  - Iconografía consistente con FontAwesome
+
+- 💅 **Estilos CSS** (`dashboard/src/index.css`):
+  - Estilos específicos para tablas de seguridad
+  - Badges de severidad con colores diferenciados
+  - Botones de acción para desbloqueo de usuarios
+  - Animación de spinner para estados de carga
+  - Efectos hover y transiciones suaves
+  - Scrollbars personalizados para tablas largas
+
+- ✅ **Build exitoso**: Compilación sin errores, warnings de ESLint resueltos
+
 ### v2.3.0 (2025-09-30) - Sistema de Seguridad Completo
 - 🛡️ **Sistema de Rate Limiting por Usuario** (`security/rate-limiter.js`):
   - Límites configurables por minuto, hora y día
@@ -747,8 +795,8 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ---
 
-**Última actualización**: 30 de Septiembre, 2025 - Sistema de Seguridad Completo v2.3.0
-**Versión del proyecto**: 2.3.0
+**Última actualización**: 30 de Septiembre, 2025 - Dashboard de Seguridad v2.4.0
+**Versión del proyecto**: 2.4.0
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones

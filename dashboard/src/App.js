@@ -6,6 +6,7 @@ import OrderViewer from './OrderViewer';
 import ChatInterface from './ChatInterface';
 import RedisStateViewer from './RedisStateViewer';
 import SurveyResultsDashboard from './SurveyResultsDashboard';
+import SecurityDashboard from './SecurityDashboard';
 
 function App() {
   return (
@@ -69,6 +70,15 @@ function App() {
             </div>
             <div className="card-content">
               <SurveyResultsDashboard />
+            </div>
+          </div>
+
+          <div className="component-card">
+            <div className="card-header">
+              <h3><i className="fas fa-shield-alt"></i> Dashboard de Seguridad</h3>
+            </div>
+            <div className="card-content">
+              <SecurityDashboard />
             </div>
           </div>
         </div>
