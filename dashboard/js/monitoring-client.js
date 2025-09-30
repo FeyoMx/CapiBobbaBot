@@ -200,6 +200,10 @@ class MonitoringClient {
                 this.handleAlertAcknowledged(message.alertId);
                 break;
 
+            case 'business_metrics_response':
+                this.updateBusinessMetricsWithTimeframe(message.data, message.timeframe);
+                break;
+
             case 'error':
                 console.error('❌ Error del servidor:', message.message);
                 break;
@@ -849,9 +853,76 @@ class MonitoringClient {
     }
 
     updateBusinessTimeframe(timeframe) {
-        // Implementar cambio de timeframe para métricas de negocio
         console.log('📊 Cambiando timeframe a:', timeframe);
-        // Aquí se podría solicitar datos específicos del timeframe
+
+        // Enviar solicitud al servidor para obtener métricas del timeframe específico
+        if (this.isConnected) {
+            this.send({
+                type: 'request_business_metrics',
+                timeframe: timeframe,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Actualizar el texto del selector
+        const selector = document.getElementById('business-timeframe');
+        if (selector) {
+            // Agregar una clase para indicar que está cargando
+            selector.parentElement.classList.add('loading');
+
+            // Remover la clase después de un tiempo para simular carga
+            setTimeout(() => {
+                selector.parentElement.classList.remove('loading');
+            }, 1000);
+        }
+    }
+
+    updateBusinessMetricsWithTimeframe(business, timeframe) {
+        console.log(`📊 Actualizando métricas de negocio para ${timeframe}:`, business);
+
+        // Actualizar las métricas de negocio en el UI
+        this.updateBusinessMetrics(business);
+
+        // Actualizar el gráfico de negocio si hay datos históricos
+        if (this.charts.business && business.historicalData) {
+            this.updateBusinessChart(business.historicalData, timeframe);
+        }
+
+        // Mostrar información específica del timeframe
+        this.addActivity('business', `Métricas actualizadas para ${timeframe}`,
+            `Pedidos: ${business.ordersInPeriod || business.ordersToday || 0}, Ingresos: $${Math.round(business.revenueInPeriod || business.revenue24h || 0)}`);
+    }
+
+    updateBusinessChart(historicalData, timeframe) {
+        if (!this.charts.business || !historicalData) return;
+
+        // Configurar etiquetas según el timeframe
+        let labels = [];
+        let orderData = [];
+        let revenueData = [];
+
+        switch (timeframe) {
+            case '1h':
+                labels = historicalData.hourly?.labels || ['Ahora'];
+                orderData = historicalData.hourly?.orders || [0];
+                revenueData = historicalData.hourly?.revenue || [0];
+                break;
+            case '7d':
+                labels = historicalData.weekly?.labels || ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+                orderData = historicalData.weekly?.orders || [0, 0, 0, 0, 0, 0, 0];
+                revenueData = historicalData.weekly?.revenue || [0, 0, 0, 0, 0, 0, 0];
+                break;
+            default: // 24h
+                labels = historicalData.daily?.labels || ['00h', '06h', '12h', '18h'];
+                orderData = historicalData.daily?.orders || [0, 0, 0, 0];
+                revenueData = historicalData.daily?.revenue || [0, 0, 0, 0];
+        }
+
+        // Actualizar el gráfico
+        this.charts.business.data.labels = labels;
+        this.charts.business.data.datasets[0].data = orderData;
+        this.charts.business.data.datasets[1].data = revenueData;
+        this.charts.business.update('none');
     }
 
     setupModals() {

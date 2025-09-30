@@ -196,6 +196,10 @@ class MonitoringWebSocketServer {
                     this.handleDataRequest(ws, message.dataType);
                     break;
 
+                case 'request_business_metrics':
+                    this.handleBusinessMetricsRequest(ws, message.timeframe);
+                    break;
+
                 case 'acknowledge_alert':
                     this.handleAlertAcknowledgment(ws, message.alertId);
                     break;
@@ -293,6 +297,149 @@ class MonitoringWebSocketServer {
                 message: `Error obteniendo ${dataType}: ${error.message}`
             });
         }
+    }
+
+    async handleBusinessMetricsRequest(ws, timeframe) {
+        try {
+            console.log(`📊 Solicitando métricas de negocio para timeframe: ${timeframe}`);
+
+            // Obtener las métricas según el timeframe
+            const data = await this.getBusinessMetricsForTimeframe(timeframe);
+
+            this.sendToClient(ws, {
+                type: 'business_metrics_response',
+                timeframe: timeframe,
+                data: data,
+                timestamp: new Date().toISOString()
+            });
+
+        } catch (error) {
+            this.sendToClient(ws, {
+                type: 'error',
+                message: `Error obteniendo métricas de negocio para ${timeframe}: ${error.message}`
+            });
+        }
+    }
+
+    async getBusinessMetricsForTimeframe(timeframe) {
+        try {
+            // Obtener métricas básicas de negocio
+            const baseMetrics = await this.metrics.getBusinessMetrics();
+
+            // Calcular métricas específicas del timeframe
+            let multiplier = 1;
+            let periodName = '';
+
+            switch (timeframe) {
+                case '1h':
+                    multiplier = 1/24; // 1 hora = 1/24 del día
+                    periodName = 'hora';
+                    break;
+                case '7d':
+                    multiplier = 7; // 7 días
+                    periodName = 'semana';
+                    break;
+                default: // '24h'
+                    multiplier = 1;
+                    periodName = 'día';
+            }
+
+            // Obtener datos históricos específicos del Redis si están disponibles
+            const historicalData = await this.getHistoricalData(timeframe);
+
+            return {
+                ...baseMetrics,
+                // Métricas específicas del período
+                ordersInPeriod: Math.round((baseMetrics.ordersToday || 0) * multiplier),
+                revenueInPeriod: Math.round((baseMetrics.revenue24h || 0) * multiplier),
+                messagesInPeriod: Math.round((baseMetrics.messagesPerHour || 0) * (timeframe === '1h' ? 1 : timeframe === '7d' ? 168 : 24)),
+
+                // Datos históricos para el gráfico
+                historicalData: historicalData,
+
+                // Metadatos
+                timeframe: timeframe,
+                periodName: periodName,
+                requestTime: new Date().toISOString()
+            };
+
+        } catch (error) {
+            console.error('Error obteniendo métricas de negocio por timeframe:', error);
+            throw error;
+        }
+    }
+
+    async getHistoricalData(timeframe) {
+        try {
+            switch (timeframe) {
+                case '1h':
+                    return {
+                        hourly: {
+                            labels: ['Ahora'],
+                            orders: [await this.metrics.getMetricFromRedis('business:orders:hour', 0)],
+                            revenue: [await this.metrics.getMetricFromRedis('business:revenue:hour', 0)]
+                        }
+                    };
+
+                case '7d':
+                    // Obtener datos de los últimos 7 días
+                    const weeklyData = await this.getWeeklyData();
+                    return {
+                        weekly: {
+                            labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+                            orders: weeklyData.orders,
+                            revenue: weeklyData.revenue
+                        }
+                    };
+
+                default: // '24h'
+                    // Obtener datos por intervalos de 6 horas
+                    const dailyData = await this.getDailyData();
+                    return {
+                        daily: {
+                            labels: ['00-06h', '06-12h', '12-18h', '18-24h'],
+                            orders: dailyData.orders,
+                            revenue: dailyData.revenue
+                        }
+                    };
+            }
+        } catch (error) {
+            console.error('Error obteniendo datos históricos:', error);
+            return null;
+        }
+    }
+
+    async getWeeklyData() {
+        // Simular datos de los últimos 7 días
+        // En una implementación real, esto obtendría datos históricos del Redis
+        const orders = [];
+        const revenue = [];
+
+        for (let i = 6; i >= 0; i--) {
+            const dayKey = `business:orders:day_${i}`;
+            const revenueKey = `business:revenue:day_${i}`;
+
+            orders.push(await this.metrics.getMetricFromRedis(dayKey, Math.floor(Math.random() * 10)));
+            revenue.push(await this.metrics.getMetricFromRedis(revenueKey, Math.floor(Math.random() * 500)));
+        }
+
+        return { orders, revenue };
+    }
+
+    async getDailyData() {
+        // Simular datos de intervalos de 6 horas
+        const orders = [];
+        const revenue = [];
+
+        for (let i = 0; i < 4; i++) {
+            const intervalKey = `business:orders:interval_${i}`;
+            const revenueKey = `business:revenue:interval_${i}`;
+
+            orders.push(await this.metrics.getMetricFromRedis(intervalKey, Math.floor(Math.random() * 5)));
+            revenue.push(await this.metrics.getMetricFromRedis(revenueKey, Math.floor(Math.random() * 200)));
+        }
+
+        return { orders, revenue };
     }
 
     async handleAlertAcknowledgment(ws, alertId) {

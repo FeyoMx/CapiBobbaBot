@@ -814,6 +814,10 @@ body {
 }
 
 /* Selectors */
+.time-selector {
+    position: relative;
+}
+
 .time-selector select {
     background: var(--bg-tertiary);
     border: 1px solid var(--border-color);
@@ -821,6 +825,30 @@ body {
     padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--border-radius);
     font-size: 0.875rem;
+}
+
+.time-selector.loading select {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.time-selector.loading::after {
+    content: '';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--text-muted);
+    border-top: 2px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: translateY(-50%) rotate(0deg); }
+    100% { transform: translateY(-50%) rotate(360deg); }
 }
 
 /* Charts */

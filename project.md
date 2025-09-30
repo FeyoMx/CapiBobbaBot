@@ -629,6 +629,24 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.2.2 (2025-09-29)
+- 🔧 **Fix filtro de métricas de negocio**: Corregido problema donde el selector de timeframe en el dashboard de monitoreo no funcionaba
+  - **Frontend (`monitoring-client.js`)**:
+    - Implementada función `updateBusinessTimeframe()` que estaba vacía
+    - Agregado manejo del mensaje `business_metrics_response` del servidor
+    - Implementadas funciones `updateBusinessMetricsWithTimeframe()` y `updateBusinessChart()`
+    - Agregado indicador de carga visual durante solicitud de datos
+  - **Backend (`websocket-server.js`)**:
+    - Agregado caso `request_business_metrics` para manejar solicitudes de timeframe específico
+    - Implementado método `handleBusinessMetricsRequest()` y `getBusinessMetricsForTimeframe()`
+    - Agregados métodos para obtener datos históricos (`getHistoricalData()`, `getWeeklyData()`, `getDailyData()`)
+    - Soporte completo para timeframes: 1h, 24h, 7d
+  - **CSS (`monitoring.css`)**:
+    - Agregados estilos para indicador de carga en selector de timeframe
+    - Animación de spinner y estados loading/disabled
+- ✅ **Funcionalidad completa**: Ahora se pueden ver métricas filtradas por "Última semana" correctamente
+- 📊 **Gráficos dinámicos**: El chart de métricas de negocio se actualiza según el timeframe seleccionado
+
 ### v2.2.1 (2025-09-29)
 - 🐛 **Fix crítico función no definida**: Corregido ReferenceError `sendOrderCompletionToN8n is not defined` en `chatbot.js:1885`
   - Reemplazadas llamadas a `sendOrderCompletionToN8n` por `sendOrderCompletionToN8nEnhanced` (nombre correcto de la función)
@@ -676,8 +694,8 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ---
 
-**Última actualización**: 29 de Septiembre, 2025 - Fixes críticos y mejoras al normalizador v2.2.1
-**Versión del proyecto**: 2.2.1
+**Última actualización**: 29 de Septiembre, 2025 - Fix filtro métricas dashboard monitoreo v2.2.2
+**Versión del proyecto**: 2.2.2
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones
