@@ -28,9 +28,10 @@ function SecurityDashboard() {
       const response = await fetch('/api/security/alerts');
       if (!response.ok) throw new Error('Error al cargar alertas');
       const data = await response.json();
-      setAlerts(data);
+      setAlerts(Array.isArray(data) ? data : (data.alerts || []));
     } catch (err) {
       console.error('Error:', err);
+      setAlerts([]);
     }
   };
 
@@ -40,9 +41,10 @@ function SecurityDashboard() {
       const response = await fetch('/api/security/blocked-users');
       if (!response.ok) throw new Error('Error al cargar usuarios bloqueados');
       const data = await response.json();
-      setBlockedUsers(data);
+      setBlockedUsers(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error:', err);
+      setBlockedUsers([]);
     }
   };
 
@@ -52,9 +54,10 @@ function SecurityDashboard() {
       const response = await fetch('/api/security/events?limit=20');
       if (!response.ok) throw new Error('Error al cargar eventos');
       const data = await response.json();
-      setEvents(data);
+      setEvents(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error:', err);
+      setEvents([]);
     }
   };
 
