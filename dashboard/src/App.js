@@ -81,10 +81,7 @@ function App() {
               <SecurityDashboard />
             </div>
           </div>
-        </div>
 
-        {/* Right Column: Activity & Tools */}
-        <div className="activity-column">
           <div className="component-card">
             <div className="card-header">
               <h3><i className="fas fa-comments"></i> Interfaz de Chat</h3>
@@ -111,6 +108,10 @@ function App() {
               <RedisStateViewer />
             </div>
           </div>
+        </div>
+
+        {/* Right Column: Empty for better layout */}
+        <div className="activity-column">
         </div>
       </div>
     </div>

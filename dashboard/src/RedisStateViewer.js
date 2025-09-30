@@ -9,8 +9,10 @@ function RedisStateViewer() {
   const [error, setError] = useState(null);
   const [responseMessage, setResponseMessage] = useState(null);
 
-  const fetchRedisStates = async () => {
-    setLoading(true);
+  const fetchRedisStates = async (showLoadingIndicator = true) => {
+    if (showLoadingIndicator) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const response = await axios.get('/api/redis-states');
@@ -19,13 +21,17 @@ function RedisStateViewer() {
       console.error('Error fetching Redis states:', err);
       setError('No se pudieron cargar los estados de Redis.');
     } finally {
-      setLoading(false);
+      if (showLoadingIndicator) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchRedisStates();
-    const interval = setInterval(fetchRedisStates, 10000); // Refresh every 10 seconds
+    fetchRedisStates(true); // Primera carga con loading indicator
+    const interval = setInterval(() => {
+      fetchRedisStates(false); // Actualizaciones silenciosas sin loading
+    }, 30000); // Refresh cada 30 segundos
     return () => clearInterval(interval);
   }, []);
 
@@ -57,6 +63,17 @@ function RedisStateViewer() {
             <Typography variant="h5">Visor/Limpiador de Estado de Redis</Typography>
           </AccordionSummary>
           <AccordionDetails>
+            <Box display="flex" justifyContent="flex-end" marginBottom="1rem">
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => fetchRedisStates(true)}
+                disabled={loading}
+                startIcon={loading ? <CircularProgress size={20} /> : null}
+              >
+                {loading ? 'Actualizando...' : 'Actualizar Estados'}
+              </Button>
+            </Box>
             {responseMessage && (
               <Alert severity={responseMessage.severity} style={{ marginBottom: '1rem' }}>
                 {responseMessage.message}
