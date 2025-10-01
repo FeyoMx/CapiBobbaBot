@@ -1325,6 +1325,10 @@ async function handleLocationMessage(from, location, userState) {
         const currentState = await getUserState(from) || {};
         await setUserState(from, { ...currentState, location: locationData });
 
+        // Enviar ubicación a n8n
+        sendToN8n({ from: from, type: 'location_update', timestamp: Math.floor(Date.now() / 1000) }, { location: locationData });
+        console.log(`Ubicación enviada a n8n:`, locationData);
+
         await sendTextMessage(from, '✅ ¡Perfecto! Ubicación recibida. Ahora continuamos con tu pedido...');
 
         // Continuar al siguiente paso
