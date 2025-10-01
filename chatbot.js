@@ -164,6 +164,12 @@ app.post('/webhook', async (req, res) => {
                     console.log('📱 Procesando mensaje de WhatsApp:', JSON.stringify(message, null, 2));
 
                     const phoneNumber = message.from;
+                    const messageId = message.id;
+
+                    // Enviar indicador de typing (no bloquea el flujo)
+                    if (messageId) {
+                        sendTypingOn(messageId).catch(() => {}); // Ignorar errores
+                    }
 
                     // === VALIDACIONES DE SEGURIDAD ===
                     if (security) {
@@ -2614,14 +2620,18 @@ async function notifyAdmin(text) {
 /**
  * Envía el indicador de "escribiendo..." al usuario para mejorar la UX.
  * Esta es una acción de "disparar y olvidar", no bloquea el flujo principal.
- * @param {string} to El número de teléfono del destinatario.
+ * El indicador dura hasta 25 segundos o hasta que se envíe la respuesta.
+ * @param {string} messageId El ID del mensaje al que se está respondiendo.
  */
-async function sendTypingOn(to) {
+async function sendTypingOn(messageId) {
   const url = `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`;
   const data = {
     messaging_product: 'whatsapp',
-    to: to,
-    action: 'typing_on',
+    status: 'read',
+    message_id: messageId,
+    typing_indicator: {
+      type: 'text',
+    },
   };
   const headers = {
     'Authorization': `Bearer ${WHATSAPP_TOKEN}`,

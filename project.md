@@ -686,6 +686,20 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.5.3 (2025-09-30) - Corrección Indicador de Typing
+- 🐛 **Fix crítico typing indicator** (`chatbot.js:2620-2643`):
+  - Corregida implementación incorrecta de `sendTypingOn()` según documentación oficial de WhatsApp Cloud API
+  - **Antes**: Usaba parámetros incorrectos `{ to, action: 'typing_on' }` (no existen en la API)
+  - **Ahora**: Usa formato correcto `{ status: 'read', message_id, typing_indicator: { type: 'text' } }`
+  - Cambio de parámetro: ahora recibe `messageId` en lugar de `to`
+  - Marca automáticamente el mensaje como leído al mostrar el indicador
+  - Duración: 25 segundos o hasta enviar respuesta
+- ✨ **Integración en webhook** (`chatbot.js:169-172`):
+  - Agregada llamada automática a `sendTypingOn(messageId)` al recibir mensajes
+  - Se ejecuta antes de validaciones de seguridad para mejor UX
+  - Implementado con `.catch(() => {})` para no bloquear flujo si falla
+- 📚 **Referencia**: [WhatsApp Cloud API Typing Indicators](https://developers.facebook.com/docs/whatsapp/cloud-api/typing-indicators/)
+
 ### v2.5.2 (2025-09-30) - Mejoras de UX en Dashboard
 - 🎨 **Mejoras de Layout** (`dashboard/src/App.js`):
   - Reorganización completa del dashboard: todas las tarjetas ahora en columna principal
