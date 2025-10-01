@@ -686,6 +686,60 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.5.4 (2025-09-30) - Sistema de Reacciones y Marcar como Leído
+- 🎉 **Sistema de Reacciones WhatsApp** (`chatbot.js:2680-2713`):
+  - Nueva función `sendReaction(to, messageId, emoji)` implementada
+  - Reacción automática 🛒 al recibir pedidos del menú web
+  - Reacción automática 📸 al recibir imágenes (comprobantes de pago)
+  - Reacción automática 📍 al recibir ubicaciones del cliente
+  - Sistema de "disparar y olvidar" para no bloquear el flujo principal
+  - Manejo robusto de errores con logging
+
+- ✅ **Marcar Mensajes como Leídos** (`chatbot.js:2652-2677`):
+  - Nueva función `markMessageAsRead(messageId)` implementada
+  - Marcado automático al recibir webhook de WhatsApp
+  - Se ejecuta ANTES del typing indicator para mejor UX
+  - Mejora la percepción de atención inmediata al cliente
+  - Usuario ve ✓✓ (doble check azul) inmediatamente
+
+- 🔄 **Integración en Flujo de Mensajes** (`chatbot.js:169-177, 1043-1074`):
+  - Marcado como leído integrado en línea 169-172
+  - Reacciones integradas en procesamiento de mensajes:
+    - Línea 1046-1048: Reacción 🛒 para pedidos
+    - Línea 1062-1064: Reacción 📸 para imágenes
+    - Línea 1070-1072: Reacción 📍 para ubicaciones
+  - Sistema no bloqueante con `.catch(() => {})` para tolerancia a fallos
+
+- 📄 **Nuevo Documento Roadmap** (`WHATSAPP_API_ROADMAP.md`):
+  - Roadmap completo de 23 mejoras planificadas con WhatsApp Cloud API
+  - 6 fases de implementación detalladas
+  - Estimación de tiempos: 6-8 semanas para implementación completa
+  - Estimación de costos: $3,000 - $60,000 MXN según nivel
+  - Estado actual: Fase 1 completada (2/23 mejoras = 8.7%)
+  - Próximas mejoras: Listas interactivas, catálogo de productos, WhatsApp Flows
+  - KPIs de éxito y métricas de adopción definidos
+  - Cronograma detallado semana por semana
+
+- 💡 **Mejoras de UX**:
+  - Feedback visual inmediato con reacciones
+  - Confirmación de lectura automática
+  - Mensajes de confirmación mejorados con emoji ✅
+  - Mejor percepción de atención al cliente
+
+- 🎯 **Casos de Uso Implementados**:
+  - 🛒 Confirmar recepción de pedido
+  - 📸 Confirmar recepción de comprobante de pago
+  - 📍 Confirmar recepción de ubicación
+  - ✓✓ Marcar como leído todos los mensajes entrantes
+
+- 📚 **Referencias API**:
+  - [WhatsApp Reaction Messages](https://developers.facebook.com/docs/whatsapp/cloud-api/messages/reaction-messages)
+  - Endpoint: `POST /{PHONE_NUMBER_ID}/messages`
+  - Tipo: `reaction` con `message_id` y `emoji`
+  - Limitación: Mensajes de hasta 30 días de antigüedad
+
+- ✅ **Build exitoso**: Dashboard compilado sin errores ni warnings
+
 ### v2.5.3 (2025-09-30) - Corrección Indicador de Typing
 - 🐛 **Fix crítico typing indicator** (`chatbot.js:2620-2643`):
   - Corregida implementación incorrecta de `sendTypingOn()` según documentación oficial de WhatsApp Cloud API
@@ -934,8 +988,8 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ---
 
-**Última actualización**: 30 de Septiembre, 2025 - Mejoras de UX en Dashboard v2.5.2
-**Versión del proyecto**: 2.5.2
+**Última actualización**: 30 de Septiembre, 2025 - Sistema de Reacciones y Marcar como Leído v2.5.4
+**Versión del proyecto**: 2.5.4
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones

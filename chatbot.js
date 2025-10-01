@@ -166,6 +166,11 @@ app.post('/webhook', async (req, res) => {
                     const phoneNumber = message.from;
                     const messageId = message.id;
 
+                    // Marcar mensaje como leído inmediatamente (mejor UX)
+                    if (messageId) {
+                        markMessageAsRead(messageId).catch(() => {}); // Ignorar errores
+                    }
+
                     // Enviar indicador de typing (no bloquea el flujo)
                     if (messageId) {
                         sendTypingOn(messageId).catch(() => {}); // Ignorar errores
@@ -1037,6 +1042,10 @@ async function processIncomingMessage(message) {
                 // Verificar si es un pedido completado (del menú web)
                 if (text.includes('Total del pedido:') || text.includes('Total a pagar:')) {
                     console.log('🛒 Pedido completado detectado');
+                    // Reaccionar con 🛒 al recibir un pedido
+                    if (message.id) {
+                        sendReaction(from, message.id, '🛒').catch(() => {});
+                    }
                     await handleOrderCompletion(from, text, userState);
                 } else {
                     // Procesar como mensaje de texto normal
@@ -1049,10 +1058,18 @@ async function processIncomingMessage(message) {
                 break;
 
             case 'image':
+                // Reaccionar con 📸 al recibir una imagen
+                if (message.id) {
+                    sendReaction(from, message.id, '📸').catch(() => {});
+                }
                 await handleImageMessage(from, message.image, userState);
                 break;
 
             case 'location':
+                // Reaccionar con 📍 al recibir ubicación
+                if (message.id) {
+                    sendReaction(from, message.id, '📍').catch(() => {});
+                }
                 await handleLocationMessage(from, message.location, userState);
                 break;
 
@@ -2257,7 +2274,7 @@ async function handleCashDenominationResponse(from, denomination) {
     finalMessage += `Hemos registrado que no se necesita código de acceso.`;
   }
   
-  finalMessage += `\nLlevaremos cambio para tu pago de *${denomination}*.\n\n¡Gracias por tu preferencia!`;
+  finalMessage += `\nLlevaremos cambio para tu pago de *${denomination}*.\n\n✅ ¡Gracias por tu preferencia!`;
 
   await sendTextMessage(from, finalMessage);
 
@@ -2289,9 +2306,9 @@ async function handlePaymentProofImage(from, imageObject) {
   if (!userState) return;
 
   console.log(`Recibido comprobante de pago (imagen) de ${from}`);
-  
+
   // 1. Agradecer al cliente y confirmar el pedido
-  await sendTextMessage(from, '¡Gracias! Hemos recibido tu comprobante. Tu pedido ha sido confirmado y se preparará en breve. 🛵');
+  await sendTextMessage(from, '✅ ¡Gracias! Hemos recibido tu comprobante. Tu pedido ha sido confirmado y se preparará en breve. 🛵');
 
   // 2. Preparar la notificación para los administradores
   const adminCaption = buildAdminNotification(
@@ -2645,6 +2662,70 @@ async function sendTypingOn(messageId) {
   } catch (error) {
     // Es una función de UX, si falla no es crítico. No logueamos el error para evitar ruido.
     // console.error('Error al enviar el indicador de typing_on:', error.response ? error.response.data : error.message);
+  }
+}
+
+
+/**
+ * Marca un mensaje como leído en WhatsApp.
+ * Mejora la UX mostrando al usuario que su mensaje fue visto.
+ * Esta es una acción de "disparar y olvidar", no bloquea el flujo principal.
+ * @param {string} messageId El ID del mensaje a marcar como leído.
+ */
+async function markMessageAsRead(messageId) {
+  const url = `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`;
+  const data = {
+    messaging_product: 'whatsapp',
+    status: 'read',
+    message_id: messageId,
+  };
+  const headers = {
+    'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+    'Content-Type': 'application/json',
+  };
+
+  try {
+    await axios.post(url, data, { headers });
+    console.log(`✓ Mensaje ${messageId} marcado como leído`);
+  } catch (error) {
+    // Es una función de UX, si falla no es crítico
+    console.error('Error al marcar mensaje como leído:', error.response ? error.response.data : error.message);
+  }
+}
+
+
+/**
+ * Envía una reacción (emoji) a un mensaje específico de WhatsApp.
+ * Las reacciones mejoran la UX dando feedback visual inmediato.
+ * @param {string} to Número de teléfono del destinatario.
+ * @param {string} messageId ID del mensaje al que se reaccionará.
+ * @param {string} emoji Emoji a enviar como reacción (ej: "👍", "✅", "❤️").
+ * @returns {Promise<boolean>} True si se envió exitosamente, false si falló.
+ */
+async function sendReaction(to, messageId, emoji) {
+  const url = `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${PHONE_NUMBER_ID}/messages`;
+  const data = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: to,
+    type: 'reaction',
+    reaction: {
+      message_id: messageId,
+      emoji: emoji,
+    },
+  };
+  const headers = {
+    'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+    'Content-Type': 'application/json',
+  };
+
+  try {
+    await axios.post(url, data, { headers });
+    console.log(`✓ Reacción ${emoji} enviada a mensaje ${messageId}`);
+    return true;
+  } catch (error) {
+    console.error('Error al enviar reacción:', error.response ? error.response.data : error.message);
+    return false;
   }
 }
 
