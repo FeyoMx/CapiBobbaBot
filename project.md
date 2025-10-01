@@ -686,6 +686,36 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.5.4-hotfix (2025-10-01) - Fix Validador de Seguridad
+- 🐛 **Bug Fix Crítico** - Validador bloqueaba pedidos legítimos (`security/input-validator.js`):
+  - **Problema**: Error "Tu mensaje contiene contenido inválido" al enviar pedidos del menú web
+  - **Causa**: Patrones de seguridad demasiado estrictos bloqueaban caracteres comunes
+  - Caracteres bloqueados incorrectamente: `$` (precios), `()` (paréntesis), `&`, `"`, `'`, `/`
+
+- 🔧 **Patrones de Validación Ajustados** (líneas 7-21):
+  - **SQL Injection**: Ahora solo detecta con contexto completo (ej: `SELECT...FROM...WHERE`)
+  - **Command Injection**: Solo múltiples caracteres peligrosos consecutivos (`[;&|`]{2,}`)
+  - **NoSQL Injection**: Solo operadores MongoDB en contexto sospechoso (`$where:`, `{$ne:`, etc)
+
+- ✨ **Función sanitizeString() Mejorada** (líneas 272-289):
+  - Ya NO escapa: `$`, `&`, `"`, `'`, `/`, `()`
+  - Solo escapa: `<` y `>` (prevención de HTML injection)
+  - Remueve solo tags peligrosos: `<script>`, `<iframe>`, `<object>`
+  - Mantiene saltos de línea (`\n`, `\r`) y caracteres normales
+  - Remueve solo caracteres de control peligrosos (null bytes, etc)
+
+- ✅ **Seguridad Mantenida**:
+  - Protección contra XSS, SQL injection, command injection intacta
+  - Detección contextual de patrones sospechosos
+  - Validación de longitud y estructura JSON funcional
+  - Sistema de alertas y logging operativo
+
+- 🎯 **Impacto**:
+  - ✅ Pedidos del menú web ahora pasan validación correctamente
+  - ✅ Mensajes con precios ($150), paréntesis, comillas funcionan
+  - ✅ Seguridad robusta sin falsos positivos
+  - ✅ Mejor balance entre seguridad y usabilidad
+
 ### v2.5.4 (2025-09-30) - Sistema de Reacciones y Marcar como Leído
 - 🎉 **Sistema de Reacciones WhatsApp** (`chatbot.js:2680-2713`):
   - Nueva función `sendReaction(to, messageId, emoji)` implementada
