@@ -5,19 +5,19 @@ class InputValidator {
     constructor() {
         // Patrones peligrosos a detectar
         this.dangerousPatterns = [
-            // SQL Injection
-            /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE)\b)/gi,
+            // SQL Injection (solo en contextos sospechosos)
+            /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE)\b.*\b(FROM|WHERE|TABLE)\b)/gi,
             // Script injection
             /<script[^>]*>.*?<\/script>/gi,
             // XSS básico
             /<iframe[^>]*>.*?<\/iframe>/gi,
             /<object[^>]*>.*?<\/object>/gi,
-            // Command injection
-            /[;&|`$()]/g,
+            // Command injection (más específico - no bloquea $ ni () comunes)
+            /[;&|`]{2,}/g,  // Solo si hay múltiples caracteres peligrosos juntos
             // Path traversal
             /\.\.\//g,
-            // NoSQL injection
-            /\$where|\$ne|\$gt|\$lt/gi
+            // NoSQL injection (operadores MongoDB sospechosos)
+            /\$where\s*:|{\s*\$ne\s*:|{\s*\$gt\s*:|{\s*\$lt\s*:/gi
         ];
 
         // Límites de longitud
@@ -272,20 +272,18 @@ class InputValidator {
     sanitizeString(text) {
         if (!text) return '';
 
-        // Remover tags HTML
-        let sanitized = text.replace(/<[^>]*>/g, '');
+        // Remover tags HTML peligrosos (pero no escapar todo)
+        let sanitized = text.replace(/<script[^>]*>.*?<\/script>/gi, '');
+        sanitized = sanitized.replace(/<iframe[^>]*>.*?<\/iframe>/gi, '');
+        sanitized = sanitized.replace(/<object[^>]*>.*?<\/object>/gi, '');
 
-        // Escapar caracteres especiales
+        // Solo escapar < y > para prevenir HTML injection, pero mantener otros caracteres
         sanitized = sanitized
-            .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#x27;')
-            .replace(/\//g, '&#x2F;');
+            .replace(/>/g, '&gt;');
 
-        // Remover caracteres de control
-        sanitized = sanitized.replace(/[\x00-\x1F\x7F]/g, '');
+        // Remover caracteres de control (null bytes, etc) pero mantener saltos de línea
+        sanitized = sanitized.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '');
 
         return sanitized.trim();
     }
