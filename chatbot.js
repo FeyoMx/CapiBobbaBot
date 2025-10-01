@@ -2158,7 +2158,7 @@ async function handleAddressResponse(from, address) {
     interactive: {
       type: 'button',
       body: {
-        text: `✅ Perfecto, dirección guardada:\n\n"${address}"\n\nPara confirmar la ubicación exacta, ¿podrías compartir tu ubicación en tiempo real?`
+        text: `✅ Perfecto, dirección guardada:\n\n"${address}"\n\nPara confirmar la ubicación exacta, ¿podrías compartir tu ubicación actual?`
       },
       action: {
         buttons: [
