@@ -1241,20 +1241,31 @@ async function handleInteractiveMessage(from, interactive, userState) {
         // Manejar botones específicos del flujo de pedidos
         if (userState && userState.step) {
             switch (userState.step) {
+                case 'awaiting_location_confirmation':
+                    if (buttonId === 'send_location_now') {
+                        await sendTextMessage(from, '📍 Perfecto! Por favor, usa el botón de clip 📎 de WhatsApp y selecciona "Ubicación" para compartir tu ubicación en tiempo real.');
+                        return;
+                    } else if (buttonId === 'skip_location') {
+                        // Continuar al siguiente paso sin ubicación
+                        await proceedToAccessCodeQuestion(from, userState);
+                        return;
+                    }
+                    break;
+
                 case 'awaiting_access_code_info':
                     if (buttonId === 'access_code_yes' || buttonId === 'access_code_no') {
                         await handleAccessCodeResponse(from, buttonId);
                         return;
                     }
                     break;
-                    
+
                 case 'awaiting_payment_method':
                     if (buttonId === 'payment_cash' || buttonId === 'payment_transfer') {
                         await handlePaymentMethodResponse(from, buttonId);
                         return;
                     }
                     break;
-                    
+
                 case 'awaiting_address':
                     if (buttonId === 'send_location') {
                         await sendTextMessage(from, '📍 Por favor, envía tu ubicación usando el botón de WhatsApp para compartir ubicación.');
@@ -1299,6 +1310,27 @@ async function handleImageMessage(from, image, userState) {
  */
 async function handleLocationMessage(from, location, userState) {
     console.log(`📍 Procesando ubicación de ${from}:`, location);
+
+    // Verificar si el usuario está en el proceso de confirmar ubicación después de dirección
+    if (userState && userState.step === 'awaiting_location_confirmation') {
+        const locationData = {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            url: `https://www.google.com/maps?q=${location.latitude},${location.longitude}`
+        };
+
+        console.log(`Ubicación confirmada para usuario ${from}:`, locationData);
+
+        // Guardar ubicación en el estado del usuario
+        const currentState = await getUserState(from) || {};
+        await setUserState(from, { ...currentState, location: locationData });
+
+        await sendTextMessage(from, '✅ ¡Perfecto! Ubicación recibida. Ahora continuamos con tu pedido...');
+
+        // Continuar al siguiente paso
+        await proceedToAccessCodeQuestion(from, currentState);
+        return;
+    }
 
     // Verificar si el usuario está en el proceso de proporcionar su dirección
     if (userState && userState.step === 'awaiting_address') {
@@ -2118,14 +2150,58 @@ async function handleAddressResponse(from, address) {
     return; // Detenemos la ejecución para esperar la dirección correcta.
   }
 
-  console.log(`Procesando dirección válida para ${from}, enviando pregunta de código de acceso...`);
+  console.log(`Procesando dirección válida para ${from}, solicitando ubicación...`);
+
+  // Solicitar ubicación con botones interactivos
+  const locationPayload = {
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: {
+        text: `✅ Perfecto, dirección guardada:\n\n"${address}"\n\nPara confirmar la ubicación exacta, ¿podrías compartir tu ubicación en tiempo real?`
+      },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: 'send_location_now', title: '📍 Enviar ubicación' } },
+          { type: 'reply', reply: { id: 'skip_location', title: 'Continuar sin ubicación' } }
+        ]
+      }
+    }
+  };
+
+  try {
+    await sendMessage(from, locationPayload);
+    console.log(`Solicitud de ubicación enviada exitosamente a ${from}`);
+  } catch (error) {
+    console.error(`Error enviando solicitud de ubicación a ${from}:`, error);
+    // Enviar mensaje de texto simple como fallback
+    await sendTextMessage(from, `✅ Perfecto, dirección guardada:\n\n"${address}"\n\nPara confirmar la ubicación exacta, ¿podrías compartir tu ubicación?\n\nResponde "ubicación" para enviarla o "continuar" para omitir este paso.`);
+  }
+
+  // Actualiza el estado del usuario para esperar ubicación
+  const currentState = await getUserState(from) || {};
+  await setUserState(from, { ...currentState, step: 'awaiting_location_confirmation', address: address });
+  console.log(`Estado actualizado para ${from}: awaiting_location_confirmation`);
+
+  // Notifica a n8n que la dirección fue actualizada.
+  sendToN8n({ from: from, type: 'address_update', timestamp: Math.floor(Date.now() / 1000) }, { address });
+  console.log(`Dirección enviada a n8n: ${address}`);
+}
+
+/**
+ * Procede a preguntar sobre el código de acceso (usado cuando se omite ubicación o se confirma)
+ * @param {string} from El número del remitente.
+ * @param {object} userState El estado actual del usuario.
+ */
+async function proceedToAccessCodeQuestion(from, userState) {
+  console.log(`Procediendo a pregunta de código de acceso para ${from}...`);
 
   // Pregunta si se necesita código de acceso con botones.
   const payload = {
     type: 'interactive',
     interactive: {
       type: 'button',
-      body: { text: '¡Perfecto! Gracias por tu dirección.\n\n¿Tu domicilio está en una privada y se necesita código de acceso para entrar?' },
+      body: { text: '¿Tu domicilio está en una privada y se necesita código de acceso para entrar?' },
       action: {
         buttons: [
           { type: 'reply', reply: { id: 'access_code_yes', title: 'Sí, se necesita' } },
@@ -2141,19 +2217,13 @@ async function handleAddressResponse(from, address) {
   } catch (error) {
     console.error(`Error enviando mensaje de código de acceso a ${from}:`, error);
     // Enviar mensaje de texto simple como fallback
-    await sendTextMessage(from, '¡Perfecto! Gracias por tu dirección.\n\n¿Tu domicilio está en una privada y se necesita código de acceso para entrar?\n\nResponde "sí" o "no".');
+    await sendTextMessage(from, '¿Tu domicilio está en una privada y se necesita código de acceso para entrar?\n\nResponde "sí" o "no".');
   }
 
-  // Actualiza el estado del usuario preservando el estado anterior (como orderText).
+  // Actualizar estado
   const currentState = await getUserState(from) || {};
-  await setUserState(from, { ...currentState, step: 'awaiting_access_code_info', address: address });
+  await setUserState(from, { ...currentState, step: 'awaiting_access_code_info' });
   console.log(`Estado actualizado para ${from}: awaiting_access_code_info`);
-
-  // Notifica a n8n que la dirección fue actualizada.
-  // Se crea un payload personalizado para este evento específico,
-  // ya que no corresponde a un mensaje directo del usuario.
-  sendToN8n({ from: from, type: 'address_update', timestamp: Math.floor(Date.now() / 1000) }, { address });
-  console.log(`Dirección enviada a n8n: ${address}`);
 }
 
 /**

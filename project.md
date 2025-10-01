@@ -686,6 +686,60 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.5.5 (2025-10-01) - Solicitud de Ubicación en Flujo de Pedidos
+- 📍 **Nueva funcionalidad de ubicación** (`chatbot.js`):
+  - Después de ingresar dirección de texto, el bot solicita ubicación en tiempo real
+  - Botones interactivos: "📍 Enviar ubicación" o "Continuar sin ubicación"
+  - Usuario puede optar por compartir o continuar sin ubicación
+  - Ubicación se guarda con latitud, longitud y link de Google Maps
+
+- 🔧 **Cambios en handleAddressResponse** (líneas 2112-2189):
+  - Nuevo estado: `awaiting_location_confirmation`
+  - Mensaje mejorado mostrando la dirección guardada
+  - Solicitud de ubicación con botones interactivos
+  - Continúa al siguiente paso solo después de ubicación o saltar
+
+- ✨ **Nueva función proceedToAccessCodeQuestion** (líneas 2191-2227):
+  - Función auxiliar para preguntar código de acceso
+  - Reutilizable desde múltiples flujos
+  - Maneja tanto botones como texto
+
+- 🗺️ **handleLocationMessage mejorado** (líneas 1311-1345):
+  - Detecta estado `awaiting_location_confirmation`
+  - Guarda ubicación con coordenadas y URL de Google Maps
+  - Procede automáticamente al siguiente paso
+  - Mantiene compatibilidad con flujo anterior
+
+- 🎯 **Manejo de botones actualizado** (líneas 1244-1253):
+  - Nuevo case `awaiting_location_confirmation`
+  - Botón "send_location_now": Instruye cómo enviar ubicación
+  - Botón "skip_location": Continúa sin ubicación
+
+- 📊 **Datos guardados en estado**:
+  ```javascript
+  location: {
+    latitude: number,
+    longitude: number,
+    url: "https://www.google.com/maps?q=lat,lng"
+  }
+  ```
+
+- 🔄 **Flujo actualizado**:
+  1. Usuario envía pedido → Reacción 🛒
+  2. Bot solicita dirección de texto
+  3. Usuario escribe dirección
+  4. Bot solicita ubicación (NUEVO)
+  5. Usuario envía ubicación o salta → Reacción 📍
+  6. Bot pregunta código de acceso
+  7. Bot solicita método de pago
+  8. Pedido completo
+
+- ✅ **Beneficios**:
+  - Dirección de texto + coordenadas GPS precisas
+  - Repartidor tiene ubicación exacta en Google Maps
+  - Opcional - usuario puede omitir si prefiere
+  - Mejor experiencia de entrega
+
 ### v2.5.4-hotfix (2025-10-01) - Fix Validador de Seguridad
 - 🐛 **Bug Fix Crítico** - Validador bloqueaba pedidos legítimos (`security/input-validator.js`):
   - **Problema**: Error "Tu mensaje contiene contenido inválido" al enviar pedidos del menú web
