@@ -2452,35 +2452,39 @@ async function handleFreeformQuery(to, userQuery) {
         // Verificar modo mantenimiento
         const isMaintenanceMode = await redisClient.get(MAINTENANCE_MODE_KEY) === 'true';
 
-        // Inicializa el modelo de IA Generativa
+        // Inicializa el modelo de IA Generativa con configuración optimizada
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
-        // Crear prompt mejorado con contexto de negocio
-        const prompt = `Eres el asistente virtual de CapiBobba, una tienda especializada en bubble tea y frappes.
+        // Configurar System Instructions (se cargan una sola vez, no en cada llamada)
+        const systemInstruction = `Eres el asistente virtual de CapiBobba, una tienda especializada en bubble tea y frappes.
 
-INFORMACIÓN DEL NEGOCIO:
-- Nombre: CapiBobba
-- Productos: Frappes (base agua y base leche), bubble tea, bebidas calientes, especialidades
-- Horarios: Lunes a Viernes 6:00 PM - 10:00 PM, Sábados y Domingos 12:00 PM - 10:00 PM
-- Envío: GRATIS en fraccionamientos aledaños a Viñedos
-- Promociones: Combo Día Lluvioso (2 bebidas calientes x $110), Combo Amigos (2 frappes base agua x $130)
-- Menú completo: https://feyomx.github.io/menucapibobba/
+${BUSINESS_CONTEXT}
 
 ESTADO DEL SERVICIO: ${isMaintenanceMode ? 'CERRADO (mantenimiento)' : 'ABIERTO'}
 
 INSTRUCCIONES:
-1. Responde de manera amigable y profesional
-2. Si preguntan sobre productos, menciona el menú web
-3. Si quieren hacer pedidos y el servicio está abierto, guíalos al menú web
-4. Si el servicio está cerrado, informa que no estamos tomando pedidos
-5. Para preguntas sobre envío, confirma que es gratis en nuestra zona
-6. Mantén las respuestas concisas pero informativas
-7. Si no sabes algo específico, sugiere contactar directamente
+1. Responde de manera amigable y profesional, como un barista experto
+2. Si preguntan sobre productos específicos, menciona el menú web: https://feyomx.github.io/menucapibobba/
+3. Si quieren hacer pedidos y el servicio está abierto, guíalos al menú web para completar su orden
+4. Si el servicio está cerrado, informa amablemente que no estamos tomando pedidos en este momento
+5. Para preguntas sobre envío, confirma que es GRATIS en las zonas mencionadas
+6. Mantén las respuestas concisas pero informativas (máximo 2-3 párrafos)
+7. Si no sabes algo específico, sugiere contactar directamente o revisar el menú web
+8. Siempre mantén un tono cálido y entusiasta sobre nuestros productos`;
 
-Pregunta del cliente: "${userQuery}"
+        const model = genAI.getGenerativeModel({
+            model: "gemini-2.0-flash-exp",
+            systemInstruction: systemInstruction,
+            generationConfig: {
+                temperature: 0.7,        // Balance entre creatividad y consistencia
+                topK: 40,                // Diversidad de tokens
+                topP: 0.95,              // Nucleus sampling
+                maxOutputTokens: 500,    // Limitar longitud de respuestas (aprox 300-400 palabras)
+            }
+        });
 
-Responde como el asistente de CapiBobba:`;
+        // Crear prompt simplificado (el contexto ya está en systemInstruction)
+        const prompt = `Pregunta del cliente: "${userQuery}"`;
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
