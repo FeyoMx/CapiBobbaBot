@@ -2163,7 +2163,7 @@ async function handleAddressResponse(from, address) {
       action: {
         buttons: [
           { type: 'reply', reply: { id: 'send_location_now', title: '📍 Enviar ubicación' } },
-          { type: 'reply', reply: { id: 'skip_location', title: 'Continuar sin ubicación' } }
+          { type: 'reply', reply: { id: 'skip_location', title: 'Omitir ubicación' } }
         ]
       }
     }
