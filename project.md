@@ -686,6 +686,20 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.6.1 (2025-10-03) - Fix Duplicación de Pedidos 🐛
+- 🐛 **Bug Fix Crítico** - Pedidos duplicados en dashboard de monitoreo (`chatbot.js:1116-1120`):
+  - **Problema**: Cada pedido se enviaba 2 veces a n8n:
+    - Envío #1: Al recibir el pedido inicial (sin datos de entrega/pago)
+    - Envío #2: Al completar el flujo completo (con todos los datos)
+  - **Solución**: Eliminado envío prematuro en `handleOrderCompletion()`
+  - **Comportamiento corregido**:
+    - Al recibir pedido → Solo se guarda en estado del usuario (summary, total, fullText)
+    - Al completar flujo → Un único envío con TODOS los datos (pedido + dirección + código acceso + pago)
+  - **Archivos modificados**:
+    - `chatbot.js:1116-1120` - Reemplazado envío inmediato por guardado en estado
+    - Mantiene envíos finales en `handleCashDenominationResponse()` (línea 2366) y `handlePaymentProofImage()` (línea 2413)
+- ✅ **Resultado**: Eliminada duplicación, un solo registro por pedido en dashboard
+
 ### v2.6.0 (2025-01-10) - Optimización Gemini API 🚀
 - ⚡ **Mejoras en Gemini API** (`chatbot.js:2455-2489`):
   - Actualización a modelo `gemini-2.0-flash-exp` (más rápido y eficiente)

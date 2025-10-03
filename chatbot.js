@@ -1112,13 +1112,12 @@ async function handleOrderCompletion(from, orderText, userState) {
 
     // Extraer información del pedido
     const orderInfo = extractOrderInfo(orderText);
-    
-    // Enviar a n8n como pedido completado
-    sendOrderCompletionToN8nEnhanced(from, {
-        summary: orderInfo.summary,
-        total: orderInfo.total,
-        fullText: orderText
-    });
+
+    // Guardar información del pedido en el estado (se enviará a n8n al finalizar todo el flujo)
+    userState.summary = orderInfo.summary;
+    userState.total = orderInfo.total;
+    userState.fullText = orderText;
+    await setUserState(from, userState);
 
     // Enviar mensaje de confirmación del pedido
     const confirmationText = `¡Perfecto! Tu pedido ha sido recibido 🎉
