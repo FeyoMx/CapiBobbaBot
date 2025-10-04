@@ -2544,7 +2544,7 @@ async function handleFreeformQuery(to, userQuery) {
 
                 // Registrar métrica de cache hit
                 if (metricsCollector) {
-                    await metricsCollector.incrementCounter('gemini_cache_hits');
+                    await metricsCollector.incrementMetric('gemini_cache_hits', 1, 3600);
                 }
 
                 await sendTextMessage(to, cached.response);
@@ -2608,7 +2608,7 @@ INSTRUCCIONES:
 
             // Registrar métrica de cache miss (nueva entrada)
             if (metricsCollector) {
-                await metricsCollector.incrementCounter('gemini_cache_misses');
+                await metricsCollector.incrementMetric('gemini_cache_misses', 1, 3600);
             }
         }
 
