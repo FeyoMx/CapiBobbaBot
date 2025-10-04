@@ -692,6 +692,22 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.8.1 (2025-10-04) - Fix Critical: Gemini API no responde 🔧
+- 🐛 **Bug Fix Crítico** - API de Gemini fallaba al procesar preguntas simples:
+  - **Problema**: `TypeError: metricsCollector.incrementCounter is not a function`
+    - Error en línea 2547: cache hits usando método inexistente
+    - Error en línea 2611: cache misses usando método inexistente
+    - Esto interrumpía el flujo de respuesta de Gemini, sin importar que la API funcionara
+  - **Causa Raíz**: El método `incrementCounter()` no existe en la clase `MetricsCollector`
+  - **Solución**:
+    - ✅ Cambiar `incrementCounter()` → `incrementMetric(key, amount, expireSeconds)`
+    - ✅ Agregar parámetros correctos: `incrementMetric('gemini_cache_hits', 1, 3600)`
+    - ✅ Aplicado en ambas ubicaciones (cache hits y misses)
+  - **Impacto**: Bot ahora responde correctamente a todas las preguntas
+  - **Archivos modificados**:
+    - `chatbot.js` (líneas 2547, 2611)
+  - **Método correcto**: `MetricsCollector.incrementMetric()` definido en `monitoring/metrics.js:484`
+
 ### v2.6.1 (2025-10-03) - Fix Duplicación de Pedidos 🐛
 - 🐛 **Bug Fix Crítico** - Pedidos duplicados en dashboard de monitoreo (`chatbot.js:1116-1120`):
   - **Problema**: Cada pedido se enviaba 2 veces a n8n:
