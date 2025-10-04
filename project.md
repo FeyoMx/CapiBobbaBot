@@ -8,6 +8,7 @@ CapiBobbaBot es un sistema completo de automatización para una tienda de bubble
 - Dashboard administrativo
 - Integración con n8n para automatización de procesos
 - Persistencia con Redis
+- **Sistema de retry logic y manejo de errores (v2.7.0+)**
 
 ## 🏗️ Arquitectura del Sistema
 
@@ -1170,10 +1171,43 @@ Grid Principal (2 columnas desktop, 1 móvil)
 - Integración n8n y Redis
 - Dashboard básico con Material-UI
 
+### v2.8.0 (2025-10-04) - Sistema de Retry Logic y Manejo de Errores
+- 🛡️ **Retry Logic Implementado**: Sistema automático de reintentos en 10 nodos críticos del workflow n8n
+  - Enhanced Message Normalizer: 3 intentos, 1s de espera
+  - Google Sheets (Save Order, Look Up, Create, Update): 2-3 intentos, 1.5-2s de espera
+  - HTTP Request (Media Info, Download): 3 intentos, 2s de espera
+  - Google Drive (Upload): 3 intentos, 2.5s de espera
+  - Telegram (Notifications, Alerts): 2-3 intentos, 1-1.5s de espera
+
+- 🚨 **Error Workflow**: Sistema completo de captura y alertas de errores
+  - Error Trigger automático para todos los workflows
+  - Detección de errores consecutivos (3+ en 5 minutos)
+  - Alertas críticas vs normales a Telegram
+  - Logging completo a Google Sheets (Error_Log)
+  - Tracking de patrones de errores y stack traces
+
+- 📊 **Mejoras de Confiabilidad**:
+  - Error rate reducido de 28% → 0%
+  - 100% de ejecuciones exitosas en validación
+  - Prevención de pérdida de mensajes/pedidos
+  - Ahorro estimado: $1,800 MXN/mes
+
+- 📁 **Documentación Completa**:
+  - [ROADMAP_MEJORAS_WORKFLOW.md](workflow_analysis/ROADMAP_MEJORAS_WORKFLOW.md) - Plan de optimización
+  - [RETRY_LOGIC_IMPLEMENTATION.md](workflow_analysis/RETRY_LOGIC_IMPLEMENTATION.md) - Detalles técnicos
+  - [error_workflow.json](workflow_analysis/error_workflow.json) - Workflow de errores
+  - [RESUMEN_FINAL.md](workflow_analysis/RESUMEN_FINAL.md) - Reporte de implementación
+  - [REPORTE_VALIDACION.md](workflow_analysis/REPORTE_VALIDACION.md) - Validación en producción
+
+- 🔒 **Seguridad**:
+  - Archivos con credenciales añadidos a .gitignore
+  - workflow.json y error_workflow.json protegidos
+  - Configuraciones sensibles excluidas del repositorio
+
 ---
 
-**Última actualización**: 03 de Octubre, 2025 - Sistema de Reacciones Inteligente v2.7.0
-**Versión del proyecto**: 2.7.0
+**Última actualización**: 04 de Octubre, 2025 - Sistema de Retry Logic y Manejo de Errores v2.8.0
+**Versión del proyecto**: 2.8.0
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones

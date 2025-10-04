@@ -5,3 +5,19 @@ user_states.json
 # Backups de Redis (generados automáticamente)
 backups/*.json
 !backups/.gitkeep
+
+# Archivos con credenciales y configuración sensible
+workflow.json
+workflow_analysis/error_workflow.json
+**/settings.json
+**/claude_desktop_config.json
+
+# Archivos temporales de análisis
+*.pyc
+__pycache__/
+*.tmp
+*.log
+detailed_flow_analysis.js
+parse_workflow.js
+workflow_analysis_output.txt
+add_retry_logic.py
