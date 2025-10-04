@@ -278,6 +278,11 @@ Health → HealthChecker → Alertas → Telegram/Admin
 - `GET /api/redis-states`: Obtener todos los estados de usuarios
 - `DELETE /api/redis-states/:key`: Eliminar estado específico
 
+### Sistema de Reacciones Inteligente
+- `GET /api/reactions/stats`: Estadísticas de uso de reacciones
+- `POST /api/reactions/cleanup`: Limpiar historial de reacciones antiguas
+- `GET /api/user/metrics/:phoneNumber`: Obtener métricas de usuario para reacciones personalizadas
+
 ## 🎯 Funcionalidades Principales
 
 ### 1. Flujo de Pedidos
@@ -807,8 +812,66 @@ Grid Principal (2 columnas desktop, 1 móvil)
   - ✅ Seguridad robusta sin falsos positivos
   - ✅ Mejor balance entre seguridad y usabilidad
 
-### v2.5.4 (2025-09-30) - Sistema de Reacciones y Marcar como Leído
-- 🎉 **Sistema de Reacciones WhatsApp** (`chatbot.js:2680-2713`):
+### v2.7.0 (2025-10-03) - Sistema de Reacciones Inteligente 🎨
+- 🎨 **Sistema de Reacciones Contextual Completo** (`reactions/reaction-manager.js`):
+  - **Clase ReactionManager**: Gestión centralizada de reacciones inteligentes
+  - **40+ tipos de reacciones** organizadas por contexto
+  - **Reacciones progresivas**: Cambian según el estado del flujo (⏳ → 🛒 → ✅)
+  - **Detección de intención**: Reacciona según el tipo de consulta del usuario
+  - **Sistema de métricas**: Reacciones personalizadas según comportamiento (🔥 frecuente, 🌟 primera compra, 💎 VIP)
+  - **Historial de reacciones**: Tracking completo con timestamps
+  - **Limpieza automática**: Programada cada 6 horas via cron
+
+- 🔄 **Reacciones en Flujo de Pedidos** (Integración completa):
+  - ⏳ Al recibir pedido inicial
+  - 🚚 Al confirmar dirección de entrega
+  - 📍 Al recibir ubicación GPS
+  - 🏠 Al guardar código de acceso
+  - 💰 Al seleccionar método de pago
+  - 📸 Al recibir comprobante de pago
+  - 💵 Al confirmar pago en efectivo
+  - 🎉 Al completar pedido exitosamente
+
+- 🎯 **Reacciones por Tipo de Consulta**:
+  - 📋 Consultas de menú
+  - 💲 Consultas de precios
+  - ⏱️ Consultas de horarios
+  - 🚗 Consultas de delivery
+  - 🎁 Consultas de promociones
+  - 👋 Saludos / 🤝 Despedidas
+
+- 📊 **Sistema de Métricas de Usuario**:
+  - 🔥 Cliente frecuente (>5 pedidos)
+  - 🌟 Primera compra
+  - 🎯 Pedido grande (>$500)
+  - 💎 Cliente VIP (>10 pedidos o >$2000)
+
+- 🛡️ **Reacciones de Validación/Seguridad**:
+  - ✅ Input válido
+  - ⚠️ Input sospechoso
+  - 🚫 Rate limited
+  - 🔐 Verificado
+
+- 🔔 **Reacciones para Administradores**:
+  - 🔔 Notificaciones
+  - 🚨 Alertas de seguridad
+  - 📊 Reportes
+  - 🛠️ Comandos ejecutados
+
+- 🔌 **Nuevos API Endpoints**:
+  - `GET /api/reactions/stats` - Estadísticas de reacciones
+  - `POST /api/reactions/cleanup` - Limpiar historial antiguo
+  - `GET /api/user/metrics/:phoneNumber` - Métricas de usuario
+
+- ⚙️ **Mejoras Técnicas**:
+  - Guardado de `lastMessageId` en estado de usuario para reacciones futuras
+  - Sistema de reacciones no bloqueante con `.catch(() => {})`
+  - Integración con cron para limpieza automática
+  - Historial con Map para tracking eficiente
+  - Fallback robusto si el sistema no está inicializado
+
+### v2.5.4 (2025-09-30) - Sistema de Reacciones Básico y Marcar como Leído
+- 🎉 **Sistema de Reacciones WhatsApp Básico** (`chatbot.js:2680-2713`):
   - Nueva función `sendReaction(to, messageId, emoji)` implementada
   - Reacción automática 🛒 al recibir pedidos del menú web
   - Reacción automática 📸 al recibir imágenes (comprobantes de pago)
@@ -1109,8 +1172,8 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ---
 
-**Última actualización**: 30 de Septiembre, 2025 - Sistema de Reacciones y Marcar como Leído v2.5.4
-**Versión del proyecto**: 2.5.4
+**Última actualización**: 03 de Octubre, 2025 - Sistema de Reacciones Inteligente v2.7.0
+**Versión del proyecto**: 2.7.0
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones

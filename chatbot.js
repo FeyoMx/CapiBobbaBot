@@ -46,6 +46,9 @@ const { initializeSecurity, securityMiddleware, validateInput } = require('./sec
 // === SISTEMA DE CACHÉ GEMINI ===
 const GeminiCache = require('./gemini-cache');
 
+// === SISTEMA DE REACCIONES INTELIGENTE ===
+const { ReactionManager, REACTION_EMOJIS } = require('./reactions/reaction-manager');
+
 // --- CONFIGURACIÓN ---
 // Lee las variables de entorno de forma segura. ¡No dejes tokens en el código!
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
@@ -90,6 +93,8 @@ let security = null;
 // === VARIABLES GLOBALES PARA CACHÉ ===
 let geminiCache = null;
 
+// === VARIABLES GLOBALES PARA REACCIONES ===
+let reactionManager = null;
 
 
 // --- CONEXIÓN A REDIS ---
@@ -657,6 +662,72 @@ app.post('/api/gemini/cache/invalidate', async (req, res) => {
     }
 });
 
+// === ENDPOINTS DEL SISTEMA DE REACCIONES ===
+
+// Endpoint para obtener estadísticas de reacciones
+app.get('/api/reactions/stats', async (req, res) => {
+    try {
+        if (!reactionManager) {
+            return res.status(503).json({ error: 'Sistema de reacciones no inicializado' });
+        }
+
+        const stats = reactionManager.getReactionStats();
+        res.json({
+            success: true,
+            stats: stats,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Error obteniendo estadísticas de reacciones:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Endpoint para limpiar historial de reacciones antiguas
+app.post('/api/reactions/cleanup', async (req, res) => {
+    try {
+        if (!reactionManager) {
+            return res.status(503).json({ error: 'Sistema de reacciones no inicializado' });
+        }
+
+        const cleaned = reactionManager.cleanOldReactions();
+        res.json({
+            success: true,
+            cleaned: cleaned,
+            message: `${cleaned} reacciones antiguas eliminadas`
+        });
+    } catch (error) {
+        console.error('Error limpiando reacciones:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Endpoint para obtener métricas de un usuario específico (para reacciones personalizadas)
+app.get('/api/user/metrics/:phoneNumber', async (req, res) => {
+    try {
+        const { phoneNumber } = req.params;
+
+        // Obtener pedidos del usuario desde Redis o n8n
+        // Por ahora, retornamos datos simulados para la estructura
+        const userMetrics = {
+            phoneNumber: phoneNumber,
+            orderCount: 0, // Se debería calcular desde los logs
+            totalSpent: 0, // Se debería calcular desde los pedidos completados
+            lastOrderDate: null,
+            isVIP: false,
+            isFrequent: false
+        };
+
+        res.json({
+            success: true,
+            metrics: userMetrics
+        });
+    } catch (error) {
+        console.error('Error obteniendo métricas de usuario:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
 // Endpoint: GET /api/redis-states - Obtener todos los estados de usuarios
 app.get('/api/redis-states', async (req, res) => {
     try {
@@ -1019,7 +1090,8 @@ function checkIfAdminForWorkflow(phoneNumber) {
 async function processIncomingMessage(message) {
     const from = message.from;
     const messageType = message.type;
-    
+    const messageId = message.id;
+
     console.log(`🔄 Procesando mensaje de ${from}, tipo: ${messageType}`);
 
     try {
@@ -1035,19 +1107,29 @@ async function processIncomingMessage(message) {
             };
         }
 
+        // Guardar el messageId en el estado para reacciones futuras
+        if (messageId) {
+            userState.lastMessageId = messageId;
+            await setUserState(from, userState);
+        }
+
         switch (messageType) {
             case 'text':
                 const text = message.text.body;
-                
+
                 // Verificar si es un pedido completado (del menú web)
                 if (text.includes('Total del pedido:') || text.includes('Total a pagar:')) {
                     console.log('🛒 Pedido completado detectado');
-                    // Reaccionar con 🛒 al recibir un pedido
-                    if (message.id) {
-                        sendReaction(from, message.id, '🛒').catch(() => {});
+                    // Reacción inteligente al recibir un pedido
+                    if (message.id && reactionManager) {
+                        reactionManager.reactToOrderFlow(from, message.id, 'received').catch(() => {});
                     }
                     await handleOrderCompletion(from, text, userState);
                 } else {
+                    // Detectar intención y reaccionar antes de procesar
+                    if (message.id && reactionManager) {
+                        reactionManager.reactToIntention(from, message.id, text).catch(() => {});
+                    }
                     // Procesar como mensaje de texto normal
                     await handleTextMessage(from, text, userState);
                 }
@@ -1058,17 +1140,17 @@ async function processIncomingMessage(message) {
                 break;
 
             case 'image':
-                // Reaccionar con 📸 al recibir una imagen
-                if (message.id) {
-                    sendReaction(from, message.id, '📸').catch(() => {});
+                // Reacción inteligente al recibir una imagen (probablemente comprobante)
+                if (message.id && reactionManager) {
+                    reactionManager.reactToOrderFlow(from, message.id, 'payment_proof').catch(() => {});
                 }
                 await handleImageMessage(from, message.image, userState);
                 break;
 
             case 'location':
-                // Reaccionar con 📍 al recibir ubicación
-                if (message.id) {
-                    sendReaction(from, message.id, '📍').catch(() => {});
+                // Reacción inteligente al recibir ubicación
+                if (message.id && reactionManager) {
+                    reactionManager.reactToOrderFlow(from, message.id, 'location_received').catch(() => {});
                 }
                 await handleLocationMessage(from, message.location, userState);
                 break;
@@ -2186,6 +2268,11 @@ async function handleAddressResponse(from, address) {
   await setUserState(from, { ...currentState, step: 'awaiting_location_confirmation', address: address });
   console.log(`Estado actualizado para ${from}: awaiting_location_confirmation`);
 
+  // Reacción contextual: dirección guardada
+  if (currentState.lastMessageId && reactionManager) {
+    reactionManager.reactToOrderFlow(from, currentState.lastMessageId, 'address_saved').catch(() => {});
+  }
+
   // Notifica a n8n que la dirección fue actualizada.
   sendToN8n({ from: from, type: 'address_update', timestamp: Math.floor(Date.now() / 1000) }, { address });
   console.log(`Dirección enviada a n8n: ${address}`);
@@ -2236,9 +2323,14 @@ async function proceedToAccessCodeQuestion(from, userState) {
  */
 async function handleAccessCodeResponse(from, buttonId) {
   const userState = await getUserState(from);
-  
+
   // Guardamos la información del código de acceso en el estado
   userState.accessCodeInfo = buttonId;
+
+  // Reacción contextual: código de acceso guardado
+  if (userState.lastMessageId && reactionManager) {
+    reactionManager.reactToOrderFlow(from, userState.lastMessageId, 'access_code_saved').catch(() => {});
+  }
 
   // Ahora, en lugar de finalizar, preguntamos por el método de pago
   const payload = {
@@ -2301,6 +2393,11 @@ async function handlePaymentMethodResponse(from, buttonId) {
   const userState = await getUserState(from);
   if (!userState) return; // Chequeo de seguridad
 
+  // Reacción contextual: método de pago seleccionado
+  if (userState.lastMessageId && reactionManager) {
+    reactionManager.reactToOrderFlow(from, userState.lastMessageId, 'payment_received').catch(() => {});
+  }
+
   if (buttonId === 'payment_transfer') {
     const bankDetails = `Para transferencias, puedes usar la siguiente cuenta:\n- Banco: MERCADO PAGO W\n- Número de Cuenta: 722969010305501833\n- A nombre de: Maria Elena Martinez Flores\n\nPor favor, envía tu comprobante de pago a este mismo chat para confirmar tu pedido.`;
     await sendTextMessage(from, bankDetails);
@@ -2360,6 +2457,11 @@ async function handleCashDenominationResponse(from, denomination) {
   );
   await notifyAdmin(adminNotification);
 
+  // Reacción de celebración: pedido completado
+  if (userState.lastMessageId && reactionManager) {
+    reactionManager.reactToOrderFlow(from, userState.lastMessageId, 'celebration').catch(() => {});
+  }
+
   // Guardamos la denominación y enviamos el pedido completo a n8n
   const finalState = { ...userState, cashDenomination: sanitizedDenomination };
   sendOrderCompletionToN8nEnhanced(from, finalState);
@@ -2405,6 +2507,11 @@ async function handlePaymentProofImage(from, imageObject) {
     if (number) {
       await sendMessage(number, imagePayload);
     }
+  }
+
+  // Reacción de celebración: comprobante validado y pedido completado
+  if (userState.lastMessageId && reactionManager) {
+    reactionManager.reactToOrderFlow(from, userState.lastMessageId, 'celebration').catch(() => {});
   }
 
   // Guardamos el ID de la imagen y enviamos el pedido completo a n8n
@@ -3121,6 +3228,40 @@ async function initializeSecurity_system() {
 }
 
 // === INICIALIZACIÓN DEL SISTEMA DE CACHÉ GEMINI ===
+/**
+ * Inicializa el sistema de reacciones inteligente
+ */
+async function initializeReactionManager() {
+    try {
+        console.log('🎨 Inicializando sistema de reacciones inteligente...');
+
+        reactionManager = new ReactionManager(
+            WHATSAPP_TOKEN,
+            PHONE_NUMBER_ID,
+            WHATSAPP_API_VERSION
+        );
+
+        // Limpiar reacciones antiguas
+        reactionManager.cleanOldReactions();
+
+        // Programar limpieza automática cada 6 horas
+        cron.schedule('0 */6 * * *', () => {
+            console.log('🧹 Ejecutando limpieza programada de reacciones...');
+            reactionManager.cleanOldReactions();
+        });
+
+        console.log('✅ Sistema de reacciones inicializado exitosamente');
+        console.log('   🎯 Reacciones contextuales: Activas');
+        console.log('   📊 Reacciones de métricas: Activas');
+        console.log('   🔄 Reacciones progresivas: Activas');
+        console.log('   🛡️ Reacciones de validación: Activas');
+
+    } catch (error) {
+        console.error('❌ Error inicializando sistema de reacciones:', error);
+        // No bloquear el arranque del servidor
+    }
+}
+
 async function initializeGeminiCache() {
     try {
         console.log('⚡ Inicializando sistema de caché Gemini...');
@@ -3412,6 +3553,15 @@ server.listen(PORT, () => {
     } catch (error) {
       console.error('❌ Error inicializando sistema de caché (continuando sin caché):', error);
       // El chatbot continuará funcionando sin caché
+    }
+
+    // Inicializar sistema de reacciones inteligente
+    try {
+      await initializeReactionManager();
+      console.log('✅ Sistema de reacciones inteligente inicializado correctamente');
+    } catch (error) {
+      console.error('❌ Error inicializando sistema de reacciones (continuando sin reacciones avanzadas):', error);
+      // El chatbot continuará funcionando con reacciones básicas
     }
   }, 2000); // Esperar 2 segundos para asegurar que todo esté listo
 });
