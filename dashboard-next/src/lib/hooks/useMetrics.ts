@@ -1,7 +1,15 @@
 // Custom React Query hooks for dashboard metrics
 import { useQuery, UseQueryOptions } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
-import type { DashboardMetrics } from '@/types';
+import type { 
+  DashboardMetrics, 
+  SecurityStats, 
+  GeminiUsageData, 
+  SalesChartData,
+  RevenueByProduct,
+  Order,
+  HealthCheck
+} from '@/types';
 
 // ============================================================================
 // Query Keys
@@ -43,9 +51,9 @@ export function useMetrics(
 
 export function useSalesChart(
   range: 'daily' | 'weekly' | 'monthly' = 'daily',
-  options?: Omit<UseQueryOptions<unknown, Error>, 'queryKey' | 'queryFn'>
+  options?: Omit<UseQueryOptions<SalesChartData, Error>, 'queryKey' | 'queryFn'>
 ) {
-  return useQuery({
+  return useQuery<SalesChartData, Error>({
     queryKey: queryKeys.salesChart(range),
     queryFn: () => apiClient.getSalesChart(range),
     staleTime: 60000, // 1 minute
@@ -58,9 +66,9 @@ export function useSalesChart(
 // ============================================================================
 
 export function useRevenueByProduct(
-  options?: Omit<UseQueryOptions<unknown, Error>, 'queryKey' | 'queryFn'>
+  options?: Omit<UseQueryOptions<RevenueByProduct[], Error>, 'queryKey' | 'queryFn'>
 ) {
-  return useQuery({
+  return useQuery<RevenueByProduct[], Error>({
     queryKey: queryKeys.revenueByProduct,
     queryFn: () => apiClient.getRevenueByProduct(),
     staleTime: 60000,
@@ -73,9 +81,9 @@ export function useRevenueByProduct(
 // ============================================================================
 
 export function useGeminiUsage(
-  options?: Omit<UseQueryOptions<unknown, Error>, 'queryKey' | 'queryFn'>
+  options?: Omit<UseQueryOptions<GeminiUsageData[], Error>, 'queryKey' | 'queryFn'>
 ) {
-  return useQuery({
+  return useQuery<GeminiUsageData[], Error>({
     queryKey: queryKeys.geminiUsage,
     queryFn: () => apiClient.getGeminiUsage(),
     staleTime: 30000,
@@ -89,9 +97,9 @@ export function useGeminiUsage(
 
 export function useRecentOrders(
   limit: number = 10,
-  options?: Omit<UseQueryOptions<unknown, Error>, 'queryKey' | 'queryFn'>
+  options?: Omit<UseQueryOptions<Order[], Error>, 'queryKey' | 'queryFn'>
 ) {
-  return useQuery({
+  return useQuery<Order[], Error>({
     queryKey: queryKeys.recentOrders(limit),
     queryFn: () => apiClient.getRecentOrders(limit),
     staleTime: 30000,
@@ -105,9 +113,9 @@ export function useRecentOrders(
 // ============================================================================
 
 export function useHealth(
-  options?: Omit<UseQueryOptions<unknown, Error>, 'queryKey' | 'queryFn'>
+  options?: Omit<UseQueryOptions<HealthCheck, Error>, 'queryKey' | 'queryFn'>
 ) {
-  return useQuery({
+  return useQuery<HealthCheck, Error>({
     queryKey: queryKeys.health,
     queryFn: () => apiClient.getHealth(),
     staleTime: 10000, // 10 seconds
@@ -121,9 +129,9 @@ export function useHealth(
 // ============================================================================
 
 export function useSecurityStats(
-  options?: Omit<UseQueryOptions<unknown, Error>, 'queryKey' | 'queryFn'>
+  options?: Omit<UseQueryOptions<SecurityStats, Error>, 'queryKey' | 'queryFn'>
 ) {
-  return useQuery({
+  return useQuery<SecurityStats, Error>({
     queryKey: queryKeys.securityStats,
     queryFn: () => apiClient.getSecurityStats(),
     staleTime: 60000,

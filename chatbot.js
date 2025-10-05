@@ -72,7 +72,12 @@ if (!VERIFY_TOKEN || !WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY || !
   process.exit(1); // Detiene la aplicación si falta configuración
 }
 
+const cors = require('cors');
 const app = express();
+
+// Habilita CORS para el dashboard en localhost:3001
+app.use(cors({ origin: 'http://localhost:3001' }));
+
 app.use(bodyParser.json());
 
 // Servir la aplicación de React

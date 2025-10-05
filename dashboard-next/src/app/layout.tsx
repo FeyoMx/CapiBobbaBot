@@ -5,7 +5,7 @@ import { QueryProvider } from "@/lib/providers/QueryProvider"
 import { WebSocketProvider } from "@/lib/providers/WebSocketProvider"
 import { ThemeProvider } from "@/lib/providers/ThemeProvider"
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"], display: 'swap' })
 
 export const metadata: Metadata = {
   title: "CapiBobbaBot Dashboard",

@@ -7,10 +7,14 @@ import type { Order, OrdersResponse, PaginationParams, OrderStatus } from '@/typ
 // Query Keys
 // ============================================================================
 
+interface UseOrdersParams extends PaginationParams {
+  status?: string;
+}
+
 export const orderKeys = {
   all: ['orders'] as const,
   lists: () => [...orderKeys.all, 'list'] as const,
-  list: (params?: Record<string, unknown>) => [...orderKeys.lists(), params] as const,
+  list: (params?: UseOrdersParams) => [...orderKeys.lists(), params] as const,
   details: () => [...orderKeys.all, 'detail'] as const,
   detail: (id: string) => [...orderKeys.details(), id] as const,
 };
@@ -18,10 +22,6 @@ export const orderKeys = {
 // ============================================================================
 // Orders List Hook
 // ============================================================================
-
-interface UseOrdersParams extends PaginationParams {
-  status?: string;
-}
 
 export function useOrders(
   params?: UseOrdersParams,
@@ -64,7 +64,7 @@ interface UpdateOrderStatusParams {
 export function useUpdateOrderStatus() {
   const queryClient = useQueryClient();
 
-  return useMutation<Order, Error, UpdateOrderStatusParams>({
+  return useMutation<Order, Error, UpdateOrderStatusParams, { previousOrder: Order | undefined }>({
     mutationFn: ({ id, status }) => apiClient.updateOrderStatus(id, status),
     onMutate: async ({ id, status }) => {
       // Cancel outgoing refetches
