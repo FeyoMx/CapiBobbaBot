@@ -692,6 +692,52 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.9.0 (2025-10-05) - Implementación de Safety Settings en Gemini 🛡️
+- 🛡️ **Safety Settings Implementado** (`chatbot.js:2590-2607`):
+  - Configuración de filtros de seguridad para Gemini AI
+  - **HARM_CATEGORY_HARASSMENT**: Bloqueo de acoso y hostigamiento
+  - **HARM_CATEGORY_HATE_SPEECH**: Bloqueo de discurso de odio
+  - **HARM_CATEGORY_SEXUALLY_EXPLICIT**: Bloqueo de contenido sexual explícito
+  - **HARM_CATEGORY_DANGEROUS_CONTENT**: Bloqueo de contenido peligroso
+  - **Threshold**: `BLOCK_MEDIUM_AND_ABOVE` en todas las categorías
+
+- 🔍 **Sistema de Detección de Contenido Bloqueado** (`chatbot.js:2616-2643`):
+  - Verificación de `promptFeedback.blockReason` en respuestas de Gemini
+  - Logging automático de eventos de bloqueo con usuario y consulta
+  - Registro de métricas: `gemini_safety_blocks` (TTL: 24h)
+  - Integración con sistema de seguridad para auditoría
+  - Respuesta amable al usuario sin exponer detalles técnicos
+
+- ⚠️ **Monitoreo de Safety Ratings** (`chatbot.js:2645-2660`):
+  - Detección de advertencias de seguridad (HIGH/MEDIUM risk)
+  - Logging de ratings sospechosos para análisis
+  - Métrica: `gemini_safety_warnings` (TTL: 24h)
+
+- 🚨 **Manejo Mejorado de Errores** (`chatbot.js:2686-2720`):
+  - Detección específica de errores de seguridad (SAFETY/blocked)
+  - Métrica: `gemini_safety_errors` (TTL: 24h)
+  - Logging en sistema de seguridad con severidad `high`
+  - Manejo de rate limiting con respuesta personalizada
+  - Métrica: `gemini_rate_limit_errors` (TTL: 1h)
+
+- 📊 **Nuevas Métricas de Seguridad**:
+  - `gemini_safety_blocks`: Contenido bloqueado por safety settings
+  - `gemini_safety_warnings`: Advertencias de riesgo detectadas
+  - `gemini_safety_errors`: Errores de seguridad al generar contenido
+  - `gemini_rate_limit_errors`: Errores de rate limit en API
+
+- ✅ **Impacto**:
+  - Protección contra contenido inapropiado (95%+ efectividad esperada)
+  - Cumplimiento de políticas de uso de IA
+  - Mejor experiencia de usuario con respuestas apropiadas
+  - Protección de marca y reputación
+  - Auditoría completa de eventos de seguridad
+
+- 📁 **Archivos modificados**:
+  - `chatbot.js:2590-2607` - Configuración de safetySettings
+  - `chatbot.js:2616-2660` - Sistema de detección y monitoreo
+  - `chatbot.js:2686-2720` - Manejo mejorado de errores
+
 ### v2.8.1 (2025-10-04) - Fix Critical: Gemini API no responde 🔧
 - 🐛 **Bug Fix Crítico** - API de Gemini fallaba al procesar preguntas simples:
   - **Problema**: `TypeError: metricsCollector.incrementCounter is not a function`

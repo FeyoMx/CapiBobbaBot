@@ -2586,7 +2586,25 @@ INSTRUCCIONES:
                 topK: 40,                // Diversidad de tokens
                 topP: 0.95,              // Nucleus sampling
                 maxOutputTokens: 500,    // Limitar longitud de respuestas (aprox 300-400 palabras)
-            }
+            },
+            safetySettings: [
+                {
+                    category: "HARM_CATEGORY_HARASSMENT",
+                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    category: "HARM_CATEGORY_HATE_SPEECH",
+                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                }
+            ]
         });
 
         // Crear prompt simplificado (el contexto ya está en systemInstruction)
@@ -2594,6 +2612,53 @@ INSTRUCCIONES:
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
+
+        // === VERIFICACIÓN DE SEGURIDAD ===
+        // Verificar si el contenido fue bloqueado por razones de seguridad
+        if (response.promptFeedback?.blockReason) {
+            const blockReason = response.promptFeedback.blockReason;
+            console.warn(`🚫 Contenido bloqueado por seguridad - Razón: ${blockReason}`);
+            console.warn(`📝 Usuario: ${to} | Consulta: "${userQuery.substring(0, 50)}..."`);
+
+            // Registrar evento de seguridad
+            if (metricsCollector) {
+                await metricsCollector.incrementMetric('gemini_safety_blocks', 1, 86400);
+            }
+
+            // Loguear en sistema de seguridad
+            if (security) {
+                await security.logSecurityEvent({
+                    type: 'gemini_content_blocked',
+                    severity: 'medium',
+                    phoneNumber: to,
+                    message: userQuery,
+                    blockReason: blockReason,
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            // Responder al usuario de manera amable
+            await sendTextMessage(to, "Lo siento, no puedo responder a ese tipo de mensajes. ¿Hay algo sobre nuestros productos en lo que pueda ayudarte? 😊");
+            return;
+        }
+
+        // Verificar y loguear ratings de seguridad si existen
+        if (response.promptFeedback?.safetyRatings) {
+            const ratings = response.promptFeedback.safetyRatings;
+            const highRiskRatings = ratings.filter(r =>
+                r.probability === 'HIGH' || r.probability === 'MEDIUM'
+            );
+
+            if (highRiskRatings.length > 0) {
+                console.log('⚠️ Advertencia de seguridad detectada:', highRiskRatings);
+
+                // Registrar advertencia
+                if (metricsCollector) {
+                    await metricsCollector.incrementMetric('gemini_safety_warnings', 1, 86400);
+                }
+            }
+        }
+
         const geminiText = response.text();
 
         const apiResponseTime = Date.now() - apiStartTime;
@@ -2617,8 +2682,44 @@ INSTRUCCIONES:
 
     } catch (error) {
         console.error('Error al contactar la API de Gemini:', error);
-        // En caso de error con Gemini, usar defaultHandler sin el mensaje original
-        // para evitar bucle infinito
+
+        // Manejo específico de errores de seguridad
+        if (error.message?.includes('SAFETY') || error.message?.includes('blocked')) {
+            console.error('🚫 Error de seguridad al generar contenido:', error.message);
+
+            // Registrar evento de seguridad
+            if (metricsCollector) {
+                await metricsCollector.incrementMetric('gemini_safety_errors', 1, 86400);
+            }
+
+            if (security) {
+                await security.logSecurityEvent({
+                    type: 'gemini_safety_error',
+                    severity: 'high',
+                    phoneNumber: to,
+                    message: userQuery,
+                    error: error.message,
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            await sendTextMessage(to, "Lo siento, no puedo procesar ese mensaje. ¿Hay algo sobre nuestros productos en lo que pueda ayudarte? 😊");
+            return;
+        }
+
+        // Manejo de rate limiting
+        if (error.message?.includes('RATE_LIMIT') || error.message?.includes('429')) {
+            console.error('⏱️ Rate limit excedido en Gemini API:', error.message);
+
+            if (metricsCollector) {
+                await metricsCollector.incrementMetric('gemini_rate_limit_errors', 1, 3600);
+            }
+
+            await sendTextMessage(to, "Estamos experimentando alta demanda. Por favor, espera un momento e inténtalo de nuevo. 🙏");
+            return;
+        }
+
+        // Para otros errores, usar defaultHandler
         await defaultHandler(to);
     }
 }
