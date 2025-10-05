@@ -40,6 +40,12 @@ CapiBobbaBot es un sistema completo de automatización para una tienda de bubble
    - Gestión de clientes en Google Sheets
    - Notificaciones y alertas
 
+5. **Subagentes Claude Code** (`.claude/agents/`)
+   - **UI/UX Senior**: Diseño UI/UX, frontend moderno, accesibilidad
+   - **Dashboard Expert**: Dashboards administrativos, data visualization
+   - Configuración personalizada para desarrollo especializado
+   - Ver [.claude/agents/README.md](.claude/agents/README.md) para detalles
+
 ## 📂 Estructura de Archivos
 
 ```
@@ -71,6 +77,12 @@ CapiBobbaBot/
 │   ├── js/               # Scripts del cliente
 │   │   └── monitoring-client.js
 │   └── monitoring.html   # Panel de monitoreo independiente
+│
+├── .claude/                # Configuración de Claude Code
+│   └── agents/            # Subagentes personalizados
+│       ├── README.md      # Documentación de subagentes
+│       ├── ui-ux-senior.md       # Subagente UI/UX experto
+│       └── dashboard-expert.md   # Subagente Dashboard experto
 │
 └── [Workflows n8n]/      # Archivos JSON de workflows
     ├── CapiBobba Enhanced - Complete Message Processor (ACTIVE).json
@@ -1302,6 +1314,25 @@ Grid Principal (2 columnas desktop, 1 móvil)
   - Mejoras automáticas cuando Google lance nuevas versiones
   - Mejor seguimiento de instrucciones del sistema
 
+### v2.11.0 (2025-10-05) - Subagentes Claude Code Especializados
+- 🤖 **Subagentes Personalizados**: Configuración de subagentes especializados para desarrollo
+  - **UI/UX Senior** (`ui-ux-senior.md`): Experto en diseño UI/UX, frontend moderno (React, Next.js, Tailwind), accesibilidad (WCAG), performance optimization
+  - **Dashboard Expert** (`dashboard-expert.md`): Especialista en dashboards administrativos, data visualization (Recharts, Chart.js, D3.js), tablas complejas, real-time updates
+- 📁 **Archivos creados**:
+  - `.claude/agents/ui-ux-senior.md` - Subagente UI/UX (7.8KB)
+  - `.claude/agents/dashboard-expert.md` - Subagente Dashboard (9.9KB)
+  - `.claude/agents/README.md` - Documentación completa de uso
+  - `project.md:43-47,75-79` - Documentación actualizada
+- ✅ **Beneficios**:
+  - Desarrollo especializado con expertise enfocado
+  - Mejores prácticas automáticas (accesibilidad, performance, responsive)
+  - Aceleración de desarrollo de UI/dashboards
+  - Conocimiento actualizado de tecnologías 2025
+  - Invocación automática o explícita con `@subagent-name`
+- 🎯 **Uso**:
+  - `@ui-ux-senior Diseña el nuevo módulo de analytics`
+  - `@dashboard-expert Implementa gráficos de métricas en tiempo real`
+
 ### v2.8.2 (2025-10-05) - Nueva Categoría: Postres & Snacks
 - 🍰 **Nueva categoría de menú**: Agregada categoría "Postres & Snacks" al business_data
   - Producto Capigofre: $35.00 con descripción "CapiGofre: tradición belga, sabor irresistible, diversión garantizada."
@@ -1347,8 +1378,8 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ---
 
-**Última actualización**: 05 de Octubre, 2025 - Actualización a Gemini 2.5 Flash v2.9.0
-**Versión del proyecto**: 2.9.0
+**Última actualización**: 05 de Octubre, 2025 - Subagentes Claude Code Especializados
+**Versión del proyecto**: 2.11.0
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones
