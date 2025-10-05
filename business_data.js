@@ -44,6 +44,12 @@ const businessData = {
             name: "Toppings",
             price: 10.00,
             items: ["Perlas explosivas de frutos rojos", "Perlas explosivas de litchi", "Perlas explosivas de manzana verde", "Tapioca extra", "Jelly Arcoiris", "Perlas Cristal"]
+        },
+        postresSnacks: {
+            name: "Postres & Snacks",
+            items: [
+                { name: "Capigofre", price: 35.00, description: "CapiGofre: tradición belga, sabor irresistible, diversión garantizada." }
+            ]
         }
     },
     howToOrder: [

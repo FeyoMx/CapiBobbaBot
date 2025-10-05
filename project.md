@@ -1289,6 +1289,16 @@ Grid Principal (2 columnas desktop, 1 móvil)
 - Integración n8n y Redis
 - Dashboard básico con Material-UI
 
+### v2.8.2 (2025-10-05) - Nueva Categoría: Postres & Snacks
+- 🍰 **Nueva categoría de menú**: Agregada categoría "Postres & Snacks" al business_data
+  - Producto Capigofre: $35.00 con descripción "CapiGofre: tradición belga, sabor irresistible, diversión garantizada."
+- 📁 **Archivos modificados**:
+  - business_data.js:48-53 - Agregada sección postresSnacks con estructura de items
+- ✅ **Impacto**:
+  - El bot ahora tiene contexto completo del nuevo producto Capigofre
+  - Responderá consultas sobre postres y snacks
+  - Se integra automáticamente en generateBusinessContext()
+
 ### v2.8.0 (2025-10-04) - Sistema de Retry Logic y Manejo de Errores
 - 🛡️ **Retry Logic Implementado**: Sistema automático de reintentos en 10 nodos críticos del workflow n8n
   - Enhanced Message Normalizer: 3 intentos, 1s de espera
@@ -1324,8 +1334,8 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ---
 
-**Última actualización**: 04 de Octubre, 2025 - Sistema de Retry Logic y Manejo de Errores v2.8.0
-**Versión del proyecto**: 2.8.0
+**Última actualización**: 05 de Octubre, 2025 - Nueva categoría Postres & Snacks v2.8.2
+**Versión del proyecto**: 2.8.2
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones
