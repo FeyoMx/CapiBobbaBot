@@ -2579,7 +2579,7 @@ INSTRUCCIONES:
 8. Siempre mantén un tono cálido y entusiasta sobre nuestros productos`;
 
         const model = genAI.getGenerativeModel({
-            model: "gemini-2.0-flash-exp",
+            model: "gemini-flash-latest",
             systemInstruction: systemInstruction,
             generationConfig: {
                 temperature: 0.7,        // Balance entre creatividad y consistencia

@@ -1289,6 +1289,19 @@ Grid Principal (2 columnas desktop, 1 móvil)
 - Integración n8n y Redis
 - Dashboard básico con Material-UI
 
+### v2.9.0 (2025-10-05) - Actualización a Gemini 2.5 Flash (Latest)
+- 🚀 **Modelo IA mejorado**: Actualizado de Gemini 2.0 Flash a Gemini 2.5 Flash con alias auto-actualizable
+  - Modelo: `gemini-flash-latest` (apunta automáticamente a Gemini 2.5 Flash Preview)
+  - Mejoras: Más efectivo con tools, cost-efficient, mejor instruction following
+  - Auto-actualización: Siempre usa la versión más reciente de Gemini Flash
+- 📁 **Archivos modificados**:
+  - chatbot.js:2582 - Actualizado getGenerativeModel con alias "gemini-flash-latest"
+- ✅ **Impacto**:
+  - Respuestas más inteligentes y precisas del bot
+  - Reducción en costos de API (menos tokens usados)
+  - Mejoras automáticas cuando Google lance nuevas versiones
+  - Mejor seguimiento de instrucciones del sistema
+
 ### v2.8.2 (2025-10-05) - Nueva Categoría: Postres & Snacks
 - 🍰 **Nueva categoría de menú**: Agregada categoría "Postres & Snacks" al business_data
   - Producto Capigofre: $35.00 con descripción "CapiGofre: tradición belga, sabor irresistible, diversión garantizada."
@@ -1334,8 +1347,8 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ---
 
-**Última actualización**: 05 de Octubre, 2025 - Nueva categoría Postres & Snacks v2.8.2
-**Versión del proyecto**: 2.8.2
+**Última actualización**: 05 de Octubre, 2025 - Actualización a Gemini 2.5 Flash v2.9.0
+**Versión del proyecto**: 2.9.0
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones
