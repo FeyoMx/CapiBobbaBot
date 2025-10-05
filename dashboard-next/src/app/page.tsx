@@ -1,131 +1,130 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { ShoppingCart, DollarSign, Cpu, Database } from "lucide-react"
+'use client';
+
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { MetricCard } from '@/components/dashboard/MetricCard';
+import { SalesChart } from '@/components/dashboard/SalesChart';
+import { RevenueChart } from '@/components/dashboard/RevenueChart';
+import { GeminiUsageChart } from '@/components/dashboard/GeminiUsageChart';
+import { RecentOrdersTable } from '@/components/dashboard/RecentOrdersTable';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ShoppingCart, DollarSign, Cpu, Database } from 'lucide-react';
+import { useMetrics } from '@/lib/hooks/useMetrics';
 
 export default function Home() {
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b">
-        <div className="flex h-16 items-center px-6">
-          <div className="flex items-center gap-2">
-            <div className="rounded-lg bg-primary p-2">
-              <Cpu className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <h1 className="text-xl font-bold">CapiBobbaBot Dashboard</h1>
-          </div>
-        </div>
-      </header>
+  const { data: metrics, isLoading, error } = useMetrics();
 
-      {/* Main Content */}
-      <main className="p-6">
-        <div className="mb-6">
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
           <h2 className="text-3xl font-bold tracking-tight">Dashboard Overview</h2>
           <p className="text-muted-foreground">
-            Bienvenido al nuevo dashboard modernizado
+            Bienvenido al dashboard de CapiBobbaBot
           </p>
         </div>
 
+        {/* Error State */}
+        {error && (
+          <Card className="border-destructive">
+            <CardHeader>
+              <CardTitle className="text-destructive">Error al cargar métricas</CardTitle>
+              <CardDescription>{error.message}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Asegúrate de que el backend esté corriendo en {process.env.NEXT_PUBLIC_API_URL}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* KPI Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                Pedidos Hoy
-              </CardTitle>
-              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">0</div>
-              <p className="text-xs text-muted-foreground">
-                Conectando al backend...
-              </p>
-            </CardContent>
-          </Card>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            title="Pedidos Hoy"
+            value={metrics?.orders.today ?? 0}
+            icon={ShoppingCart}
+            trend={metrics?.orders.trend}
+            isLoading={isLoading}
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                Revenue 24h
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">$0</div>
-              <p className="text-xs text-muted-foreground">
-                Conectando al backend...
-              </p>
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="Revenue 24h"
+            value={
+              metrics?.revenue.today
+                ? `$${metrics.revenue.today.toLocaleString('es-MX')}`
+                : '$0'
+            }
+            icon={DollarSign}
+            trend={metrics?.revenue.trend}
+            isLoading={isLoading}
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                Gemini Calls
-              </CardTitle>
-              <Cpu className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">0</div>
-              <p className="text-xs text-muted-foreground">
-                Conectando al backend...
-              </p>
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="Gemini Calls"
+            value={metrics?.gemini.calls_today ?? 0}
+            icon={Cpu}
+            trend={metrics?.gemini.trend}
+            description="hoy"
+            isLoading={isLoading}
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                Cache Hit Rate
-              </CardTitle>
-              <Database className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">0%</div>
-              <p className="text-xs text-muted-foreground">
-                Conectando al backend...
-              </p>
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="Cache Hit Rate"
+            value={
+              metrics?.cache.hit_rate
+                ? `${metrics.cache.hit_rate.toFixed(1)}%`
+                : '0%'
+            }
+            icon={Database}
+            trend={metrics?.cache.trend}
+            isLoading={isLoading}
+          />
         </div>
 
-        {/* Welcome Message */}
+        {/* Charts */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <SalesChart />
+          <RevenueChart />
+          <GeminiUsageChart />
+        </div>
+
+        {/* Recent Orders Table */}
+        <RecentOrdersTable />
+
+        {/* Sprint 2 Status */}
         <Card>
           <CardHeader>
-            <CardTitle>🎉 Sprint 1 - Foundation Completado!</CardTitle>
+            <CardTitle>🚀 Sprint 2 - En Progreso</CardTitle>
+            <CardDescription>
+              Desarrollo del Overview Dashboard con componentes dinámicos
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-muted-foreground">
-              El proyecto Next.js 14 está configurado y listo para desarrollo.
-            </p>
-
             <div className="space-y-2">
-              <h3 className="font-semibold">✅ Completado:</h3>
+              <h3 className="font-semibold text-sm">✅ Completado:</h3>
               <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                <li>Next.js 14 + TypeScript configurado</li>
-                <li>Tailwind CSS + shadcn/ui instalado</li>
-                <li>Layout base creado</li>
-                <li>Componentes UI (Button, Card)</li>
-                <li>TanStack Query, Recharts, Lucide icons</li>
+                <li>TypeScript types completos</li>
+                <li>API Client con Axios</li>
+                <li>TanStack Query Provider configurado</li>
+                <li>React Query hooks (useMetrics)</li>
+                <li>Sidebar navigation responsive</li>
+                <li>Metric cards dinámicos con datos reales</li>
+                <li>Gráficos con Recharts (Sales, Revenue, Gemini)</li>
               </ul>
             </div>
 
             <div className="space-y-2">
-              <h3 className="font-semibold">🚀 Siguiente Sprint:</h3>
+              <h3 className="font-semibold text-sm">🔨 En Desarrollo:</h3>
               <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                <li>Implementar Sidebar navigation</li>
-                <li>Crear metric cards dinámicos</li>
-                <li>Agregar gráficos con Recharts</li>
-                <li>Integrar API client</li>
+                <li>Tabla Recent Orders</li>
+                <li>Páginas adicionales (Pedidos, Analytics, Seguridad)</li>
               </ul>
             </div>
-
-            <Button className="mt-4">
-              Comenzar Sprint 2
-            </Button>
           </CardContent>
         </Card>
-      </main>
-    </div>
-  )
+      </div>
+    </DashboardLayout>
+  );
 }
