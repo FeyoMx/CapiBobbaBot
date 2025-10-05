@@ -100,6 +100,26 @@ export interface OrdersResponse {
   hasMore: boolean;
 }
 
+export interface OrderFilters {
+  status?: OrderStatus | 'all';
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  paymentMethod?: 'cash' | 'transfer' | 'pending' | 'all';
+}
+
+export interface OrderTableState {
+  pagination: {
+    pageIndex: number;
+    pageSize: number;
+  };
+  sorting: {
+    id: string;
+    desc: boolean;
+  }[];
+  filters: OrderFilters;
+}
+
 // ============================================================================
 // Security Events
 // ============================================================================
