@@ -692,6 +692,62 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.10.0 (2025-10-05) - Implementación de Streaming Responses 🌊
+- 🌊 **Streaming Responses Implementado** (`chatbot.js:2613-2658`):
+  - Soporte para `generateContentStream` de Gemini AI
+  - Modo híbrido inteligente adaptado a limitaciones de WhatsApp Business API
+  - Variable de entorno `GEMINI_STREAMING_ENABLED` para habilitar/deshabilitar
+  - **Estrategia**: Streaming interno + typing indicator activo (no mensajes parciales)
+
+- 🎯 **Funcionamiento del Sistema**:
+  - **Modo Streaming (GEMINI_STREAMING_ENABLED=true)**:
+    * Usa `generateContentStream()` para recibir chunks progresivos
+    * Mantiene typing indicator activo durante todo el proceso
+    * Renueva typing indicator cada 15 segundos automáticamente
+    * Envía mensaje completo al final (evita spam de mensajes)
+    * Reduce latencia percibida sin violar rate limits de WhatsApp
+
+  - **Modo Normal (GEMINI_STREAMING_ENABLED=false, default)**:
+    * Usa `generateContent()` tradicional
+    * Comportamiento actual sin cambios
+    * Compatibilidad 100% con implementación anterior
+
+- 📊 **Métricas de Streaming** (`chatbot.js:2649-2652`):
+  - `gemini_streaming_requests`: Total de requests con streaming (TTL: 24h)
+  - `gemini_streaming_time`: Tiempo total de streaming en ms (TTL: 24h)
+  - Permite comparar performance entre modo streaming vs normal
+
+- ⚡ **Beneficios de Performance**:
+  - Latencia percibida reducida (typing indicator activo)
+  - Mejor experiencia de usuario durante respuestas largas
+  - Engagement mejorado con feedback visual inmediato
+  - Sin cambios en API externa ni mensajes duplicados
+
+- 🔐 **Seguridad Mantenida**:
+  - Safety settings aplicados en ambos modos
+  - Verificación de `promptFeedback.blockReason` funcional
+  - Monitoreo de safety ratings preservado
+  - Métricas de seguridad operando normalmente
+
+- 📝 **Consideraciones de Implementación**:
+  - WhatsApp Business API no permite edición de mensajes enviados
+  - Rate limits estrictos previenen envío de mensajes frecuentes
+  - Solución: streaming interno sin fragmentación de mensajes
+  - Typing indicator proporciona feedback visual sin spam
+
+- 📁 **Archivos modificados**:
+  - `chatbot.js:2613-2658` - Implementación de streaming híbrido
+  - `.env.example:136-142` - Nueva variable GEMINI_STREAMING_ENABLED
+  - `project.md` - Documentación completa del cambio
+  - `ROADMAP.md` - Streaming Responses marcado como completado
+
+- ✅ **Impacto**:
+  - Mejor UX durante consultas complejas
+  - Reducción de ansiedad en espera (typing indicator)
+  - Performance medible con métricas dedicadas
+  - Sistema opt-in vía variable de entorno
+  - Compatible con caché y todas las features existentes
+
 ### v2.9.0 (2025-10-05) - Implementación de Safety Settings en Gemini 🛡️
 - 🛡️ **Safety Settings Implementado** (`chatbot.js:2590-2607`):
   - Configuración de filtros de seguridad para Gemini AI

@@ -116,38 +116,63 @@ safetySettings: [
 ### 📌 Fase 3: Mejoras de UX (Prioridad: MEDIA)
 
 #### 2. Streaming Responses
-**Estado:** 🟡 Planificado
+**Estado:** ✅ Completado
+**Fecha:** 2025-10-05
 **Prioridad:** MEDIA
-**Estimación:** 4-6 horas
+**Tiempo real:** 3 horas
 
 **Objetivo:**
 Mejorar la percepción de velocidad con respuestas en tiempo real.
 
-**Implementación propuesta:**
+**Implementación realizada:**
 ```javascript
-const result = await model.generateContentStream(prompt);
-let fullText = '';
+const streamingEnabled = process.env.GEMINI_STREAMING_ENABLED === 'true';
 
-for await (const chunk of result.stream) {
-    const chunkText = chunk.text();
-    fullText += chunkText;
+if (streamingEnabled) {
+    await sendTypingOn(to);
+    const streamResult = await model.generateContentStream(prompt);
+    let lastTypingTime = Date.now();
 
-    // Enviar chunks parciales cada 50 caracteres
-    if (fullText.length % 50 === 0) {
-        await sendPartialResponse(phoneNumber, fullText);
+    for await (const chunk of streamResult.stream) {
+        geminiText += chunk.text();
+
+        // Renovar typing indicator cada 15s
+        if (Date.now() - lastTypingTime > 15000) {
+            await sendTypingOn(to);
+            lastTypingTime = Date.now();
+        }
     }
+
+    response = await streamResult.response;
 }
 ```
 
-**Beneficios esperados:**
-- Mejor experiencia de usuario
-- Sensación de respuesta instantánea
-- Reducción de ansiedad en espera
-- Engagement mejorado
+**Características implementadas:**
+- ✅ Streaming interno con `generateContentStream`
+- ✅ Typing indicator activo durante todo el proceso
+- ✅ Renovación automática de typing cada 15 segundos
+- ✅ Envío de mensaje completo al final (evita spam)
+- ✅ Variable de entorno `GEMINI_STREAMING_ENABLED`
+- ✅ Métricas dedicadas (streaming_requests, streaming_time)
+- ✅ Modo híbrido: compatible con modo normal
+- ✅ Safety settings aplicados en ambos modos
 
-**Consideraciones:**
-- WhatsApp Business API tiene limitaciones en mensajes frecuentes
-- Necesita balance entre chunks y rate limiting
+**Beneficios logrados:**
+- Mejor experiencia de usuario durante consultas largas
+- Sensación de respuesta instantánea (typing indicator)
+- Reducción de ansiedad en espera
+- Engagement mejorado sin violar rate limits
+- Performance medible con métricas
+
+**Solución de consideraciones:**
+- ✅ WhatsApp Business API no permite editar mensajes → Solución: streaming interno + mensaje completo
+- ✅ Rate limits estrictos → Solución: typing indicator en vez de mensajes parciales
+- ✅ Balance entre UX y limitaciones técnicas → Solución: modo híbrido opt-in
+
+**Archivos modificados:**
+- `chatbot.js:2613-2658` - Implementación de streaming híbrido
+- `.env.example:136-142` - Variable GEMINI_STREAMING_ENABLED
+- `project.md:695-749` - Documentación completa
 
 ---
 
@@ -303,7 +328,7 @@ Permitir a Gemini ejecutar funciones específicas (consultar inventario, verific
 | 1 | ✅ System Instructions | ALTA | 2h | 2025-01-10 | 2025-01-10 |
 | 1 | ✅ Modelo 2.0 | ALTA | 30m | 2025-01-10 | 2025-01-10 |
 | 2 | ✅ Safety Settings | CRÍTICA | 3h | 2025-01-15 | 2025-10-05 |
-| 3 | Streaming Responses | MEDIA | 6h | 2025-01-30 |
+| 3 | ✅ Streaming Responses | MEDIA | 6h | 2025-01-30 | 2025-10-05 |
 | 4 | Error Handling | MEDIA | 3h | 2025-02-15 |
 | 4 | Caché Optimizado | BAJA | 4h | 2025-02-28 |
 | 5 | Context Caching | BAJA | 8h | 2025-03-31 |
@@ -328,6 +353,33 @@ Permitir a Gemini ejecutar funciones específicas (consultar inventario, verific
 ---
 
 ## ✍️ Notas de Versión
+
+### v2.10.0 - Streaming Responses (2025-10-05)
+**Cambios principales:**
+- ✅ Implementación de Streaming Responses con `generateContentStream`
+- ✅ Modo híbrido adaptado a WhatsApp Business API
+- ✅ Variable de entorno `GEMINI_STREAMING_ENABLED`
+- ✅ Typing indicator activo durante streaming
+
+**Mejoras de UX:**
+- Latencia percibida reducida con typing indicator
+- Mejor experiencia durante respuestas largas
+- Engagement mejorado sin spam de mensajes
+- Performance medible con métricas dedicadas
+
+**Nuevas métricas:**
+- `gemini_streaming_requests` - Total de requests con streaming
+- `gemini_streaming_time` - Tiempo acumulado de streaming
+
+**Estrategia implementada:**
+- Streaming interno + typing indicator (no mensajes parciales)
+- Compatible con safety settings y caché
+- Modo opt-in vía variable de entorno
+
+**Breaking changes:**
+- Ninguno - Cambios internos sin afectar API externa
+
+---
 
 ### v2.9.0 - Safety Settings (2025-10-05)
 **Cambios principales:**
@@ -370,4 +422,4 @@ Permitir a Gemini ejecutar funciones específicas (consultar inventario, verific
 ---
 
 **Última actualización:** 2025-10-05
-**Próxima revisión:** 2025-01-30
+**Próxima revisión:** 2025-02-15

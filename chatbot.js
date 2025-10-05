@@ -2610,8 +2610,52 @@ INSTRUCCIONES:
         // Crear prompt simplificado (el contexto ya está en systemInstruction)
         const prompt = `Pregunta del cliente: "${userQuery}"`;
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
+        // Verificar si streaming está habilitado
+        const streamingEnabled = process.env.GEMINI_STREAMING_ENABLED === 'true';
+
+        let response;
+        let geminiText = '';
+
+        if (streamingEnabled) {
+            // === MODO STREAMING ===
+            console.log('🌊 Usando streaming mode para Gemini');
+
+            // Mantener typing indicator activo
+            await sendTypingOn(to);
+
+            const streamResult = await model.generateContentStream(prompt);
+            let lastTypingTime = Date.now();
+
+            // Procesar chunks en tiempo real
+            for await (const chunk of streamResult.stream) {
+                const chunkText = chunk.text();
+                geminiText += chunkText;
+
+                // Renovar typing indicator cada 15 segundos
+                const now = Date.now();
+                if (now - lastTypingTime > 15000) {
+                    await sendTypingOn(to);
+                    lastTypingTime = now;
+                }
+            }
+
+            // Obtener response final para safety checks
+            response = await streamResult.response;
+
+            const streamingTime = Date.now() - apiStartTime;
+            console.log(`🌊 Streaming completado en ${streamingTime}ms - ${geminiText.length} caracteres`);
+
+            // Registrar métrica de streaming
+            if (metricsCollector) {
+                await metricsCollector.incrementMetric('gemini_streaming_requests', 1, 86400);
+                await metricsCollector.incrementMetric('gemini_streaming_time', streamingTime, 86400);
+            }
+        } else {
+            // === MODO NORMAL (sin streaming) ===
+            const result = await model.generateContent(prompt);
+            response = await result.response;
+            geminiText = response.text();
+        }
 
         // === VERIFICACIÓN DE SEGURIDAD ===
         // Verificar si el contenido fue bloqueado por razones de seguridad
@@ -2659,10 +2703,8 @@ INSTRUCCIONES:
             }
         }
 
-        const geminiText = response.text();
-
         const apiResponseTime = Date.now() - apiStartTime;
-        console.log(`🤖 Gemini API respondió en ${apiResponseTime}ms`);
+        console.log(`🤖 Gemini API respondió en ${apiResponseTime}ms (${geminiText.length} caracteres)`);
 
         // === PASO 3: Guardar respuesta en caché para futuras consultas ===
         if (geminiCache) {
