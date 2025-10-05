@@ -2,41 +2,150 @@
 
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3 } from 'lucide-react';
+import { SalesAnalysisChart } from '@/components/analytics/SalesAnalysisChart';
+import { TopProductsChart } from '@/components/analytics/TopProductsChart';
+import { GeminiPerformanceChart } from '@/components/analytics/GeminiPerformanceChart';
+import { BarChart3, TrendingUp, Package, Cpu } from 'lucide-react';
+import { useMetrics } from '@/lib/hooks/useMetrics';
 
 export default function AnalyticsPage() {
+  const { data: metrics, isLoading } = useMetrics();
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {/* Header */}
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Analytics</h2>
+          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+            <BarChart3 className="h-8 w-8 text-primary" />
+            Analytics
+          </h2>
           <p className="text-muted-foreground">
-            Análisis avanzado de datos y tendencias
+            Análisis avanzado de datos y tendencias de negocio
           </p>
         </div>
 
+        {/* Quick Stats */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total de Pedidos
+              </CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {isLoading ? '...' : metrics?.orders.total ?? 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Pedidos completados
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">
+                Revenue Total
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {isLoading
+                  ? '...'
+                  : `$${metrics?.revenue.total.toLocaleString('es-MX') ?? 0}`}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Ingresos totales
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">
+                Llamadas Gemini
+              </CardTitle>
+              <Cpu className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {isLoading ? '...' : metrics?.gemini.total_calls ?? 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Conversaciones procesadas
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">
+                Ticket Promedio
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {isLoading
+                  ? '...'
+                  : metrics && metrics.orders.total > 0
+                  ? `$${(metrics.revenue.total / metrics.orders.total).toFixed(0)}`
+                  : '$0'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Valor promedio por pedido
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sales Analysis */}
+        <SalesAnalysisChart />
+
+        {/* Charts Grid */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <TopProductsChart />
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Horas Pico de Pedidos</CardTitle>
+              <CardDescription>
+                Distribución de pedidos por hora del día
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[350px] flex items-center justify-center text-muted-foreground">
+                <div className="text-center">
+                  <BarChart3 className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>Disponible próximamente</p>
+                  <p className="text-xs mt-1">Requiere endpoint de backend</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Gemini Performance */}
+        <GeminiPerformanceChart />
+
+        {/* Additional Insights */}
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-primary" />
-              <CardTitle>Analytics - Próximamente</CardTitle>
-            </div>
+            <CardTitle>Clientes Recurrentes</CardTitle>
             <CardDescription>
-              Sprint 4 - Dashboard de analytics avanzado
+              Análisis de clientes con múltiples pedidos
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <h3 className="font-semibold text-sm">🔨 Planificado para Sprint 4:</h3>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                <li>Análisis de ventas por período</li>
-                <li>Productos más vendidos</li>
-                <li>Horas pico de pedidos</li>
-                <li>Análisis de clientes recurrentes</li>
-                <li>Métricas de conversación (Gemini)</li>
-                <li>ROI de campañas</li>
-                <li>Reportes exportables (PDF, Excel)</li>
-              </ul>
+          <CardContent>
+            <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+              <div className="text-center">
+                <TrendingUp className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>Disponible próximamente</p>
+                <p className="text-xs mt-1">Requiere endpoint de backend</p>
+              </div>
             </div>
           </CardContent>
         </Card>
