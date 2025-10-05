@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: capibobbabot-dashboard
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      - key: NEXT_PUBLIC_WS_URL
+        sync: false
+    healthCheckPath: /
+    autoDeploy: true
+    disk:
+      name: capibobbabot-dashboard-disk
+      mountPath: /app/.next/cache
+      sizeGB: 1

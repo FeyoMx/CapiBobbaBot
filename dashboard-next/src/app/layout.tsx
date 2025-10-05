@@ -3,6 +3,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { QueryProvider } from "@/lib/providers/QueryProvider"
 import { WebSocketProvider } from "@/lib/providers/WebSocketProvider"
+import { ThemeProvider } from "@/lib/providers/ThemeProvider"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -17,13 +18,15 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
       <body className={inter.className}>
-        <QueryProvider>
-          <WebSocketProvider>
-            {children}
-          </WebSocketProvider>
-        </QueryProvider>
+        <ThemeProvider>
+          <QueryProvider>
+            <WebSocketProvider>
+              {children}
+            </WebSocketProvider>
+          </QueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

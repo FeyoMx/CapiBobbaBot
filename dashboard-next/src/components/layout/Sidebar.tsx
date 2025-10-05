@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 
 // ============================================================================
 // Navigation Items
@@ -102,10 +103,11 @@ export function Sidebar() {
         )}
       >
         {/* Logo/Header */}
-        <div className="flex items-center justify-center h-16 border-b border-border px-6">
+        <div className="flex items-center justify-between h-16 border-b border-border px-6">
           <h1 className="text-xl font-bold text-primary">
             CapiBobbaBot
           </h1>
+          <ThemeToggle />
         </div>
 
         {/* Navigation */}
