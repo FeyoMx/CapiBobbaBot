@@ -52,12 +52,12 @@ export default function Home() {
           <MetricCard
             title="Revenue 24h"
             value={
-              metrics?.revenue.today
+              metrics?.revenue?.today !== undefined
                 ? `$${metrics.revenue.today.toLocaleString('es-MX')}`
                 : '$0'
             }
             icon={DollarSign}
-            trend={metrics?.revenue.trend}
+            trend={metrics?.revenue?.trend}
             isLoading={isLoading}
           />
 
@@ -73,12 +73,12 @@ export default function Home() {
           <MetricCard
             title="Cache Hit Rate"
             value={
-              metrics?.cache.hit_rate
+              metrics?.cache?.hit_rate !== undefined
                 ? `${metrics.cache.hit_rate.toFixed(1)}%`
                 : '0%'
             }
             icon={Database}
-            trend={metrics?.cache.trend}
+            trend={metrics?.cache?.trend}
             isLoading={isLoading}
           />
         </div>
