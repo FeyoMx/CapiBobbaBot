@@ -66,9 +66,9 @@ export function useSalesChart(
 // ============================================================================
 
 export function useRevenueByProduct(
-  options?: Omit<UseQueryOptions<RevenueByProduct[], Error>, 'queryKey' | 'queryFn'>
+  options?: Omit<UseQueryOptions<any[], Error>, 'queryKey' | 'queryFn'>
 ) {
-  return useQuery<RevenueByProduct[], Error>({
+  return useQuery<any[], Error>({
     queryKey: queryKeys.revenueByProduct,
     queryFn: () => apiClient.getRevenueByProduct(),
     staleTime: 60000,
@@ -81,9 +81,9 @@ export function useRevenueByProduct(
 // ============================================================================
 
 export function useGeminiUsage(
-  options?: Omit<UseQueryOptions<GeminiUsageData[], Error>, 'queryKey' | 'queryFn'>
+  options?: Omit<UseQueryOptions<any, Error>, 'queryKey' | 'queryFn'>
 ) {
-  return useQuery<GeminiUsageData[], Error>({
+  return useQuery<any, Error>({
     queryKey: queryKeys.geminiUsage,
     queryFn: () => apiClient.getGeminiUsage(),
     staleTime: 30000,
