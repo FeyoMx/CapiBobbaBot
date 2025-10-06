@@ -24,14 +24,21 @@ export function GeminiPerformanceChart() {
     );
   }
 
-  const chartData = data || [];
+  // Ensure chartData is always an array
+  const chartData = Array.isArray(data) ? data : [];
 
   const avgResponseTime = chartData.length > 0
     ? chartData.reduce((acc: number, item: any) => acc + (item.avg_response_time || 0), 0) / chartData.length
     : 0;
 
-  const totalCalls = chartData.reduce((acc: number, item: any) => acc + (item.calls || 0), 0);
-  const totalCacheHits = chartData.reduce((acc: number, item: any) => acc + (item.cache_hits || 0), 0);
+  const totalCalls = chartData.length > 0
+    ? chartData.reduce((acc: number, item: any) => acc + (item.calls || 0), 0)
+    : 0;
+
+  const totalCacheHits = chartData.length > 0
+    ? chartData.reduce((acc: number, item: any) => acc + (item.cache_hits || 0), 0)
+    : 0;
+
   const cacheHitRate = totalCalls > 0 ? (totalCacheHits / totalCalls) * 100 : 0;
 
   return (

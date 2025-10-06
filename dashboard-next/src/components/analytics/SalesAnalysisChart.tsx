@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -16,7 +16,22 @@ export function SalesAnalysisChart() {
   const { data, isLoading, error } = useSalesChart(timeRange);
 
   // Ensure chartData is always an array
-  const chartData = Array.isArray(data?.daily) ? data.daily : Array.isArray(data) ? data : [];
+  // API returns {daily: [], weekly: [], monthly: []}
+  // We need to access the correct property based on timeRange
+  const chartData = React.useMemo(() => {
+    if (!data) return [];
+
+    // Access the correct property based on timeRange
+    const rangeData = data[timeRange];
+
+    // Ensure it's an array
+    if (Array.isArray(rangeData)) {
+      return rangeData;
+    }
+
+    // Fallback to empty array
+    return [];
+  }, [data, timeRange]);
 
   const totalSales = chartData.reduce((acc: number, item: any) => acc + (item.value || 0), 0);
   const avgSales = chartData.length > 0 ? totalSales / chartData.length : 0;

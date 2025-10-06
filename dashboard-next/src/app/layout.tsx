@@ -10,6 +10,9 @@ const inter = Inter({ subsets: ["latin"], display: 'swap' })
 export const metadata: Metadata = {
   title: "CapiBobbaBot Dashboard",
   description: "Panel de control moderno para CapiBobbaBot con actualizaciones en tiempo real",
+  icons: {
+    icon: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({
