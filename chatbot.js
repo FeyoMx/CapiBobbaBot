@@ -3702,6 +3702,10 @@ app.get('/api/metrics/dashboard', async (req, res) => {
                 cache_hit_rate: metrics.gemini?.cacheHitRate || 0,
                 trend: { value: 0, isPositive: true }
             },
+            cache: {
+                hit_rate: metrics.gemini?.cacheHitRate || 0,
+                trend: { value: 0, isPositive: true }
+            },
             users: {
                 active: metrics.system?.activeConnections || 0,
                 trend: { value: 0, isPositive: true }
