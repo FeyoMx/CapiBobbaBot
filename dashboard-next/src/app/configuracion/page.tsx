@@ -26,7 +26,7 @@ const initialBusinessConfig = {
 };
 
 const initialGeminiConfig = {
-  model: 'gemini-2.0-flash-exp',
+  model: 'gemini-flash-latest',
   temperature: 0.7,
   max_tokens: 8192,
   cache_enabled: true,
