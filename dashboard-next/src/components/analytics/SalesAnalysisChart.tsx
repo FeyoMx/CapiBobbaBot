@@ -15,9 +15,10 @@ export function SalesAnalysisChart() {
   const [timeRange, setTimeRange] = useState<TimeRange>('daily');
   const { data, isLoading, error } = useSalesChart(timeRange);
 
-  const chartData = data?.daily || [];
+  // Ensure chartData is always an array
+  const chartData = Array.isArray(data?.daily) ? data.daily : Array.isArray(data) ? data : [];
 
-  const totalSales = chartData.reduce((acc, item) => acc + (item.value || 0), 0);
+  const totalSales = chartData.reduce((acc: number, item: any) => acc + (item.value || 0), 0);
   const avgSales = chartData.length > 0 ? totalSales / chartData.length : 0;
 
   if (error) {

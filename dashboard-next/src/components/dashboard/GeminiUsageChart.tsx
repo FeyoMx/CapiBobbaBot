@@ -37,13 +37,13 @@ export function GeminiUsageChart() {
     );
   }
 
-  // Mock data for now (until backend endpoint is ready)
-  const chartData = data || [
+  // Ensure chartData is always an array - backend returns object, not array
+  const chartData = Array.isArray(data) ? data : [
     {
       timestamp: new Date().toISOString(),
-      calls: 0,
-      cache_hits: 0,
-      cache_misses: 0,
+      calls: data?.totalRequests || 0,
+      cache_hits: data?.cacheHits || 0,
+      cache_misses: data?.cacheMisses || 0,
     },
   ];
 

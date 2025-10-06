@@ -30,7 +30,8 @@ export function TopProductsChart() {
     );
   }
 
-  const chartData = data || [];
+  // Ensure chartData is always an array
+  const chartData = Array.isArray(data) ? data : [];
   const topProducts = chartData.slice(0, 5);
 
   return (
