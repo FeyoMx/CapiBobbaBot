@@ -1,106 +1,441 @@
 # CapiBobbaBot 🧋
 
-Un chatbot de WhatsApp para la tienda de bubble tea "CapiBobba", diseñado para automatizar la toma de pedidos y responder preguntas de los clientes de forma inteligente.
+Un sistema completo de automatización para la tienda de bubble tea "CapiBobba", que incluye un chatbot inteligente de WhatsApp, dashboard administrativo en tiempo real, sistema de monitoreo, seguridad avanzada y análisis de datos.
 
-Este proyecto utiliza la **API Cloud de WhatsApp** y la **API de Google Gemini** para ofrecer una experiencia de conversación fluida y eficiente.
+**Versión actual**: 2.11.1
+**Estado**: Producción en Render.com
+**IA**: Google Gemini 2.5 Flash (Latest)
 
-## ✨ Características
+---
 
--   **Menú Interactivo**: Saluda a los usuarios y les presenta un menú principal con botones para una fácil navegación.
--   **Flujo de Pedidos Guiado**: Toma los pedidos generados desde una aplicación de menú web y guía al usuario para obtener la dirección de entrega y el método de pago.
--   **Inteligencia Artificial**: Utiliza Google Gemini para responder preguntas de formato libre sobre el menú, promociones, horarios y más, basándose en un contexto de negocio predefinido.
--   **Notificaciones a Administradores**: Envía notificaciones en tiempo real a los administradores sobre nuevos pedidos, solicitudes de contacto o problemas.
--   **Integración con n8n**: Envía todos los eventos de la conversación a un webhook de n8n para análisis, seguimiento y automatización de procesos de backend.
--   **Persistencia de Estado con Redis**: Mantiene el estado de la conversación de cada usuario de forma persistente, permitiendo que el bot recuerde el contexto incluso si el servidor se reinicia.
+## ✨ Características Principales
 
-## 🛠️ Tecnologías Utilizadas
+### 🤖 Chatbot Inteligente
+- **IA Conversacional**: Integración con Google Gemini 2.5 Flash para respuestas naturales e inteligentes
+- **Menú Interactivo**: Navegación con botones y respuestas de formato libre
+- **Flujo de Pedidos Automatizado**: Guía completa desde selección de productos hasta confirmación
+- **Sistema de Reacciones Inteligentes**: Respuestas emocionales contextuales (emoji reactions)
+- **Caché Inteligente**: Sistema de caché con Gemini para optimizar costos y velocidad
+- **Persistencia con Redis**: Mantiene contexto de conversación entre sesiones
 
--   **Backend**: Node.js, Express.js
--   **API de Mensajería**: WhatsApp Cloud API (Meta for Developers)
--   **Inteligencia Artificial**: Google Gemini API
--   **Base de Datos de Estado**: Redis
--   **Automatización/Análisis**: n8n (vía Webhooks)
--   **Despliegue**: Preparado para Render.com (o cualquier otra PaaS)
+### 📊 Dashboard Administrativo (Next.js 14)
+- **Panel de Control en Tiempo Real**: Métricas, pedidos, analytics y seguridad
+- **Visualizaciones Avanzadas**: Gráficos interactivos con Recharts
+- **WebSocket Live**: Actualizaciones automáticas sin recargar página
+- **Dark Mode**: Interfaz moderna con Tailwind CSS y Shadcn UI
+- **Gestión de Pedidos**: Vista completa con filtros y acciones rápidas
+- **Analytics Avanzado**: Tendencias de ventas, productos top, performance de IA
+- **Panel de Seguridad**: Monitoreo de eventos y estadísticas en tiempo real
+- **Responsive Design**: Optimizado para desktop, tablet y móvil
 
-## 🚀 Puesta en Marcha
+### 🔒 Sistema de Seguridad
+- **Rate Limiting**: Protección contra spam y abuso
+- **Validación de Mensajes**: Detección de patrones maliciosos
+- **Backups Automáticos**: Respaldo periódico de datos críticos
+- **Monitoreo de Eventos**: Tracking de actividad sospechosa
+- **Alertas en Tiempo Real**: Notificaciones de incidentes de seguridad
 
-Para ejecutar este proyecto localmente, sigue estos pasos:
+### 📈 Sistema de Monitoreo
+- **Health Checks Automáticos**: Verificación continua de componentes
+- **Métricas de Sistema**: CPU, memoria, disco, conexiones
+- **Métricas de Negocio**: Pedidos, conversiones, revenue
+- **WebSocket Server**: Comunicación en tiempo real con dashboard
+- **Memory Monitor**: Detección de memory leaks y optimización
 
-### 1. Prerrequisitos
+### 🔄 Integración n8n
+- **Workflows Automatizados**: Procesamiento de mensajes y pedidos
+- **Retry Logic**: Sistema de reintentos en 10 nodos críticos
+- **Error Handling**: Workflow dedicado para manejo de errores
+- **Google Sheets**: Almacenamiento de pedidos y clientes
+- **Google Drive**: Respaldo de imágenes y archivos
+- **Telegram Alerts**: Notificaciones críticas a administradores
 
--   Node.js (v18 o superior)
--   Redis (se puede ejecutar localmente con Docker: `docker run -d -p 6379:6379 redis`)
--   Una cuenta de Meta for Developers con una App configurada para la API de WhatsApp.
--   Una clave de API de Google Gemini.
--   (Opcional) Un flujo de trabajo en n8n con un webhook activado para recibir los datos.
--   Una cuenta de GitHub.
--   Una cuenta en [Render.com](https://render.com/) (o similar).
+---
 
-### 2. Configuración Local
+## 🛠️ Stack Tecnológico
 
-1.  **Clona el repositorio:**
-    ```bash
-    git clone https://github.com/FeyoMx/CapiBobbaBot.git # Reemplaza con la URL de tu repositorio
-    cd CapiBobbaBot
-    ```
+### Backend
+- **Runtime**: Node.js 18+
+- **Framework**: Express.js
+- **IA**: Google Gemini 2.5 Flash API
+- **Base de Datos**: Redis 7.4+ (persistencia y caché)
+- **Mensajería**: WhatsApp Cloud API (Meta)
+- **Automatización**: n8n workflows
 
-2.  **Instala las dependencias:**
-    ```bash
-    npm install
-    ```
+### Frontend (Dashboard)
+- **Framework**: Next.js 14 (App Router)
+- **Lenguaje**: TypeScript
+- **UI**: Tailwind CSS + Shadcn UI
+- **Gráficos**: Recharts
+- **Estado**: TanStack Query (React Query)
+- **Tiempo Real**: WebSocket
+- **HTTP Client**: Axios
 
-3.  **Crea el archivo de variables de entorno:**
-    Copia el archivo `.env.example` a un nuevo archivo llamado `.env` y rellena los valores correspondientes.
+### DevOps
+- **Hosting**: Render.com
+- **CI/CD**: Auto-deploy desde GitHub
+- **Monitoreo**: Sistema custom en tiempo real
+- **Logs**: Winston + archivos JSONL
 
-    ```env
-    # Credenciales de la API de WhatsApp de Meta
-    VERIFY_TOKEN="tu_token_de_verificacion_secreto"
-    WHATSAPP_TOKEN="tu_token_de_acceso_permanente_secreto"
-    PHONE_NUMBER_ID="tu_id_de_numero_de_telefono"
+---
 
-    # Clave de API de Google Gemini
-    GEMINI_API_KEY="tu_api_key_de_gemini_secreta"
+## 🚀 Inicio Rápido
 
-    # Números de WhatsApp de los administradores (separados por coma, sin espacios)
-    # Ejemplo: 521XXXXXXXXXX,521YYYYYYYYYY
-    ADMIN_WHATSAPP_NUMBERS="tu_numero_de_admin1,tu_numero_de_admin2"
+### Prerrequisitos
 
-    # URL del Webhook de n8n para recibir los eventos del bot
-    N8N_WEBHOOK_URL="https://tu-instancia.n8n.com/webhook/tu-id-de-webhook"
+- Node.js v18 o superior
+- Redis 7.0+ (local con Docker o servicio cloud)
+- Cuenta Meta for Developers (WhatsApp API)
+- API Key de Google Gemini
+- (Opcional) Instancia de n8n
+- (Opcional) Cuenta Render.com para deploy
 
-    # URL de conexión a tu base de datos Redis
-    # Ejemplo local (Docker): REDIS_URL="redis://localhost:6379"
-    REDIS_URL="redis://user:password@host:port"
-    ```
+### Instalación Local
 
-4.  **Ejecuta el bot:**
-    ```bash
-    npm start
-    ```
-    El servidor se iniciará, por lo general en el puerto 3000 o el que esté definido en tu entorno.
+```bash
+# 1. Clonar repositorio
+git clone https://github.com/FeyoMx/CapiBobbaBot.git
+cd CapiBobbaBot
+
+# 2. Instalar dependencias backend
+npm install
+
+# 3. Instalar dependencias dashboard
+cd dashboard-next
+npm install
+cd ..
+
+# 4. Configurar variables de entorno
+cp .env.example .env
+# Editar .env con tus credenciales
+```
+
+### Variables de Entorno Esenciales
+
+```env
+# WhatsApp API (Meta)
+VERIFY_TOKEN="tu_token_verificacion"
+WHATSAPP_TOKEN="tu_token_acceso_permanente"
+PHONE_NUMBER_ID="id_numero_telefono"
+
+# Google Gemini
+GEMINI_API_KEY="tu_gemini_api_key"
+
+# Redis
+REDIS_URL="redis://localhost:6379"
+
+# Administradores
+ADMIN_WHATSAPP_NUMBERS="521XXXXXXXXXX,521YYYYYYYYYY"
+
+# n8n (opcional)
+N8N_WEBHOOK_URL="https://tu-n8n.com/webhook/id"
+```
+
+Ver [.env.example](.env.example) para todas las variables disponibles.
+
+### Ejecutar en Desarrollo
+
+```bash
+# Terminal 1: Backend
+npm start
+
+# Terminal 2: Dashboard
+cd dashboard-next
+npm run dev
+
+# Terminal 3: Redis (Docker)
+docker run -d -p 6379:6379 redis:7.4-alpine
+```
+
+**URLs locales**:
+- Backend API: `http://localhost:3000`
+- Dashboard: `http://localhost:3001`
+- Health Check: `http://localhost:3000/api/health`
+
+---
 
 ## 📂 Estructura del Proyecto
 
 ```
-.
-├── chatbot.js          # Lógica principal del bot, servidor Express y manejo de webhooks.
-├── business_data.js    # Centraliza toda la información del negocio (menú, promos, etc.).
-├── .env.example        # Archivo de ejemplo para las variables de entorno.
-├── .env                # (Local) Archivo para guardar las claves de API y tokens.
-├── PRIVACY_POLICY.md   # Política de privacidad para Meta.
-├── package.json        # Dependencias y scripts del proyecto.
-├── .gitignore          # Archivos y carpetas a ignorar por Git.
-└── README.md           # Este archivo.
+CapiBobbaBot/
+├── chatbot.js              # Servidor principal del bot
+├── business_data.js        # Configuración del negocio (menú, promos)
+├── gemini-cache.js         # Sistema de caché inteligente
+├── package.json            # Dependencias backend
+├── render.yaml             # Configuración Render.com
+│
+├── dashboard-next/         # 📊 Dashboard Next.js 14
+│   ├── src/
+│   │   ├── app/           # Pages (App Router)
+│   │   ├── components/    # Componentes React
+│   │   ├── lib/           # Utilities, hooks, API client
+│   │   └── types/         # TypeScript types
+│   └── package.json       # Dependencias dashboard
+│
+├── monitoring/            # 📈 Sistema de monitoreo
+│   ├── metrics.js         # Recolector de métricas
+│   ├── health-checker.js  # Health checks automáticos
+│   ├── websocket-server.js # Server WebSocket
+│   └── memory-monitor.js  # Monitor de memoria
+│
+├── security/              # 🔒 Módulos de seguridad
+│   ├── rate-limiter.js    # Rate limiting
+│   ├── validator.js       # Validación de mensajes
+│   └── backup-manager.js  # Backups automáticos
+│
+├── reactions/             # 😊 Sistema de reacciones
+│   └── intelligent-reactions.js
+│
+├── scripts/               # 🔧 Scripts de utilidad
+│   ├── test-security.js
+│   └── check-security-health.js
+│
+├── docs/                  # 📚 Documentación completa
+│   ├── README.md          # Índice de documentación
+│   ├── dashboard/         # Docs del dashboard
+│   ├── sprints/           # Resúmenes de sprints
+│   ├── security/          # Docs de seguridad
+│   └── workflows/         # Análisis de workflows
+│
+├── workflow_analysis/     # n8n Workflows
+│   └── Enhanced Message Normalizer.js
+│
+├── .claude/               # Configuración Claude Code
+│   └── agents/            # Subagentes especializados
+│
+├── config/                # Configuraciones
+├── backups/               # Backups automáticos
+└── dashboard/             # Dashboard antiguo (legacy)
 ```
 
-## 📄 Política de Privacidad
+---
 
-La política de privacidad que cumple con los requisitos de Meta se puede encontrar [aquí](https://feyomx.github.io/CapiBobbaBot/PRIVACY_POLICY.html).
+## 📊 Funcionalidades del Dashboard
+
+### Páginas Principales
+
+1. **Overview** (`/`)
+   - KPIs en tiempo real: Pedidos, Revenue, Gemini Calls, Cache Hit Rate
+   - Gráficos de tendencias (ventas, revenue, uso de IA)
+   - Tabla de pedidos recientes con acciones rápidas
+
+2. **Pedidos** (`/pedidos`)
+   - Lista completa con paginación y filtros
+   - Vista detallada de cada pedido
+   - Actualización de estados
+   - Export de datos
+
+3. **Analytics** (`/analytics`)
+   - Análisis de ventas (diario, semanal, mensual)
+   - Top 5 productos por ingresos
+   - Performance de Gemini AI (response time, cache hits)
+   - Métricas de conversión
+
+4. **Seguridad** (`/seguridad`)
+   - Eventos de seguridad en tiempo real
+   - Estadísticas de rate limiting
+   - Actividad sospechosa
+   - Panel de control de backups
+
+5. **Encuestas** (`/encuestas`)
+   - Resultados de encuestas de satisfacción
+   - Análisis de feedback de clientes
+   - Visualización de tendencias
+
+6. **Configuración** (`/configuracion`)
+   - Gestión de business_data.js
+   - Configuración de parámetros del bot
+   - Variables del sistema
+
+---
+
+## 🔐 Seguridad y Privacidad
+
+- **Rate Limiting**: Máximo 30 mensajes/minuto por usuario
+- **Validación de Entrada**: Sanitización de todos los mensajes
+- **Backups Automáticos**: Cada 6 horas
+- **Logs de Auditoría**: Tracking completo de eventos
+- **Política de Privacidad**: Cumple con requisitos de Meta
+- **HTTPS**: Todas las comunicaciones encriptadas
+
+Ver [docs/PRIVACY_POLICY.md](docs/PRIVACY_POLICY.md) para más detalles.
+
+---
+
+## 📈 Monitoreo y Observabilidad
+
+### Health Checks
+
+```bash
+# Verificar estado del sistema
+curl https://capibobbabot.onrender.com/api/health
+```
+
+**Componentes monitoreados**:
+- Recursos del sistema (CPU, memoria, disco)
+- Conectividad del bot (WhatsApp API)
+- Conexión Redis
+- Webhooks n8n
+- Métricas de negocio
+- Disk space
+- Memory leaks
+
+### Métricas Disponibles
+
+- **Sistema**: CPU, memoria, disco, uptime
+- **Negocio**: Pedidos, revenue, conversiones
+- **IA**: Llamadas Gemini, cache hit rate, response time
+- **Seguridad**: Rate limit hits, eventos bloqueados
+
+---
+
+## 🔄 Workflows n8n
+
+El sistema incluye workflows automatizados para:
+
+- ✅ **Procesamiento de mensajes** con retry logic (3 intentos)
+- ✅ **Guardado de pedidos** en Google Sheets (2 intentos)
+- ✅ **Upload de imágenes** a Google Drive (3 intentos)
+- ✅ **Notificaciones Telegram** con manejo de errores
+- ✅ **Workflow de errores** para tracking y alertas
+- ✅ **Error rate**: 0% (validado en producción)
+
+Ver [docs/workflows/](docs/workflows/) para documentación completa.
+
+---
+
+## 📦 Deploy en Render.com
+
+El proyecto está configurado para auto-deploy desde GitHub.
+
+### Configuración
+
+```yaml
+# render.yaml
+services:
+  - type: web
+    name: capibobbabot
+    env: node
+    buildCommand: npm install --production
+    startCommand: node --max-old-space-size=400 --expose-gc chatbot.js
+    autoDeploy: true
+```
+
+### Variables de Entorno en Render
+
+Configurar todas las variables del `.env.example` en el dashboard de Render.
+
+**URLs de producción**:
+- Backend: `https://capibobbabot.onrender.com`
+- Health: `https://capibobbabot.onrender.com/api/health`
+
+---
+
+## 🧪 Testing
+
+```bash
+# Test de seguridad
+node scripts/test-security.js
+
+# Health check completo
+node scripts/check-security-health.js
+
+# Build del dashboard
+cd dashboard-next
+npm run build
+```
+
+---
+
+## 📚 Documentación Adicional
+
+- **[project.md](project.md)** - Documentación técnica completa con changelog
+- **[CLAUDE.md](CLAUDE.md)** - Instrucciones para desarrollo con Claude Code
+- **[docs/README.md](docs/README.md)** - Índice completo de documentación
+- **[docs/sprints/](docs/sprints/)** - Resúmenes de sprints de desarrollo
+- **[docs/dashboard/](docs/dashboard/)** - Análisis y propuestas del dashboard
+- **[.claude/agents/README.md](.claude/agents/README.md)** - Subagentes especializados
+
+---
+
+## 🎯 Roadmap
+
+### Completado ✅
+- [x] Bot conversacional con Gemini AI
+- [x] Dashboard Next.js 14 completo
+- [x] Sistema de seguridad y monitoreo
+- [x] Workflows n8n con retry logic
+- [x] WebSocket para tiempo real
+- [x] Sistema de reacciones inteligentes
+
+### En Progreso 🚧
+- [ ] Sistema de encuestas de satisfacción (80%)
+- [ ] Analytics avanzado con ML
+- [ ] Integración con pasarela de pagos
+
+### Futuro 🔮
+- [ ] Modo multi-idioma
+- [ ] Integración con CRM
+- [ ] App móvil nativa
+- [ ] Sistema de fidelización
+
+Ver [docs/ROADMAP.md](docs/ROADMAP.md) para más detalles.
+
+---
+
+## 🤝 Contribución
+
+Las contribuciones son bienvenidas. Por favor:
+
+1. Fork el proyecto
+2. Crea una rama para tu feature (`git checkout -b feature/amazing-feature`)
+3. Commit tus cambios (`git commit -m 'feat: add amazing feature'`)
+4. Push a la rama (`git push origin feature/amazing-feature`)
+5. Abre un Pull Request
+
+### Formato de Commits
+
+Usamos [Conventional Commits](https://www.conventionalcommits.org/):
+
+- `feat:` Nueva funcionalidad
+- `fix:` Corrección de bugs
+- `docs:` Solo documentación
+- `refactor:` Refactorización de código
+- `perf:` Mejoras de performance
+- `security:` Mejoras de seguridad
+
+---
 
 ## ✍️ Autor
 
--   **FeyoMx** - GitHub
+**FeyoMx**
+- GitHub: [@FeyoMx](https://github.com/FeyoMx)
+
+---
 
 ## 📜 Licencia
 
 Este proyecto está bajo la Licencia ISC.
+
+---
+
+## 🙏 Agradecimientos
+
+- Google Gemini por la IA conversacional
+- Meta por WhatsApp Cloud API
+- Comunidad de n8n
+- Shadcn por los componentes UI
+
+---
+
+## 📞 Soporte
+
+Para reportar bugs o solicitar features:
+- GitHub Issues: [Crear Issue](https://github.com/FeyoMx/CapiBobbaBot/issues)
+- Documentación: [project.md](project.md)
+
+---
+
+**🧋 CapiBobbaBot - Automatización inteligente para tu negocio de bubble tea**
+
+*Última actualización: Octubre 6, 2025 - v2.11.1*
