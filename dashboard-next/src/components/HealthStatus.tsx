@@ -15,13 +15,7 @@ import {
   AlertCircle,
   Loader2
 } from 'lucide-react';
-
-interface HealthCheck {
-  name: string;
-  status: 'pass' | 'fail' | 'warn';
-  message: string;
-  details?: any;
-}
+import type { HealthCheckItem } from '@/types';
 
 export function HealthStatus() {
   const { data: health, isLoading, error } = useQuery({
@@ -196,7 +190,7 @@ export function HealthStatus() {
 
           {/* Service Checks */}
           <div className="space-y-3">
-            {checks.map((check: HealthCheck, index: number) => (
+            {checks.map((check: HealthCheckItem, index: number) => (
               <div
                 key={index}
                 className="flex items-start gap-3 p-3 rounded-lg border bg-card"

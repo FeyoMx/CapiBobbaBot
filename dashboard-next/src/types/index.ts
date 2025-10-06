@@ -159,21 +159,30 @@ export interface SecurityStats {
 // System Health
 // ============================================================================
 
+export interface HealthCheckItem {
+  name: string;
+  status: 'pass' | 'fail' | 'warn';
+  message: string;
+  details?: any;
+  timestamp?: string;
+}
+
 export interface HealthCheck {
-  status: 'healthy' | 'degraded' | 'unhealthy';
-  uptime: number; // seconds
   timestamp: string;
-  services: {
-    redis: boolean;
-    gemini: boolean;
-    whatsapp: boolean;
-    monitoring: boolean;
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  checks: HealthCheckItem[];
+  alerts?: any[];
+  summary?: {
+    totalChecks: number;
+    passedChecks: number;
+    failedChecks: number;
+    warnings: number;
   };
-  metrics: {
-    memory_usage: number; // MB
-    cpu_usage?: number; // percentage
-    active_connections: number;
-    error_rate: number; // percentage
+  systemMetrics?: {
+    cpu: number;
+    memory: number;
+    disk: number;
+    diskManaged?: boolean;
   };
 }
 
