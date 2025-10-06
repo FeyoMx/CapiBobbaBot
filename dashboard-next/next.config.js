@@ -26,6 +26,16 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react', 'recharts', 'date-fns'],
   },
 
+  // API rewrites
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: process.env.NEXT_PUBLIC_API_URL + '/:path*',
+      },
+    ];
+  },
+
   // Headers for better caching
   async headers() {
     return [
