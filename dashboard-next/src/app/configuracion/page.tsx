@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Settings, Store, Cpu, Shield, Save, RefreshCw } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
+import { toast } from 'sonner';
 
 // Initial configuration from business_data.js
 const initialBusinessConfig = {
@@ -81,10 +82,14 @@ export default function ConfiguracionPage() {
     setIsSaving(true);
     try {
       await apiClient.updateBusinessConfig(businessConfig);
-      alert('✅ Configuración del negocio guardada exitosamente');
+      toast.success('Configuración del negocio guardada exitosamente', {
+        description: 'Los cambios se han aplicado correctamente'
+      });
     } catch (error) {
       console.error('Error al guardar configuración:', error);
-      alert('❌ Error al guardar configuración: ' + (error as Error).message);
+      toast.error('Error al guardar configuración', {
+        description: (error as Error).message
+      });
     } finally {
       setIsSaving(false);
     }
@@ -95,9 +100,13 @@ export default function ConfiguracionPage() {
     try {
       // TODO: Implementar endpoint de configuración de Gemini cuando esté listo
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      alert('✅ Configuración de Gemini guardada exitosamente');
+      toast.success('Configuración de Gemini guardada exitosamente', {
+        description: 'Los cambios se han aplicado correctamente'
+      });
     } catch (error) {
-      alert('❌ Error al guardar configuración');
+      toast.error('Error al guardar configuración', {
+        description: 'Por favor intenta nuevamente'
+      });
     } finally {
       setIsSaving(false);
     }
@@ -108,9 +117,13 @@ export default function ConfiguracionPage() {
     try {
       // TODO: Implementar endpoint de configuración de seguridad cuando esté listo
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      alert('✅ Configuración de seguridad guardada exitosamente');
+      toast.success('Configuración de seguridad guardada exitosamente', {
+        description: 'Los cambios se han aplicado correctamente'
+      });
     } catch (error) {
-      alert('❌ Error al guardar configuración');
+      toast.error('Error al guardar configuración', {
+        description: 'Por favor intenta nuevamente'
+      });
     } finally {
       setIsSaving(false);
     }
