@@ -8,6 +8,7 @@ import dynamic from 'next/dynamic';
 const ReactQueryDevtools =
   process.env.NODE_ENV === 'development'
     ? dynamic(() =>
+        // @ts-ignore - devtools is a devDependency, only loaded in development
         import('@tanstack/react-query-devtools').then((mod) => ({
           default: mod.ReactQueryDevtools,
         }))
