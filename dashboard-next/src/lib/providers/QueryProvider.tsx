@@ -63,6 +63,7 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
       {children}
       {/* Show React Query Devtools in development */}
       {process.env.NODE_ENV === 'development' && (
+        // @ts-ignore - ReactQueryDevtools props only exist in development
         <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
       )}
     </QueryClientProvider>
