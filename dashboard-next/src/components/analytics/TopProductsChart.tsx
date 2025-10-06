@@ -34,6 +34,9 @@ export function TopProductsChart() {
   const chartData = Array.isArray(data) ? data : [];
   const topProducts = chartData.slice(0, 5);
 
+  // Calculate total revenue for percentage
+  const totalRevenue = topProducts.reduce((sum, p) => sum + p.revenue, 0);
+
   return (
     <Card>
       <CardHeader>
@@ -57,16 +60,16 @@ export function TopProductsChart() {
             {/* Product List */}
             <div className="space-y-3 mb-6">
               {topProducts.map((product, index) => (
-                <div key={product.product} className="flex items-center justify-between">
+                <div key={product.name} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div
                       className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: COLORS[index % COLORS.length] }}
                     />
                     <div>
-                      <div className="font-medium">{product.product}</div>
+                      <div className="font-medium">{product.name}</div>
                       <div className="text-xs text-muted-foreground">
-                        {product.count} unidades vendidas
+                        {product.quantity} unidades vendidas
                       </div>
                     </div>
                   </div>
@@ -75,7 +78,7 @@ export function TopProductsChart() {
                       ${product.revenue.toLocaleString('es-MX')}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {product.percentage.toFixed(1)}%
+                      {totalRevenue > 0 ? ((product.revenue / totalRevenue) * 100).toFixed(1) : 0}%
                     </div>
                   </div>
                 </div>
@@ -88,7 +91,7 @@ export function TopProductsChart() {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis type="number" className="text-xs" />
                 <YAxis
-                  dataKey="product"
+                  dataKey="name"
                   type="category"
                   width={100}
                   className="text-xs"

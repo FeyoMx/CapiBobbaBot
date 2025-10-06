@@ -83,15 +83,15 @@ export function SalesAnalysisChart() {
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="p-4 rounded-lg bg-muted/50">
                 <div className="text-sm text-muted-foreground">Total de Ventas</div>
-                <div className="text-2xl font-bold">{totalSales}</div>
+                <div className="text-2xl font-bold">${totalSales.toFixed(2)}</div>
               </div>
               <div className="p-4 rounded-lg bg-muted/50">
-                <div className="text-sm text-muted-foreground">Promedio por Día</div>
-                <div className="text-2xl font-bold">{avgSales.toFixed(1)}</div>
+                <div className="text-sm text-muted-foreground">Promedio por Período</div>
+                <div className="text-2xl font-bold">${avgSales.toFixed(2)}</div>
               </div>
               <div className="p-4 rounded-lg bg-muted/50">
-                <div className="text-sm text-muted-foreground">Período</div>
-                <div className="text-lg font-semibold capitalize">{timeRange === 'daily' ? 'Últimas 24h' : timeRange === 'weekly' ? 'Últimos 7 días' : 'Últimos 30 días'}</div>
+                <div className="text-sm text-muted-foreground">Total Pedidos</div>
+                <div className="text-2xl font-bold">{chartData.reduce((acc: number, item: any) => acc + (item.orders || 0), 0)}</div>
               </div>
             </div>
 
@@ -106,10 +106,10 @@ export function SalesAnalysisChart() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis
-                  dataKey="timestamp"
+                  dataKey="date"
                   tickFormatter={(value) => {
                     try {
-                      return format(parseISO(value), timeRange === 'daily' ? 'HH:mm' : 'dd MMM', { locale: es });
+                      return format(parseISO(value), timeRange === 'daily' ? 'dd MMM' : timeRange === 'weekly' ? 'dd MMM' : 'MMM yy', { locale: es });
                     } catch {
                       return value;
                     }
@@ -120,7 +120,7 @@ export function SalesAnalysisChart() {
                 <Tooltip
                   labelFormatter={(value) => {
                     try {
-                      return format(parseISO(value), 'PPp', { locale: es });
+                      return format(parseISO(value), 'dd MMM yyyy', { locale: es });
                     } catch {
                       return value;
                     }

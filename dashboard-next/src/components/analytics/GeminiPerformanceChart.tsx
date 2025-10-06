@@ -24,22 +24,14 @@ export function GeminiPerformanceChart() {
     );
   }
 
-  // Ensure chartData is always an array
-  const chartData = Array.isArray(data) ? data : [];
+  // Extract hourly data from response
+  const chartData = data?.hourly && Array.isArray(data.hourly) ? data.hourly : [];
 
-  const avgResponseTime = chartData.length > 0
-    ? chartData.reduce((acc: number, item: any) => acc + (item.avg_response_time || 0), 0) / chartData.length
-    : 0;
-
-  const totalCalls = chartData.length > 0
-    ? chartData.reduce((acc: number, item: any) => acc + (item.calls || 0), 0)
-    : 0;
-
-  const totalCacheHits = chartData.length > 0
-    ? chartData.reduce((acc: number, item: any) => acc + (item.cache_hits || 0), 0)
-    : 0;
-
-  const cacheHitRate = totalCalls > 0 ? (totalCacheHits / totalCalls) * 100 : 0;
+  // Use totals from API
+  const totalCalls = data?.totalRequests || 0;
+  const totalCacheHits = data?.cacheHits || 0;
+  const avgResponseTime = data?.avgResponseTime || 0;
+  const cacheHitRate = data?.cacheHitRate || 0;
 
   return (
     <Card className="col-span-full">
@@ -85,26 +77,12 @@ export function GeminiPerformanceChart() {
               <ComposedChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis
-                  dataKey="timestamp"
-                  tickFormatter={(value) => {
-                    try {
-                      return format(parseISO(value), 'HH:mm', { locale: es });
-                    } catch {
-                      return value;
-                    }
-                  }}
+                  dataKey="hour"
                   className="text-xs"
                 />
                 <YAxis yAxisId="left" className="text-xs" />
                 <YAxis yAxisId="right" orientation="right" className="text-xs" />
                 <Tooltip
-                  labelFormatter={(value) => {
-                    try {
-                      return format(parseISO(value), 'PPp', { locale: es });
-                    } catch {
-                      return value;
-                    }
-                  }}
                   contentStyle={{
                     backgroundColor: 'hsl(var(--card))',
                     border: '1px solid hsl(var(--border))',
@@ -114,26 +92,24 @@ export function GeminiPerformanceChart() {
                 <Legend />
                 <Bar
                   yAxisId="left"
-                  dataKey="calls"
+                  dataKey="totalCalls"
                   fill="hsl(var(--primary))"
                   name="Total Llamadas"
                   radius={[4, 4, 0, 0]}
                 />
                 <Bar
                   yAxisId="left"
-                  dataKey="cache_hits"
+                  dataKey="cacheHits"
                   fill="hsl(142 76% 36%)"
                   name="Cache Hits"
                   radius={[4, 4, 0, 0]}
                 />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="avg_response_time"
-                  stroke="hsl(38 92% 50%)"
-                  strokeWidth={2}
-                  name="Tiempo Respuesta (ms)"
-                  dot={{ fill: 'hsl(38 92% 50%)' }}
+                <Bar
+                  yAxisId="left"
+                  dataKey="cacheMisses"
+                  fill="hsl(0 84% 60%)"
+                  name="Cache Misses"
+                  radius={[4, 4, 0, 0]}
                 />
               </ComposedChart>
             </ResponsiveContainer>
