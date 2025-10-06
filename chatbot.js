@@ -75,8 +75,23 @@ if (!VERIFY_TOKEN || !WHATSAPP_TOKEN || !PHONE_NUMBER_ID || !GEMINI_API_KEY || !
 const cors = require('cors');
 const app = express();
 
-// Habilita CORS para el dashboard en localhost:3001
-app.use(cors({ origin: 'http://localhost:3001' }));
+// Habilita CORS para el dashboard en localhost y producción
+const allowedOrigins = [
+  'http://localhost:3001',
+  'https://capibobbabot-dashboard-app.onrender.com'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Permitir peticiones sin origin (como Postman) o desde orígenes permitidos
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
 
 app.use(bodyParser.json());
 
