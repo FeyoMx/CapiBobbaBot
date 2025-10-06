@@ -93,24 +93,39 @@ class ApiClient {
   }
 
   async getSalesChart(range: 'daily' | 'weekly' | 'monthly' = 'daily') {
-    const response = await this.client.get(`/metrics/sales-chart`, {
+    const response = await this.client.get<ApiResponse<any>>(`/metrics/sales-chart`, {
       params: { range },
     });
-    return response.data;
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error('No se pudieron obtener los datos del gráfico de ventas');
+    }
+
+    return response.data.data;
   }
 
   async getRevenueByProduct(params?: DateRangeParams) {
-    const response = await this.client.get('/metrics/revenue-by-product', {
+    const response = await this.client.get<ApiResponse<any>>('/metrics/revenue-by-product', {
       params,
     });
-    return response.data;
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error('No se pudieron obtener los ingresos por producto');
+    }
+
+    return response.data.data;
   }
 
   async getGeminiUsage(params?: DateRangeParams) {
-    const response = await this.client.get('/metrics/gemini-usage', {
+    const response = await this.client.get<ApiResponse<any>>('/metrics/gemini-usage', {
       params,
     });
-    return response.data;
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error('No se pudieron obtener las estadísticas de Gemini');
+    }
+
+    return response.data.data;
   }
 
   // ============================================================================
@@ -161,10 +176,15 @@ class ApiClient {
   // ============================================================================
 
   async getSecurityEvents(params?: PaginationParams & { severity?: string }) {
-    const response = await this.client.get('/security/events', {
+    const response = await this.client.get<ApiResponse<any>>('/security/events', {
       params,
     });
-    return response.data;
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error('No se pudieron obtener los eventos de seguridad');
+    }
+
+    return response.data.data;
   }
 
   async getSecurityStats(): Promise<SecurityStats> {
