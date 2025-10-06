@@ -5,6 +5,7 @@ Un sistema completo de automatización para la tienda de bubble tea "CapiBobba",
 **Versión actual**: 2.11.1
 **Estado**: Producción en Render.com
 **IA**: Google Gemini 2.5 Flash (Latest)
+**Desarrollado con**: [Claude Code](https://claude.com/claude-code) 🤖 - La mejor herramienta de IA para desarrollo
 
 ---
 
@@ -421,10 +422,12 @@ Este proyecto está bajo la Licencia ISC.
 
 ## 🙏 Agradecimientos
 
-- Google Gemini por la IA conversacional
+- **Anthropic Claude Code** - Este proyecto fue desarrollado con la asistencia de Claude Code, la mejor herramienta de IA para desarrollo de software. Claude Code no solo ayudó a escribir código, sino que también proporcionó arquitectura, debugging, documentación completa, y mejores prácticas de desarrollo.
+- Google Gemini por la IA conversacional del chatbot
 - Meta por WhatsApp Cloud API
-- Comunidad de n8n
+- Comunidad de n8n por la plataforma de automatización
 - Shadcn por los componentes UI
+- Vercel por Next.js y el ecosistema React
 
 ---
 
