@@ -27,11 +27,11 @@ export function GeminiPerformanceChart() {
   const chartData = data || [];
 
   const avgResponseTime = chartData.length > 0
-    ? chartData.reduce((acc, item) => acc + (item.avg_response_time || 0), 0) / chartData.length
+    ? chartData.reduce((acc: number, item: any) => acc + (item.avg_response_time || 0), 0) / chartData.length
     : 0;
 
-  const totalCalls = chartData.reduce((acc, item) => acc + (item.calls || 0), 0);
-  const totalCacheHits = chartData.reduce((acc, item) => acc + (item.cache_hits || 0), 0);
+  const totalCalls = chartData.reduce((acc: number, item: any) => acc + (item.calls || 0), 0);
+  const totalCacheHits = chartData.reduce((acc: number, item: any) => acc + (item.cache_hits || 0), 0);
   const cacheHitRate = totalCalls > 0 ? (totalCacheHits / totalCalls) * 100 : 0;
 
   return (
