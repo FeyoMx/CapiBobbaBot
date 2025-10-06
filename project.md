@@ -1314,6 +1314,31 @@ Grid Principal (2 columnas desktop, 1 móvil)
   - Mejoras automáticas cuando Google lance nuevas versiones
   - Mejor seguimiento de instrucciones del sistema
 
+### v2.11.1 (2025-10-06) - Fix Errores Dashboard Analytics y Actualización Estado
+- 🐛 **Fix Crítico Analytics**: Corregido error "TypeError: a.reduce is not a function" en página Analytics
+  - Problema: Componente SalesAnalysisChart accedía incorrectamente a estructura de datos de API
+  - Solución: Implementado useMemo con validación robusta de estructura {daily, weekly, monthly}
+  - Validación Array.isArray() antes de operaciones reduce() en todos los componentes
+- 🎨 **Favicon Agregado**: Implementado favicon SVG con diseño WhatsApp (verde #25D366)
+  - Fix error 404 de /favicon.ico en consola
+  - Configurado en metadata de layout.tsx
+  - Mejora UX con ícono visible en pestañas del navegador
+- ✨ **Actualización Estado Dashboard**: Actualizada información de progreso del proyecto
+  - Cambiado de "Sprint 2 - En Progreso" → "Dashboard v1.0 - Completado"
+  - Refleja correctamente finalización de Sprints 1-5
+  - Lista actualizada de funcionalidades y stack tecnológico
+- 📁 **Archivos modificados**:
+  - dashboard-next/src/components/analytics/SalesAnalysisChart.tsx:3,21-34 - Fix reduce con useMemo
+  - dashboard-next/src/components/analytics/GeminiPerformanceChart.tsx:28-42 - Validación arrays
+  - dashboard-next/src/app/layout.tsx:13-15 - Configuración favicon
+  - dashboard-next/src/app/page.tsx:99-127 - Actualización estado proyecto
+  - dashboard-next/public/favicon.svg - Nuevo favicon (creado)
+- ✅ **Impacto**:
+  - ✅ 0 errores de consola en todas las páginas del dashboard
+  - ✅ Build exitoso sin warnings
+  - ✅ Mejora estabilidad y UX del dashboard
+  - ✅ Documentación actualizada del estado del proyecto
+
 ### v2.11.0 (2025-10-05) - Subagentes Claude Code Especializados
 - 🤖 **Subagentes Personalizados**: Configuración de subagentes especializados para desarrollo
   - **UI/UX Senior** (`ui-ux-senior.md`): Experto en diseño UI/UX, frontend moderno (React, Next.js, Tailwind), accesibilidad (WCAG), performance optimization
@@ -1378,8 +1403,8 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ---
 
-**Última actualización**: 05 de Octubre, 2025 - Subagentes Claude Code Especializados
-**Versión del proyecto**: 2.11.0
+**Última actualización**: 06 de Octubre, 2025 - Fix Errores Dashboard Analytics
+**Versión del proyecto**: 2.11.1
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones
