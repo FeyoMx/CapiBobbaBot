@@ -3689,14 +3689,22 @@ app.get('/api/metrics/dashboard', async (req, res) => {
 
         // Transformar métricas al formato esperado por el dashboard
         const dashboardMetrics = {
-            totalOrders: metrics.conversations?.total || 0,
-            totalRevenue: 0, // Calcular desde order_log.jsonl
-            activeUsers: metrics.system?.activeConnections || 0,
-            conversionRate: metrics.gemini?.responseRate || 0,
-            geminiUsage: {
-                totalRequests: metrics.gemini?.totalRequests || 0,
-                cacheHitRate: metrics.gemini?.cacheHitRate || 0,
-                avgResponseTime: metrics.gemini?.avgResponseTime || 0
+            orders: {
+                today: metrics.conversations?.total || 0,
+                trend: { value: 0, isPositive: true }
+            },
+            revenue: {
+                today: 0, // Calcular desde order_log.jsonl
+                trend: { value: 0, isPositive: true }
+            },
+            gemini: {
+                calls_today: metrics.gemini?.totalRequests || 0,
+                cache_hit_rate: metrics.gemini?.cacheHitRate || 0,
+                trend: { value: 0, isPositive: true }
+            },
+            users: {
+                active: metrics.system?.activeConnections || 0,
+                trend: { value: 0, isPositive: true }
             }
         };
 
