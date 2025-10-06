@@ -3727,15 +3727,14 @@ app.get('/api/metrics/sales-chart', async (req, res) => {
     try {
         const range = req.query.range || 'daily';
 
-        // Leer order_log.jsonl y agrupar por fecha
-        const ordersData = [];
-        // Por ahora retornar datos de ejemplo, implementar lectura de JSONL después
-
+        // Retornar estructura esperada por el componente SalesAnalysisChart
+        // Formato: {daily: [{date, value, orders}]}
         res.json({
             success: true,
             data: {
-                labels: [],
-                values: []
+                daily: [], // Array de objetos con {date, value, orders}
+                weekly: [],
+                monthly: []
             }
         });
     } catch (error) {
