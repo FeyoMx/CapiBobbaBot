@@ -3691,14 +3691,17 @@ app.get('/api/metrics/dashboard', async (req, res) => {
         const dashboardMetrics = {
             orders: {
                 today: metrics.conversations?.total || 0,
+                total: metrics.conversations?.total || 0,
                 trend: { value: 0, isPositive: true }
             },
             revenue: {
                 today: 0, // Calcular desde order_log.jsonl
+                total: 0, // Calcular desde order_log.jsonl
                 trend: { value: 0, isPositive: true }
             },
             gemini: {
                 calls_today: metrics.gemini?.totalRequests || 0,
+                total_calls: metrics.gemini?.totalRequests || 0,
                 cache_hit_rate: metrics.gemini?.cacheHitRate || 0,
                 trend: { value: 0, isPositive: true }
             },
