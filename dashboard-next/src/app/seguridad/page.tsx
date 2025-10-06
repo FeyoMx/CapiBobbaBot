@@ -5,36 +5,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { SecurityEventsTable } from '@/components/security/SecurityEventsTable';
 import { useWebSocket } from '@/lib/providers/WebSocketProvider';
 import { useSecurityStats } from '@/lib/hooks/useMetrics';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api/client';
 import { Shield, AlertTriangle, Ban, Activity, Wifi, WifiOff } from 'lucide-react';
-
-// Mock data for security events (replace with real API data when available)
-const mockSecurityEvents = [
-  {
-    id: '1',
-    type: 'rate_limit_exceeded' as const,
-    severity: 'medium' as const,
-    phone_number: '+52 123 456 7890',
-    message: 'Límite de tasa excedido',
-    metadata: { requests_count: 15, limit: 10 },
-    timestamp: new Date().toISOString(),
-    resolved: false,
-  },
-  {
-    id: '2',
-    type: 'suspicious_pattern' as const,
-    severity: 'high' as const,
-    phone_number: '+52 987 654 3210',
-    message: 'Patrón sospechoso detectado en mensajes',
-    metadata: { pattern_type: 'spam', confidence: 0.85 },
-    timestamp: new Date(Date.now() - 3600000).toISOString(),
-    resolved: true,
-    resolved_at: new Date(Date.now() - 1800000).toISOString(),
-  },
-];
 
 export default function SeguridadPage() {
   const { isConnected } = useWebSocket();
-  const { data: stats, isLoading } = useSecurityStats();
+  const { data: stats, isLoading: statsLoading } = useSecurityStats();
+
+  // Obtener eventos de seguridad desde la API real
+  const { data: eventsResponse, isLoading: eventsLoading } = useQuery({
+    queryKey: ['securityEvents'],
+    queryFn: () => apiClient.getSecurityEvents({ limit: 50 }),
+    staleTime: 30000,
+    refetchInterval: 60000,
+  });
+
+  const events = eventsResponse?.events || [];
+  const isLoading = statsLoading || eventsLoading;
 
   return (
     <DashboardLayout>
@@ -139,7 +127,7 @@ export default function SeguridadPage() {
         </div>
 
         {/* Security Events Table */}
-        <SecurityEventsTable events={mockSecurityEvents} isLoading={false} />
+        <SecurityEventsTable events={events} isLoading={eventsLoading} />
 
         {/* Rate Limiting Stats */}
         <Card>

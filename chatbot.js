@@ -3235,6 +3235,292 @@ app.get('/api/surveys', (req, res) => {
   sendJsonlLogResponse('survey_log.jsonl', res, 'encuestas');
 });
 
+// ============================================================================
+// ENDPOINTS DE PEDIDOS INDIVIDUALES
+// ============================================================================
+
+/**
+ * Endpoint para obtener un pedido específico por ID
+ * GET /api/orders/:id
+ */
+app.get('/api/orders/:id', (req, res) => {
+  const { id } = req.params;
+  const logFilePath = path.join(__dirname, 'order_log.jsonl');
+
+  fs.readFile(logFilePath, 'utf8', (err, data) => {
+    if (err) {
+      if (err.code === 'ENOENT') {
+        return res.status(404).json({ success: false, error: 'Pedido no encontrado' });
+      }
+      console.error('Error al leer el archivo de pedidos:', err);
+      return res.status(500).json({ success: false, error: 'Error al leer pedidos' });
+    }
+
+    try {
+      const allOrders = data.split('\n').filter(Boolean).map(line => {
+        try {
+          return JSON.parse(line);
+        } catch (parseError) {
+          console.error('Error al parsear línea del log de pedidos:', parseError);
+          return null;
+        }
+      }).filter(Boolean);
+
+      // Buscar el pedido por ID
+      const order = allOrders.find(o => o.id === id || o.timestamp === id);
+
+      if (!order) {
+        return res.status(404).json({ success: false, error: 'Pedido no encontrado' });
+      }
+
+      res.json({ success: true, data: order });
+    } catch (error) {
+      console.error('Error procesando pedido:', error);
+      res.status(500).json({ success: false, error: 'Error procesando pedido' });
+    }
+  });
+});
+
+/**
+ * Endpoint para actualizar el estado de un pedido
+ * PATCH /api/orders/:id/status
+ * Body: { status: 'pending' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'cancelled' }
+ */
+app.patch('/api/orders/:id/status', async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  // Validar status
+  const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
+  if (!status || !validStatuses.includes(status)) {
+    return res.status(400).json({
+      success: false,
+      error: `Estado inválido. Debe ser uno de: ${validStatuses.join(', ')}`
+    });
+  }
+
+  const logFilePath = path.join(__dirname, 'order_log.jsonl');
+
+  try {
+    // Leer el archivo
+    const data = await fs.promises.readFile(logFilePath, 'utf8').catch(() => '');
+    const lines = data.split('\n').filter(Boolean);
+    let orderFound = false;
+    let updatedOrder = null;
+
+    // Actualizar el pedido en memoria
+    const updatedLines = lines.map(line => {
+      try {
+        const order = JSON.parse(line);
+        if (order.id === id || order.timestamp === id) {
+          orderFound = true;
+          updatedOrder = {
+            ...order,
+            status,
+            updated_at: new Date().toISOString()
+          };
+
+          // Si se marca como delivered, agregar delivered_at
+          if (status === 'delivered' && !order.delivered_at) {
+            updatedOrder.delivered_at = new Date().toISOString();
+          }
+
+          // Si se marca como confirmed, agregar confirmed_at
+          if (status === 'confirmed' && !order.confirmed_at) {
+            updatedOrder.confirmed_at = new Date().toISOString();
+          }
+
+          return JSON.stringify(updatedOrder);
+        }
+        return line;
+      } catch (parseError) {
+        console.error('Error al parsear línea del log de pedidos:', parseError);
+        return line;
+      }
+    });
+
+    if (!orderFound) {
+      return res.status(404).json({ success: false, error: 'Pedido no encontrado' });
+    }
+
+    // Escribir el archivo actualizado
+    await fs.promises.writeFile(logFilePath, updatedLines.join('\n') + '\n', 'utf8');
+
+    console.log(`✅ Pedido ${id} actualizado a estado: ${status}`);
+
+    res.json({ success: true, data: updatedOrder });
+  } catch (error) {
+    console.error('Error actualizando estado del pedido:', error);
+    res.status(500).json({ success: false, error: 'Error actualizando pedido' });
+  }
+});
+
+// ============================================================================
+// ENDPOINTS DE EVENTOS DE SEGURIDAD
+// ============================================================================
+
+/**
+ * Endpoint para obtener eventos de seguridad
+ * GET /api/security/events
+ */
+app.get('/api/security/events', async (req, res) => {
+  try {
+    // Obtener parámetros de paginación
+    const limit = parseInt(req.query.limit) || 50;
+    const page = parseInt(req.query.page) || 1;
+    const severity = req.query.severity; // low, medium, high, critical
+
+    // Obtener eventos de seguridad desde Redis
+    const eventKeys = await redisClient.keys('security:event:*');
+    const events = [];
+
+    for (const key of eventKeys) {
+      try {
+        const eventData = await redisClient.get(key);
+        if (eventData) {
+          const event = JSON.parse(eventData);
+          // Filtrar por severidad si se especifica
+          if (!severity || event.severity === severity) {
+            events.push(event);
+          }
+        }
+      } catch (parseError) {
+        console.error('Error parseando evento de seguridad:', parseError);
+      }
+    }
+
+    // Ordenar por timestamp descendente (más recientes primero)
+    events.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    // Paginar
+    const startIndex = (page - 1) * limit;
+    const paginatedEvents = events.slice(startIndex, startIndex + limit);
+
+    res.json({
+      success: true,
+      data: {
+        events: paginatedEvents,
+        total: events.length,
+        page,
+        limit,
+        hasMore: startIndex + limit < events.length
+      }
+    });
+  } catch (error) {
+    console.error('Error obteniendo eventos de seguridad:', error);
+    res.status(500).json({ success: false, error: 'Error obteniendo eventos de seguridad' });
+  }
+});
+
+/**
+ * Endpoint para resolver un evento de seguridad
+ * PATCH /api/security/events/:id/resolve
+ */
+app.patch('/api/security/events/:id/resolve', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const eventKey = `security:event:${id}`;
+    const eventData = await redisClient.get(eventKey);
+
+    if (!eventData) {
+      return res.status(404).json({ success: false, error: 'Evento no encontrado' });
+    }
+
+    const event = JSON.parse(eventData);
+
+    // Actualizar evento como resuelto
+    const updatedEvent = {
+      ...event,
+      resolved: true,
+      resolved_at: new Date().toISOString(),
+      resolved_by: 'admin' // TODO: Agregar autenticación y usar usuario real
+    };
+
+    await redisClient.set(eventKey, JSON.stringify(updatedEvent));
+
+    console.log(`✅ Evento de seguridad ${id} marcado como resuelto`);
+
+    res.json({ success: true, data: updatedEvent });
+  } catch (error) {
+    console.error('Error resolviendo evento de seguridad:', error);
+    res.status(500).json({ success: false, error: 'Error resolviendo evento' });
+  }
+});
+
+// ============================================================================
+// ENDPOINTS DE CONFIGURACIÓN
+// ============================================================================
+
+/**
+ * Endpoint para obtener la configuración del negocio
+ * GET /api/config/business
+ */
+app.get('/api/config/business', async (req, res) => {
+  try {
+    // Intentar obtener desde Redis primero
+    const cachedConfig = await redisClient.get('config:business');
+
+    if (cachedConfig) {
+      return res.json({ success: true, data: JSON.parse(cachedConfig) });
+    }
+
+    // Si no existe en Redis, retornar configuración actual de business_data.js
+    const config = {
+      business_name: BUSINESS_CONTEXT.business_name,
+      phone_number: BUSINESS_CONTEXT.phone_number,
+      location: BUSINESS_CONTEXT.location,
+      opening_hours: BUSINESS_CONTEXT.opening_hours,
+      delivery_zones: BUSINESS_CONTEXT.delivery_zones,
+      delivery_fee: BUSINESS_CONTEXT.delivery_fee,
+      payment_methods: BUSINESS_CONTEXT.payment_methods,
+      bank_name: BUSINESS_CONTEXT.bank_name,
+      bank_account: BUSINESS_CONTEXT.bank_account,
+      bank_account_name: BUSINESS_CONTEXT.bank_account_name,
+      menu_url: BUSINESS_CONTEXT.menu_url,
+    };
+
+    // Guardar en Redis para futuras consultas
+    await redisClient.set('config:business', JSON.stringify(config));
+
+    res.json({ success: true, data: config });
+  } catch (error) {
+    console.error('Error obteniendo configuración del negocio:', error);
+    res.status(500).json({ success: false, error: 'Error obteniendo configuración' });
+  }
+});
+
+/**
+ * Endpoint para actualizar la configuración del negocio
+ * POST /api/config/business
+ */
+app.post('/api/config/business', async (req, res) => {
+  try {
+    const config = req.body;
+
+    // Validar campos requeridos
+    const requiredFields = ['business_name', 'phone_number', 'menu_url'];
+    for (const field of requiredFields) {
+      if (!config[field]) {
+        return res.status(400).json({
+          success: false,
+          error: `Campo requerido faltante: ${field}`
+        });
+      }
+    }
+
+    // Guardar en Redis
+    await redisClient.set('config:business', JSON.stringify(config));
+
+    console.log('✅ Configuración del negocio actualizada');
+
+    res.json({ success: true, data: config, message: 'Configuración actualizada exitosamente' });
+  } catch (error) {
+    console.error('Error actualizando configuración del negocio:', error);
+    res.status(500).json({ success: false, error: 'Error actualizando configuración' });
+  }
+});
+
 
 /**
  * Endpoint para enviar mensajes a un usuario de WhatsApp desde el dashboard.

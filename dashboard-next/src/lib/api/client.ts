@@ -238,6 +238,30 @@ class ApiClient {
 
     return response.data.data;
   }
+
+  // ============================================================================
+  // Configuration
+  // ============================================================================
+
+  async getBusinessConfig(): Promise<any> {
+    const response = await this.client.get<ApiResponse<any>>('/config/business');
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error('No se pudo obtener la configuración del negocio');
+    }
+
+    return response.data.data;
+  }
+
+  async updateBusinessConfig(config: any): Promise<any> {
+    const response = await this.client.post<ApiResponse<any>>('/config/business', config);
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error('No se pudo actualizar la configuración del negocio');
+    }
+
+    return response.data.data;
+  }
 }
 
 // Export singleton instance

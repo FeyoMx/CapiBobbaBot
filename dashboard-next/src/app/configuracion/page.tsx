@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { MaintenanceModeToggle } from '@/components/MaintenanceModeToggle';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Settings, Store, Cpu, Shield, Save, RefreshCw } from 'lucide-react';
+import { apiClient } from '@/lib/api/client';
 
 // Initial configuration from business_data.js
 const initialBusinessConfig = {
@@ -57,16 +58,33 @@ export default function ConfiguracionPage() {
   const [geminiConfig, setGeminiConfig] = useState(initialGeminiConfig);
   const [securityConfig, setSecurityConfig] = useState(initialSecurityConfig);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+
+  // Cargar configuración del negocio al montar el componente
+  useEffect(() => {
+    const loadBusinessConfig = async () => {
+      try {
+        const config = await apiClient.getBusinessConfig();
+        setBusinessConfig(config);
+      } catch (error) {
+        console.error('Error cargando configuración del negocio:', error);
+        // Mantener valores por defecto si hay error
+      } finally {
+        setIsLoadingConfig(false);
+      }
+    };
+
+    loadBusinessConfig();
+  }, []);
 
   const handleSaveBusinessConfig = async () => {
     setIsSaving(true);
     try {
-      // TODO: Call API endpoint to save business config
-      // await apiClient.updateBusinessConfig(businessConfig);
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
+      await apiClient.updateBusinessConfig(businessConfig);
       alert('✅ Configuración del negocio guardada exitosamente');
     } catch (error) {
-      alert('❌ Error al guardar configuración');
+      console.error('Error al guardar configuración:', error);
+      alert('❌ Error al guardar configuración: ' + (error as Error).message);
     } finally {
       setIsSaving(false);
     }
@@ -75,9 +93,8 @@ export default function ConfiguracionPage() {
   const handleSaveGeminiConfig = async () => {
     setIsSaving(true);
     try {
-      // TODO: Call API endpoint to save Gemini config
-      // await apiClient.updateGeminiConfig(geminiConfig);
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
+      // TODO: Implementar endpoint de configuración de Gemini cuando esté listo
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       alert('✅ Configuración de Gemini guardada exitosamente');
     } catch (error) {
       alert('❌ Error al guardar configuración');
@@ -89,9 +106,8 @@ export default function ConfiguracionPage() {
   const handleSaveSecurityConfig = async () => {
     setIsSaving(true);
     try {
-      // TODO: Call API endpoint to save security config
-      // await apiClient.updateSecurityConfig(securityConfig);
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
+      // TODO: Implementar endpoint de configuración de seguridad cuando esté listo
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       alert('✅ Configuración de seguridad guardada exitosamente');
     } catch (error) {
       alert('❌ Error al guardar configuración');
