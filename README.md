@@ -2,7 +2,7 @@
 
 Un sistema completo de automatización para la tienda de bubble tea "CapiBobba", que incluye un chatbot inteligente de WhatsApp, dashboard administrativo en tiempo real, sistema de monitoreo, seguridad avanzada y análisis de datos.
 
-**Versión actual**: 2.11.1
+**Versión actual**: 2.12.0
 **Estado**: Producción en Render.com
 **IA**: Google Gemini 2.5 Flash (Latest)
 **Desarrollado con**: [Claude Code](https://claude.com/claude-code) 🤖 - La mejor herramienta de IA para desarrollo
@@ -441,4 +441,4 @@ Para reportar bugs o solicitar features:
 
 **🧋 CapiBobbaBot - Automatización inteligente para tu negocio de bubble tea**
 
-*Última actualización: Octubre 6, 2025 - v2.11.1*
+*Última actualización: Octubre 6, 2025 - v2.12.0*

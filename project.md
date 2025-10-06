@@ -329,6 +329,22 @@ Health → HealthChecker → Alertas → Telegram/Admin
   - Visualización de eventos de seguridad
   - Gestión de usuarios bloqueados
   - Auto-actualización en tiempo real
+- **Página de Configuración** (`dashboard-next/src/app/configuracion/page.tsx`):
+  - **Tab Negocio**: Configuración completa de la información del negocio
+    - Información básica: nombre, teléfono, ubicación, horarios
+    - URL del menú digital
+    - Zonas de entrega GRATIS
+    - Costo de envío
+    - **Información de Pago**: métodos, banco, cuenta, titular
+    - Credenciales de WhatsApp Business API (solo referencia)
+  - **Tab Gemini AI**: Configuración del modelo de IA
+    - Modelo: `gemini-flash-latest`
+    - Temperatura, max tokens, caché
+    - Safety settings por categoría
+  - **Tab Seguridad**: Configuración de seguridad
+    - Rate limiting
+    - Auto-block de spam
+    - Backups automáticos
 
 ### 4. Sistema de Alertas
 - CPU > 80%
@@ -703,6 +719,46 @@ Grid Principal (2 columnas desktop, 1 móvil)
 ---
 
 ## 📋 Historial de Cambios
+
+### v2.12.0 (2025-10-06) - Adaptación de Configuración del Negocio en Dashboard 📝
+- 📝 **Sección de Información de Pago Implementada** (`dashboard-next/src/app/configuracion/page.tsx:236-287`):
+  - Agregados campos para gestión de métodos de pago
+  - Campo `payment_methods`: Efectivo, Transferencia
+  - Campo `bank_name`: Nombre del banco (MERCADO PAGO W)
+  - Campo `bank_account`: Número de cuenta bancaria
+  - Campo `bank_account_name`: Titular de la cuenta
+  - Layout en grid 2 columnas con separador visual
+
+- 🏪 **Configuración Inicial Actualizada** (`dashboard-next/src/app/configuracion/page.tsx:16-30`):
+  - Datos reales del negocio desde `business_data.js`
+  - Teléfono: +52 1 771 183 1526
+  - Ubicación: "No tenemos local físico, solo servicio a domicilio"
+  - Horario: Lunes a Viernes 6PM-10PM, Sábados y Domingos 12PM-10PM
+  - Zonas de entrega GRATIS: 20 colonias listadas
+  - URL del menú: https://feyomx.github.io/menucapibobba/
+  - Datos bancarios completos para transferencias
+
+- 🤖 **Modelo Gemini Corregido** (`dashboard-next/src/app/configuracion/page.tsx:33`):
+  - Actualizado de `gemini-2.0-flash-exp` a `gemini-flash-latest`
+  - Ahora coincide con el modelo real usado en `chatbot.js:2602`
+
+- 🎨 **Mejoras de UX en Formulario**:
+  - Campo `location` como Textarea (2 filas)
+  - Campo `delivery_zones` como Textarea (4 filas) para mejor visualización
+  - Placeholders informativos en todos los campos nuevos
+  - Sección de pago con título y separador visual
+
+- ✅ **Impacto**:
+  - Formulario de configuración ahora refleja 100% la información real del negocio
+  - Facilita gestión de métodos de pago y datos bancarios desde dashboard
+  - Elimina campos obsoletos (min_order_amount, address)
+  - Mejora UX con campos organizados y bien dimensionados
+  - Información coherente entre dashboard y chatbot
+
+- 📁 **Archivos modificados**:
+  - `dashboard-next/src/app/configuracion/page.tsx:16-30` - Configuración inicial actualizada
+  - `dashboard-next/src/app/configuracion/page.tsx:33` - Modelo Gemini corregido
+  - `dashboard-next/src/app/configuracion/page.tsx:236-287` - Sección de información de pago
 
 ### v2.10.0 (2025-10-05) - Implementación de Streaming Responses 🌊
 - 🌊 **Streaming Responses Implementado** (`chatbot.js:2613-2658`):
