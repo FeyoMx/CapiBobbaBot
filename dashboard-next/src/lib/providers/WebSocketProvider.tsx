@@ -37,7 +37,7 @@ export function WebSocketProvider({
   const [lastMessage, setLastMessage] = useState<WebSocketEvent | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const queryClient = useQueryClient();
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
 
