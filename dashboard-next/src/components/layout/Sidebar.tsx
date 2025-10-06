@@ -10,6 +10,7 @@ import {
   Shield,
   FileText,
   Settings,
+  MessageCircle,
   Menu,
   X,
 } from 'lucide-react';
@@ -53,6 +54,11 @@ const navigationItems: NavItem[] = [
     name: 'Encuestas',
     href: '/encuestas',
     icon: FileText,
+  },
+  {
+    name: 'Chat',
+    href: '/chat',
+    icon: MessageCircle,
   },
   {
     name: 'Configuración',

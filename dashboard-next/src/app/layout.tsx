@@ -4,6 +4,7 @@ import "./globals.css"
 import { QueryProvider } from "@/lib/providers/QueryProvider"
 import { WebSocketProvider } from "@/lib/providers/WebSocketProvider"
 import { ThemeProvider } from "@/lib/providers/ThemeProvider"
+import { Toaster } from "sonner"
 
 const inter = Inter({ subsets: ["latin"], display: 'swap' })
 
@@ -27,6 +28,7 @@ export default function RootLayout({
           <QueryProvider>
             <WebSocketProvider>
               {children}
+              <Toaster position="top-right" richColors />
             </WebSocketProvider>
           </QueryProvider>
         </ThemeProvider>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { MaintenanceModeToggle } from '@/components/MaintenanceModeToggle';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -567,6 +568,9 @@ export default function ConfiguracionPage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Maintenance Mode Toggle */}
+        <MaintenanceModeToggle />
       </div>
     </DashboardLayout>
   );

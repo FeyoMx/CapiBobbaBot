@@ -6,6 +6,8 @@ import { SalesChart } from '@/components/dashboard/SalesChart';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
 import { GeminiUsageChart } from '@/components/dashboard/GeminiUsageChart';
 import { RecentOrdersTable } from '@/components/dashboard/RecentOrdersTable';
+import { HealthStatus } from '@/components/HealthStatus';
+import { SystemPerformanceChart } from '@/components/SystemPerformanceChart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShoppingCart, DollarSign, Cpu, Database } from 'lucide-react';
 import { useMetrics } from '@/lib/hooks/useMetrics';
@@ -82,6 +84,12 @@ export default function Home() {
             isLoading={isLoading}
           />
         </div>
+
+        {/* System Health */}
+        <HealthStatus />
+
+        {/* System Performance Chart */}
+        <SystemPerformanceChart />
 
         {/* Charts */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
