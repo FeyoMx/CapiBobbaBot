@@ -12,15 +12,19 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Settings, Store, Cpu, Shield, Save, RefreshCw } from 'lucide-react';
 
-// Mock initial configuration (would come from API)
+// Initial configuration from business_data.js
 const initialBusinessConfig = {
-  business_name: 'CapiBobbaBot',
-  phone_number: '+52 123 456 7890',
-  address: 'Av. Principal #123, CDMX',
-  opening_hours: '9:00 AM - 10:00 PM',
-  delivery_zones: 'CDMX y área metropolitana',
-  min_order_amount: 150,
-  delivery_fee: 30,
+  business_name: 'CapiBobba',
+  phone_number: '+52 1 771 183 1526',
+  location: 'No tenemos local físico, solo servicio a domicilio',
+  opening_hours: 'Lunes a Viernes de 6:00 PM a 10:00 PM. Sábados y Domingos de 12:00 PM a 10:00 PM',
+  delivery_zones: 'Viñedos, Esmeralda, San Alfonso, Rinconada de Esmeralda, Residencial Aurora, Lindavista, Santa Matilde, Los ciruelos, Real de joyas, Real Toledo, Real Navarra, Privada del sol, Qvalta, Señeros, Villa San Juan, Privada Diamante, Sendero de los pino, Mineral del Oro, Platinum, Bosques de Santa Matilde',
+  delivery_fee: 0, // GRATIS en zonas especificadas
+  payment_methods: 'Efectivo, Transferencia',
+  bank_name: 'MERCADO PAGO W',
+  bank_account: '722969010305501833',
+  bank_account_name: 'Maria Elena Martinez Flores',
+  menu_url: 'https://feyomx.github.io/menucapibobba/',
   whatsapp_business_id: 'WHATSAPP_BUSINESS_ID',
   phone_number_id: 'PHONE_NUMBER_ID',
 };
@@ -150,7 +154,7 @@ export default function ConfiguracionPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="phone_number">Teléfono de Contacto</Label>
+                    <Label htmlFor="phone_number">Teléfono de WhatsApp</Label>
                     <Input
                       id="phone_number"
                       value={businessConfig.phone_number}
@@ -161,40 +165,18 @@ export default function ConfiguracionPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="opening_hours">Horario de Atención</Label>
+                    <Label htmlFor="menu_url">URL del Menú</Label>
                     <Input
-                      id="opening_hours"
-                      value={businessConfig.opening_hours}
+                      id="menu_url"
+                      type="url"
+                      value={businessConfig.menu_url}
                       onChange={(e) =>
-                        setBusinessConfig({ ...businessConfig, opening_hours: e.target.value })
+                        setBusinessConfig({ ...businessConfig, menu_url: e.target.value })
                       }
                     />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="delivery_zones">Zonas de Entrega</Label>
-                    <Input
-                      id="delivery_zones"
-                      value={businessConfig.delivery_zones}
-                      onChange={(e) =>
-                        setBusinessConfig({ ...businessConfig, delivery_zones: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="min_order_amount">Monto Mínimo de Pedido ($)</Label>
-                    <Input
-                      id="min_order_amount"
-                      type="number"
-                      value={businessConfig.min_order_amount}
-                      onChange={(e) =>
-                        setBusinessConfig({
-                          ...businessConfig,
-                          min_order_amount: parseFloat(e.target.value),
-                        })
-                      }
-                    />
+                    <p className="text-xs text-muted-foreground">
+                      Enlace al menú digital que se comparte con clientes
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -210,19 +192,98 @@ export default function ConfiguracionPage() {
                         })
                       }
                     />
+                    <p className="text-xs text-muted-foreground">
+                      GRATIS en zonas especificadas
+                    </p>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="address">Dirección</Label>
-                  <Textarea
-                    id="address"
-                    value={businessConfig.address}
+                  <Label htmlFor="opening_hours">Horario de Atención</Label>
+                  <Input
+                    id="opening_hours"
+                    value={businessConfig.opening_hours}
                     onChange={(e) =>
-                      setBusinessConfig({ ...businessConfig, address: e.target.value })
+                      setBusinessConfig({ ...businessConfig, opening_hours: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="location">Ubicación</Label>
+                  <Textarea
+                    id="location"
+                    value={businessConfig.location}
+                    onChange={(e) =>
+                      setBusinessConfig({ ...businessConfig, location: e.target.value })
                     }
                     rows={2}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="delivery_zones">Zonas de Entrega GRATIS</Label>
+                  <Textarea
+                    id="delivery_zones"
+                    value={businessConfig.delivery_zones}
+                    onChange={(e) =>
+                      setBusinessConfig({ ...businessConfig, delivery_zones: e.target.value })
+                    }
+                    rows={4}
+                  />
+                </div>
+
+                <div className="pt-4 border-t">
+                  <h3 className="text-lg font-semibold mb-4 mt-4">Información de Pago</h3>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="payment_methods">Métodos de Pago</Label>
+                      <Input
+                        id="payment_methods"
+                        value={businessConfig.payment_methods}
+                        onChange={(e) =>
+                          setBusinessConfig({ ...businessConfig, payment_methods: e.target.value })
+                        }
+                        placeholder="Efectivo, Transferencia"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="bank_name">Nombre del Banco</Label>
+                      <Input
+                        id="bank_name"
+                        value={businessConfig.bank_name}
+                        onChange={(e) =>
+                          setBusinessConfig({ ...businessConfig, bank_name: e.target.value })
+                        }
+                        placeholder="MERCADO PAGO W"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="bank_account">Número de Cuenta</Label>
+                      <Input
+                        id="bank_account"
+                        value={businessConfig.bank_account}
+                        onChange={(e) =>
+                          setBusinessConfig({ ...businessConfig, bank_account: e.target.value })
+                        }
+                        placeholder="722969010305501833"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="bank_account_name">Titular de la Cuenta</Label>
+                      <Input
+                        id="bank_account_name"
+                        value={businessConfig.bank_account_name}
+                        onChange={(e) =>
+                          setBusinessConfig({ ...businessConfig, bank_account_name: e.target.value })
+                        }
+                        placeholder="Maria Elena Martinez Flores"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="pt-4">
