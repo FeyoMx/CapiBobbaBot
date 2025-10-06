@@ -3165,9 +3165,69 @@ app.get('/api/message-log', (req, res) => {
   sendJsonlLogResponse('message_log.jsonl', res, 'mensajes');
 });
 
-// Endpoint para obtener el log de pedidos
+// Endpoint para obtener el log de pedidos con paginación y filtros
 app.get('/api/orders', (req, res) => {
-  sendJsonlLogResponse('order_log.jsonl', res, 'pedidos');
+  const logFilePath = path.join(__dirname, 'order_log.jsonl');
+
+  fs.readFile(logFilePath, 'utf8', (err, data) => {
+    if (err) {
+      if (err.code === 'ENOENT') {
+        return res.json({ success: true, data: { orders: [], total: 0, page: 1, limit: 10 } });
+      }
+      console.error('Error al leer el archivo de pedidos:', err);
+      return res.status(500).json({ success: false, error: 'Error al leer pedidos' });
+    }
+
+    try {
+      // Parsear todas las líneas
+      const allOrders = data.split('\n').filter(Boolean).map(line => {
+        try {
+          return JSON.parse(line);
+        } catch (parseError) {
+          console.error('Error al parsear línea del log de pedidos:', parseError);
+          return null;
+        }
+      }).filter(Boolean);
+
+      // Obtener parámetros de query
+      const limit = parseInt(req.query.limit) || 10;
+      const page = parseInt(req.query.page) || 1;
+      const sortBy = req.query.sort_by || 'timestamp';
+      const sortOrder = req.query.sort_order || 'desc';
+      const status = req.query.status;
+
+      // Filtrar por estado si se especifica
+      let filteredOrders = allOrders;
+      if (status) {
+        filteredOrders = allOrders.filter(order => order.status === status);
+      }
+
+      // Ordenar
+      filteredOrders.sort((a, b) => {
+        const aVal = a[sortBy] || a.timestamp;
+        const bVal = b[sortBy] || b.timestamp;
+        return sortOrder === 'desc' ? (bVal > aVal ? 1 : -1) : (aVal > bVal ? 1 : -1);
+      });
+
+      // Paginar
+      const startIndex = (page - 1) * limit;
+      const paginatedOrders = filteredOrders.slice(startIndex, startIndex + limit);
+
+      res.json({
+        success: true,
+        data: {
+          orders: paginatedOrders,
+          total: filteredOrders.length,
+          page,
+          limit,
+          totalPages: Math.ceil(filteredOrders.length / limit)
+        }
+      });
+    } catch (error) {
+      console.error('Error procesando pedidos:', error);
+      res.status(500).json({ success: false, error: 'Error procesando pedidos' });
+    }
+  });
 });
 
 // Endpoint para obtener el log de encuestas
@@ -3613,6 +3673,100 @@ app.get('/api/health', async (req, res) => {
     } catch (error) {
         console.error('Error obteniendo estado de salud:', error);
         res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// === ENDPOINTS PARA DASHBOARD NEXT ===
+
+// Endpoint para métricas del dashboard
+app.get('/api/metrics/dashboard', async (req, res) => {
+    try {
+        if (!metricsCollector) {
+            return res.status(503).json({ success: false, error: 'Sistema de monitoreo no disponible' });
+        }
+
+        const metrics = await metricsCollector.getSystemMetrics();
+
+        // Transformar métricas al formato esperado por el dashboard
+        const dashboardMetrics = {
+            totalOrders: metrics.conversations?.total || 0,
+            totalRevenue: 0, // Calcular desde order_log.jsonl
+            activeUsers: metrics.system?.activeConnections || 0,
+            conversionRate: metrics.gemini?.responseRate || 0,
+            geminiUsage: {
+                totalRequests: metrics.gemini?.totalRequests || 0,
+                cacheHitRate: metrics.gemini?.cacheHitRate || 0,
+                avgResponseTime: metrics.gemini?.avgResponseTime || 0
+            }
+        };
+
+        res.json({ success: true, data: dashboardMetrics });
+    } catch (error) {
+        console.error('Error obteniendo métricas del dashboard:', error);
+        res.status(500).json({ success: false, error: 'Error interno del servidor' });
+    }
+});
+
+// Endpoint para gráfico de ventas
+app.get('/api/metrics/sales-chart', async (req, res) => {
+    try {
+        const range = req.query.range || 'daily';
+
+        // Leer order_log.jsonl y agrupar por fecha
+        const ordersData = [];
+        // Por ahora retornar datos de ejemplo, implementar lectura de JSONL después
+
+        res.json({
+            success: true,
+            data: {
+                labels: [],
+                values: []
+            }
+        });
+    } catch (error) {
+        console.error('Error obteniendo gráfico de ventas:', error);
+        res.status(500).json({ success: false, error: 'Error interno del servidor' });
+    }
+});
+
+// Endpoint para ingresos por producto
+app.get('/api/metrics/revenue-by-product', async (req, res) => {
+    try {
+        // Leer order_log.jsonl y agrupar por producto
+        // Por ahora retornar datos de ejemplo
+
+        res.json({
+            success: true,
+            data: []
+        });
+    } catch (error) {
+        console.error('Error obteniendo ingresos por producto:', error);
+        res.status(500).json({ success: false, error: 'Error interno del servidor' });
+    }
+});
+
+// Endpoint para uso de Gemini
+app.get('/api/metrics/gemini-usage', async (req, res) => {
+    try {
+        if (!geminiCache) {
+            return res.status(503).json({ success: false, error: 'Sistema de caché no disponible' });
+        }
+
+        const stats = await geminiCache.getStats();
+
+        res.json({
+            success: true,
+            data: {
+                totalRequests: stats.totalRequests || 0,
+                cacheHits: stats.cacheHits || 0,
+                cacheMisses: stats.cacheMisses || 0,
+                cacheHitRate: stats.hitRate || 0,
+                avgResponseTime: stats.avgResponseTime || 0
+            }
+        });
+    } catch (error) {
+        console.error('Error obteniendo uso de Gemini:', error);
+        res.status(500).json({ success: false, error: 'Error interno del servidor' });
     }
 });
 
