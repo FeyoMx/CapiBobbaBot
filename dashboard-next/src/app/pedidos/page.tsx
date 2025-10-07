@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Pagination } from '@/components/ui/pagination';
 import { OrdersTable } from '@/components/orders/OrdersTable';
 import { OrderDetailModal } from '@/components/orders/OrderDetailModal';
 import { useOrders, exportOrdersToCSV } from '@/lib/hooks/useOrders';
@@ -13,6 +14,8 @@ import type { Order } from '@/types';
 export default function PedidosPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const { isConnected } = useWebSocket();
 
   const {
@@ -20,8 +23,8 @@ export default function PedidosPage() {
     isLoading,
     error,
   } = useOrders({
-    page: 1,
-    limit: 100,
+    page,
+    limit: pageSize,
   });
 
   const handleViewOrder = (order: Order) => {
@@ -40,6 +43,17 @@ export default function PedidosPage() {
       exportOrdersToCSV(ordersResponse.orders, filename);
     }
   };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setPage(1); // Reset to first page when changing page size
+  };
+
+  const totalPages = Math.ceil((ordersResponse?.total || 0) / pageSize);
 
   return (
     <DashboardLayout>
@@ -104,6 +118,18 @@ export default function PedidosPage() {
               onViewOrder={handleViewOrder}
               onExportCSV={handleExportCSV}
             />
+
+            {/* Pagination */}
+            {!isLoading && ordersResponse && ordersResponse.total > 0 && (
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                totalItems={ordersResponse.total}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+              />
+            )}
           </CardContent>
         </Card>
 
