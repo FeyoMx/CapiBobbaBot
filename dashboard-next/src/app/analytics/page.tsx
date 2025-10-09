@@ -1,12 +1,62 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { SalesAnalysisChart } from '@/components/analytics/SalesAnalysisChart';
-import { TopProductsChart } from '@/components/analytics/TopProductsChart';
-import { GeminiPerformanceChart } from '@/components/analytics/GeminiPerformanceChart';
 import { BarChart3, TrendingUp, Package, Cpu } from 'lucide-react';
 import { useMetrics } from '@/lib/hooks/useMetrics';
+
+// Lazy load heavy analytics charts
+const SalesAnalysisChart = dynamic(
+  () => import('@/components/analytics/SalesAnalysisChart').then(mod => ({ default: mod.SalesAnalysisChart })),
+  {
+    loading: () => (
+      <Card className="col-span-full h-[640px]">
+        <CardHeader>
+          <CardTitle>Análisis de Ventas</CardTitle>
+        </CardHeader>
+        <CardContent className="h-[calc(100%-120px)]">
+          <div className="h-full w-full bg-muted animate-pulse rounded" />
+        </CardContent>
+      </Card>
+    ),
+    ssr: false,
+  }
+);
+
+const TopProductsChart = dynamic(
+  () => import('@/components/analytics/TopProductsChart').then(mod => ({ default: mod.TopProductsChart })),
+  {
+    loading: () => (
+      <Card className="h-[620px]">
+        <CardHeader>
+          <CardTitle>Top 5 Productos</CardTitle>
+        </CardHeader>
+        <CardContent className="h-[calc(100%-100px)]">
+          <div className="h-full w-full bg-muted animate-pulse rounded" />
+        </CardContent>
+      </Card>
+    ),
+    ssr: false,
+  }
+);
+
+const GeminiPerformanceChart = dynamic(
+  () => import('@/components/analytics/GeminiPerformanceChart').then(mod => ({ default: mod.GeminiPerformanceChart })),
+  {
+    loading: () => (
+      <Card className="col-span-full h-[620px]">
+        <CardHeader>
+          <CardTitle>Rendimiento de Gemini AI</CardTitle>
+        </CardHeader>
+        <CardContent className="h-[calc(100%-100px)]">
+          <div className="h-full w-full bg-muted animate-pulse rounded" />
+        </CardContent>
+      </Card>
+    ),
+    ssr: false,
+  }
+);
 
 export default function AnalyticsPage() {
   const { data: metrics, isLoading } = useMetrics();

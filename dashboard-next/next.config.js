@@ -3,6 +3,9 @@ const nextConfig = {
   // Production optimizations
   reactStrictMode: true,
 
+  // Enable gzip compression
+  compress: true,
+
   // Compiler optimizations
   compiler: {
     // Remove console.log in production
@@ -16,6 +19,7 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    minimumCacheTTL: 31536000, // 1 year cache for images
   },
 
   // Enable SWC minification (faster than Terser)
@@ -23,7 +27,15 @@ const nextConfig = {
 
   // Experimental features for better performance
   experimental: {
-    optimizePackageImports: ['lucide-react', 'recharts', 'date-fns'],
+    optimizePackageImports: [
+      'recharts',
+      'lucide-react',
+      // '@tanstack/react-table', // Removed: causes build errors with Next.js optimization
+      '@tanstack/react-query',
+      'date-fns',
+    ],
+    // Track Web Vitals in production
+    webVitalsAttribution: ['CLS', 'LCP', 'FCP', 'FID', 'TTFB'],
   },
 
   // API rewrites

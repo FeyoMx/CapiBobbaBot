@@ -11,7 +11,7 @@ export function GeminiUsageChart() {
 
   if (error) {
     return (
-      <Card>
+      <Card className="h-[460px]">
         <CardHeader>
           <CardTitle>Gemini AI Usage</CardTitle>
           <CardDescription>Error al cargar datos</CardDescription>
@@ -25,13 +25,13 @@ export function GeminiUsageChart() {
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="h-[460px]">
         <CardHeader>
           <CardTitle>Gemini AI Usage</CardTitle>
           <CardDescription>Cargando...</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="h-[300px] w-full bg-muted animate-pulse rounded" />
+        <CardContent className="h-[340px]">
+          <div className="h-full w-full bg-muted animate-pulse rounded" />
         </CardContent>
       </Card>
     );
@@ -48,15 +48,15 @@ export function GeminiUsageChart() {
   ];
 
   return (
-    <Card>
+    <Card className="h-[460px]">
       <CardHeader>
         <CardTitle>Gemini AI Usage</CardTitle>
         <CardDescription>
           Llamadas y rendimiento de caché
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
+      <CardContent className="h-[340px]">
+        <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
             <XAxis

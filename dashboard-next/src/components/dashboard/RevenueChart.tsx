@@ -9,7 +9,7 @@ export function RevenueChart() {
 
   if (error) {
     return (
-      <Card>
+      <Card className="h-[420px]">
         <CardHeader>
           <CardTitle>Revenue por Producto</CardTitle>
           <CardDescription>Error al cargar datos</CardDescription>
@@ -23,13 +23,13 @@ export function RevenueChart() {
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="h-[420px]">
         <CardHeader>
           <CardTitle>Revenue por Producto</CardTitle>
           <CardDescription>Cargando...</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="h-[300px] w-full bg-muted animate-pulse rounded" />
+        <CardContent className="h-[300px]">
+          <div className="h-full w-full bg-muted animate-pulse rounded" />
         </CardContent>
       </Card>
     );
@@ -41,15 +41,15 @@ export function RevenueChart() {
   ];
 
   return (
-    <Card>
+    <Card className="h-[420px]">
       <CardHeader>
         <CardTitle>Revenue por Producto</CardTitle>
         <CardDescription>
           Top productos por ingresos
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
+      <CardContent className="h-[300px]">
+        <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
             <XAxis dataKey="product" className="text-xs" />

@@ -11,7 +11,7 @@ export function SalesChart() {
 
   if (error) {
     return (
-      <Card>
+      <Card className="h-[420px]">
         <CardHeader>
           <CardTitle>Ventas (24h)</CardTitle>
           <CardDescription>Error al cargar datos</CardDescription>
@@ -25,13 +25,13 @@ export function SalesChart() {
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="h-[420px]">
         <CardHeader>
           <CardTitle>Ventas (24h)</CardTitle>
           <CardDescription>Cargando...</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="h-[300px] w-full bg-muted animate-pulse rounded" />
+        <CardContent className="h-[300px]">
+          <div className="h-full w-full bg-muted animate-pulse rounded" />
         </CardContent>
       </Card>
     );
@@ -43,15 +43,15 @@ export function SalesChart() {
   ];
 
   return (
-    <Card>
+    <Card className="h-[420px]">
       <CardHeader>
         <CardTitle>Ventas (24h)</CardTitle>
         <CardDescription>
           Pedidos completados en las últimas 24 horas
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
+      <CardContent className="h-[300px]">
+        <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
             <XAxis

@@ -12,7 +12,7 @@ export function GeminiPerformanceChart() {
 
   if (error) {
     return (
-      <Card>
+      <Card className="h-[620px]">
         <CardHeader>
           <CardTitle>Rendimiento de Gemini AI</CardTitle>
           <CardDescription>Error al cargar datos</CardDescription>
@@ -34,7 +34,7 @@ export function GeminiPerformanceChart() {
   const cacheHitRate = data?.cacheHitRate || 0;
 
   return (
-    <Card className="col-span-full">
+    <Card className="col-span-full h-[620px]">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Cpu className="h-5 w-5 text-primary" />
@@ -44,13 +44,13 @@ export function GeminiPerformanceChart() {
           Análisis de uso y performance de la IA
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="h-[calc(100%-100px)]">
         {isLoading ? (
-          <div className="h-[400px] w-full bg-muted animate-pulse rounded" />
+          <div className="h-full w-full bg-muted animate-pulse rounded" />
         ) : (
           <>
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-3 gap-4 mb-6 h-[100px]">
               <div className="p-4 rounded-lg bg-muted/50">
                 <div className="text-sm text-muted-foreground flex items-center gap-1">
                   <Zap className="h-3 w-3" />
@@ -73,7 +73,7 @@ export function GeminiPerformanceChart() {
             </div>
 
             {/* Chart */}
-            <ResponsiveContainer width="100%" height={350}>
+            <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis

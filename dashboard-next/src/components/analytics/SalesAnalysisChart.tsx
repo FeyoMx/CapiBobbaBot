@@ -38,7 +38,7 @@ export function SalesAnalysisChart() {
 
   if (error) {
     return (
-      <Card>
+      <Card className="h-[640px]">
         <CardHeader>
           <CardTitle>Análisis de Ventas</CardTitle>
           <CardDescription>Error al cargar datos</CardDescription>
@@ -51,7 +51,7 @@ export function SalesAnalysisChart() {
   }
 
   return (
-    <Card className="col-span-full">
+    <Card className="col-span-full h-[640px]">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
@@ -74,13 +74,13 @@ export function SalesAnalysisChart() {
           </Select>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="h-[calc(100%-120px)]">
         {isLoading ? (
-          <div className="h-[400px] w-full bg-muted animate-pulse rounded" />
+          <div className="h-full w-full bg-muted animate-pulse rounded" />
         ) : (
           <>
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-3 gap-4 mb-6 h-[100px]">
               <div className="p-4 rounded-lg bg-muted/50">
                 <div className="text-sm text-muted-foreground">Total de Ventas</div>
                 <div className="text-2xl font-bold">${totalSales.toFixed(2)}</div>
@@ -96,7 +96,7 @@ export function SalesAnalysisChart() {
             </div>
 
             {/* Chart */}
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">

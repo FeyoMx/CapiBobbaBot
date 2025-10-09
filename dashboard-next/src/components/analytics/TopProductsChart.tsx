@@ -18,7 +18,7 @@ export function TopProductsChart() {
 
   if (error) {
     return (
-      <Card>
+      <Card className="h-[620px]">
         <CardHeader>
           <CardTitle>Top Productos</CardTitle>
           <CardDescription>Error al cargar datos</CardDescription>
@@ -38,7 +38,7 @@ export function TopProductsChart() {
   const totalRevenue = topProducts.reduce((sum, p) => sum + p.revenue, 0);
 
   return (
-    <Card>
+    <Card className="h-[620px]">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Package className="h-5 w-5 text-primary" />
@@ -48,17 +48,17 @@ export function TopProductsChart() {
           Productos más vendidos por ingresos
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="h-[calc(100%-100px)]">
         {isLoading ? (
-          <div className="h-[350px] w-full bg-muted animate-pulse rounded" />
+          <div className="h-full w-full bg-muted animate-pulse rounded" />
         ) : topProducts.length === 0 ? (
-          <div className="h-[350px] flex items-center justify-center text-muted-foreground">
+          <div className="h-full flex items-center justify-center text-muted-foreground">
             No hay datos de productos
           </div>
         ) : (
           <>
             {/* Product List */}
-            <div className="space-y-3 mb-6">
+            <div className="space-y-3 mb-6 h-[200px] overflow-y-auto">
               {topProducts.map((product, index) => (
                 <div key={product.name} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -86,7 +86,7 @@ export function TopProductsChart() {
             </div>
 
             {/* Chart */}
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={280}>
               <BarChart data={topProducts} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis type="number" className="text-xs" />

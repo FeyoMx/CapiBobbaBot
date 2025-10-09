@@ -1,15 +1,104 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { MetricCard } from '@/components/dashboard/MetricCard';
-import { SalesChart } from '@/components/dashboard/SalesChart';
-import { RevenueChart } from '@/components/dashboard/RevenueChart';
-import { GeminiUsageChart } from '@/components/dashboard/GeminiUsageChart';
-import { RecentOrdersTable } from '@/components/dashboard/RecentOrdersTable';
-import { HealthStatus } from '@/components/HealthStatus';
-import { SystemPerformanceChart } from '@/components/SystemPerformanceChart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShoppingCart, DollarSign, Cpu, Database } from 'lucide-react';
+
+// Lazy load heavy chart components for better performance
+const SalesChart = dynamic(
+  () => import('@/components/dashboard/SalesChart').then(mod => ({ default: mod.SalesChart })),
+  {
+    loading: () => (
+      <Card className="h-[420px]">
+        <CardHeader>
+          <CardTitle>Ventas (24h)</CardTitle>
+        </CardHeader>
+        <CardContent className="h-[300px]">
+          <div className="h-full w-full bg-muted animate-pulse rounded" />
+        </CardContent>
+      </Card>
+    ),
+    ssr: false, // Disable SSR for charts (not critical for SEO)
+  }
+);
+
+const RevenueChart = dynamic(
+  () => import('@/components/dashboard/RevenueChart').then(mod => ({ default: mod.RevenueChart })),
+  {
+    loading: () => (
+      <Card className="h-[420px]">
+        <CardHeader>
+          <CardTitle>Revenue por Producto</CardTitle>
+        </CardHeader>
+        <CardContent className="h-[300px]">
+          <div className="h-full w-full bg-muted animate-pulse rounded" />
+        </CardContent>
+      </Card>
+    ),
+    ssr: false,
+  }
+);
+
+const GeminiUsageChart = dynamic(
+  () => import('@/components/dashboard/GeminiUsageChart').then(mod => ({ default: mod.GeminiUsageChart })),
+  {
+    loading: () => (
+      <Card className="h-[460px]">
+        <CardHeader>
+          <CardTitle>Gemini AI Usage</CardTitle>
+        </CardHeader>
+        <CardContent className="h-[340px]">
+          <div className="h-full w-full bg-muted animate-pulse rounded" />
+        </CardContent>
+      </Card>
+    ),
+    ssr: false,
+  }
+);
+
+const RecentOrdersTable = dynamic(
+  () => import('@/components/dashboard/RecentOrdersTable').then(mod => ({ default: mod.RecentOrdersTable })),
+  {
+    loading: () => (
+      <Card>
+        <CardHeader>
+          <CardTitle>Pedidos Recientes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[400px] w-full bg-muted animate-pulse rounded" />
+        </CardContent>
+      </Card>
+    ),
+  }
+);
+
+const HealthStatus = dynamic(
+  () => import('@/components/HealthStatus').then(mod => ({ default: mod.HealthStatus })),
+  {
+    loading: () => (
+      <div className="h-[100px] w-full bg-muted animate-pulse rounded" />
+    ),
+  }
+);
+
+const SystemPerformanceChart = dynamic(
+  () => import('@/components/SystemPerformanceChart').then(mod => ({ default: mod.SystemPerformanceChart })),
+  {
+    loading: () => (
+      <Card>
+        <CardHeader>
+          <CardTitle>Performance del Sistema</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px] w-full bg-muted animate-pulse rounded" />
+        </CardContent>
+      </Card>
+    ),
+    ssr: false,
+  }
+);
 import { useMetrics } from '@/lib/hooks/useMetrics';
 
 export default function Home() {
