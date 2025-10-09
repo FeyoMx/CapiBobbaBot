@@ -2,9 +2,13 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useResolveSecurityEvent } from '@/lib/hooks/useSecurityEvents';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { AlertTriangle, Shield, XCircle, CheckCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import type { SecurityEvent, SecuritySeverity } from '@/types';
 
 const severityColors: Record<SecuritySeverity, string> = {
@@ -27,6 +31,21 @@ interface SecurityEventsTableProps {
 }
 
 export function SecurityEventsTable({ events, isLoading }: SecurityEventsTableProps) {
+  const resolveEventMutation = useResolveSecurityEvent();
+
+  const handleResolveEvent = async (eventId: string) => {
+    try {
+      await resolveEventMutation.mutateAsync(eventId);
+      toast.success('Evento resuelto', {
+        description: 'El evento de seguridad ha sido marcado como resuelto.',
+      });
+    } catch (error) {
+      toast.error('Error al resolver evento', {
+        description: error instanceof Error ? error.message : 'No se pudo resolver el evento.',
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -58,13 +77,11 @@ export function SecurityEventsTable({ events, isLoading }: SecurityEventsTablePr
       </CardHeader>
       <CardContent>
         {events.length === 0 ? (
-          <div className="h-32 flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-500 opacity-50" />
-              <p>No hay eventos de seguridad</p>
-              <p className="text-xs mt-1">Todo está funcionando correctamente</p>
-            </div>
-          </div>
+          <EmptyState
+            icon={CheckCircle}
+            title="No hay eventos de seguridad"
+            description="Todo está funcionando correctamente. No se han detectado amenazas o anomalías en el sistema."
+          />
         ) : (
           <div className="space-y-3">
             {events.map((event) => (
@@ -106,17 +123,30 @@ export function SecurityEventsTable({ events, isLoading }: SecurityEventsTablePr
                 </div>
 
                 {/* Timestamp & Status */}
-                <div className="text-right space-y-1">
-                  <div className="text-sm">
-                    {format(parseISO(event.timestamp), 'dd MMM', { locale: es })}
+                <div className="text-right space-y-2">
+                  <div>
+                    <div className="text-sm">
+                      {format(parseISO(event.timestamp), 'dd MMM', { locale: es })}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {format(parseISO(event.timestamp), 'HH:mm:ss', { locale: es })}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {format(parseISO(event.timestamp), 'HH:mm:ss', { locale: es })}
-                  </div>
-                  {event.resolved && (
+                  {event.resolved ? (
                     <Badge variant="outline" className="text-xs bg-green-500/10 text-green-500">
                       Resuelto
                     </Badge>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleResolveEvent(event.id)}
+                      disabled={resolveEventMutation.isPending}
+                      className="w-full"
+                    >
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Resolver
+                    </Button>
                   )}
                 </div>
               </div>

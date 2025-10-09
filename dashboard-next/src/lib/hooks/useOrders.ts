@@ -9,6 +9,8 @@ import type { Order, OrdersResponse, PaginationParams, OrderStatus } from '@/typ
 
 interface UseOrdersParams extends PaginationParams {
   status?: string;
+  payment_method?: string;
+  search?: string;
 }
 
 export const orderKeys = {

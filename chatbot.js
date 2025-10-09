@@ -3195,11 +3195,32 @@ app.get('/api/orders', (req, res) => {
       const sortBy = req.query.sort_by || 'timestamp';
       const sortOrder = req.query.sort_order || 'desc';
       const status = req.query.status;
+      const paymentMethod = req.query.payment_method;
+      const search = req.query.search;
 
-      // Filtrar por estado si se especifica
+      // Aplicar filtros
       let filteredOrders = allOrders;
-      if (status) {
-        filteredOrders = allOrders.filter(order => order.status === status);
+
+      // Filtrar por estado
+      if (status && status !== 'all') {
+        filteredOrders = filteredOrders.filter(order => order.status === status);
+      }
+
+      // Filtrar por método de pago
+      if (paymentMethod && paymentMethod !== 'all') {
+        filteredOrders = filteredOrders.filter(order => order.payment_method === paymentMethod);
+      }
+
+      // Filtrar por búsqueda (nombre, teléfono, ID)
+      if (search && search.trim()) {
+        const searchLower = search.toLowerCase().trim();
+        filteredOrders = filteredOrders.filter(order => {
+          return (
+            (order.customer_name && order.customer_name.toLowerCase().includes(searchLower)) ||
+            (order.customer_phone && order.customer_phone.includes(searchLower)) ||
+            (order.id && order.id.toLowerCase().includes(searchLower))
+          );
+        });
       }
 
       // Ordenar

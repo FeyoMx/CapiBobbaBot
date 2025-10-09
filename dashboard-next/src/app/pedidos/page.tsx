@@ -16,6 +16,11 @@ export default function PedidosPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [filters, setFilters] = useState({
+    status: 'all',
+    paymentMethod: 'all',
+    search: '',
+  });
   const { isConnected } = useWebSocket();
 
   const {
@@ -25,6 +30,9 @@ export default function PedidosPage() {
   } = useOrders({
     page,
     limit: pageSize,
+    status: filters.status !== 'all' ? filters.status : undefined,
+    payment_method: filters.paymentMethod !== 'all' ? filters.paymentMethod : undefined,
+    search: filters.search || undefined,
   });
 
   const handleViewOrder = (order: Order) => {
@@ -51,6 +59,11 @@ export default function PedidosPage() {
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
     setPage(1); // Reset to first page when changing page size
+  };
+
+  const handleFilterChange = (newFilters: Partial<typeof filters>) => {
+    setFilters((prev) => ({ ...prev, ...newFilters }));
+    setPage(1); // Reset to first page when filters change
   };
 
   const totalPages = Math.ceil((ordersResponse?.total || 0) / pageSize);
@@ -117,6 +130,8 @@ export default function PedidosPage() {
               isLoading={isLoading}
               onViewOrder={handleViewOrder}
               onExportCSV={handleExportCSV}
+              filters={filters}
+              onFiltersChange={handleFilterChange}
             />
 
             {/* Pagination */}

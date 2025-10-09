@@ -2,9 +2,11 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
 import { useRecentOrders } from '@/lib/hooks/useMetrics';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import type { Order } from '@/types';
 
@@ -81,9 +83,11 @@ export function RecentOrdersTable() {
       </CardHeader>
       <CardContent>
         {ordersData.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">No hay pedidos recientes</p>
-          </div>
+          <EmptyState
+            icon={ShoppingCart}
+            title="No hay pedidos recientes"
+            description="Los pedidos aparecerán aquí cuando los clientes realicen compras a través del chatbot de WhatsApp."
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">

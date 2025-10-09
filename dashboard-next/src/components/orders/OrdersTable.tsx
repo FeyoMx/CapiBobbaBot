@@ -5,20 +5,19 @@ import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
   ColumnDef,
   flexRender,
   SortingState,
 } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowUpDown, Download, Eye } from 'lucide-react';
+import { ArrowUpDown, Download, Eye, ShoppingCart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import type { Order, OrderStatus, OrderFilters } from '@/types';
+import { EmptyState } from '@/components/ui/empty-state';
+import type { Order, OrderStatus } from '@/types';
 
 const statusColors: Record<OrderStatus, string> = {
   pending: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
@@ -43,17 +42,18 @@ interface OrdersTableProps {
   isLoading?: boolean;
   onViewOrder: (order: Order) => void;
   onExportCSV?: () => void;
+  filters: {
+    status: string;
+    paymentMethod: string;
+    search: string;
+  };
+  onFiltersChange: (filters: Partial<{ status: string; paymentMethod: string; search: string }>) => void;
 }
 
-export function OrdersTable({ orders, isLoading, onViewOrder, onExportCSV }: OrdersTableProps) {
+export function OrdersTable({ orders, isLoading, onViewOrder, onExportCSV, filters, onFiltersChange }: OrdersTableProps) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'created_at', desc: true },
   ]);
-  const [filters, setFilters] = useState<OrderFilters>({
-    status: 'all',
-    search: '',
-    paymentMethod: 'all',
-  });
 
   // Define columns
   const columns = useMemo<ColumnDef<Order>[]>(
@@ -188,39 +188,9 @@ export function OrdersTable({ orders, isLoading, onViewOrder, onExportCSV }: Ord
     [onViewOrder]
   );
 
-  // Filter data
-  const filteredData = useMemo(() => {
-    return orders.filter((order) => {
-      // Status filter
-      if (filters.status && filters.status !== 'all' && order.status !== filters.status) {
-        return false;
-      }
-
-      // Payment method filter
-      if (
-        filters.paymentMethod &&
-        filters.paymentMethod !== 'all' &&
-        order.payment_method !== filters.paymentMethod
-      ) {
-        return false;
-      }
-
-      // Search filter (name, phone, id)
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        return (
-          order.customer_name.toLowerCase().includes(searchLower) ||
-          order.customer_phone.includes(searchLower) ||
-          order.id.toLowerCase().includes(searchLower)
-        );
-      }
-
-      return true;
-    });
-  }, [orders, filters]);
-
+  // Table instance - filtrado manejado por backend
   const table = useReactTable({
-    data: filteredData,
+    data: orders,
     columns,
     state: {
       sorting,
@@ -228,13 +198,8 @@ export function OrdersTable({ orders, isLoading, onViewOrder, onExportCSV }: Ord
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: {
-      pagination: {
-        pageSize: 20,
-      },
-    },
+    manualPagination: true, // Paginación manejada por backend
+    manualFiltering: true, // Filtrado manejado por backend
   });
 
   if (isLoading) {
@@ -254,15 +219,13 @@ export function OrdersTable({ orders, isLoading, onViewOrder, onExportCSV }: Ord
         <Input
           placeholder="Buscar por nombre, teléfono o ID..."
           value={filters.search}
-          onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+          onChange={(e) => onFiltersChange({ search: e.target.value })}
           className="max-w-xs"
         />
 
         <Select
           value={filters.status || 'all'}
-          onChange={(e) =>
-            setFilters((prev) => ({ ...prev, status: e.target.value as OrderStatus | 'all' }))
-          }
+          onChange={(e) => onFiltersChange({ status: e.target.value })}
           className="w-[150px]"
         >
           <option value="all">Todos los estados</option>
@@ -276,9 +239,7 @@ export function OrdersTable({ orders, isLoading, onViewOrder, onExportCSV }: Ord
 
         <Select
           value={filters.paymentMethod || 'all'}
-          onChange={(e) =>
-            setFilters((prev) => ({ ...prev, paymentMethod: e.target.value as any }))
-          }
+          onChange={(e) => onFiltersChange({ paymentMethod: e.target.value })}
           className="w-[150px]"
         >
           <option value="all">Todos los pagos</option>
@@ -331,41 +292,21 @@ export function OrdersTable({ orders, isLoading, onViewOrder, onExportCSV }: Ord
               ))
             ) : (
               <tr>
-                <td colSpan={columns.length} className="h-24 text-center">
-                  No se encontraron pedidos.
+                <td colSpan={columns.length} className="p-0">
+                  <EmptyState
+                    icon={ShoppingCart}
+                    title="No hay pedidos"
+                    description={
+                      filters.search || filters.status !== 'all' || filters.paymentMethod !== 'all'
+                        ? 'No se encontraron pedidos con los filtros aplicados. Intenta ajustar los criterios de búsqueda.'
+                        : 'Aún no hay pedidos registrados en el sistema. Los pedidos aparecerán aquí cuando los clientes realicen compras.'
+                    }
+                  />
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex items-center justify-between px-2">
-        <div className="text-sm text-muted-foreground">
-          Mostrando {table.getRowModel().rows.length} de {filteredData.length} pedidos
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            Anterior
-          </Button>
-          <div className="text-sm">
-            Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Siguiente
-          </Button>
-        </div>
       </div>
     </div>
   );

@@ -132,7 +132,7 @@ class ApiClient {
   // Orders
   // ============================================================================
 
-  async getOrders(params?: PaginationParams & { status?: string }): Promise<OrdersResponse> {
+  async getOrders(params?: PaginationParams & { status?: string; payment_method?: string; search?: string }): Promise<OrdersResponse> {
     const response = await this.client.get<ApiResponse<OrdersResponse>>('/orders', {
       params,
     });
