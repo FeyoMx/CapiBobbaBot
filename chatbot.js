@@ -3256,6 +3256,114 @@ app.get('/api/surveys', (req, res) => {
   sendJsonlLogResponse('survey_log.jsonl', res, 'encuestas');
 });
 
+// Endpoint para obtener resultados procesados de encuestas (para dashboard)
+app.get('/api/survey/results', async (req, res) => {
+  try {
+    const logFilePath = path.join(__dirname, 'survey_log.jsonl');
+
+    let allSurveys = [];
+    try {
+      const data = await fs.promises.readFile(logFilePath, 'utf8');
+      const lines = data.trim().split('\n').filter(line => line.trim());
+      allSurveys = lines.map(line => JSON.parse(line));
+    } catch (err) {
+      if (err.code !== 'ENOENT') {
+        throw err;
+      }
+      // Si el archivo no existe, retornar datos vacíos
+    }
+
+    // Calcular estadísticas
+    const totalResponses = allSurveys.length;
+
+    // Agrupar por rating
+    const ratingCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    allSurveys.forEach(survey => {
+      const rating = survey.rating;
+      if (rating >= 0 && rating <= 5) {
+        ratingCounts[rating]++;
+      }
+    });
+
+    // Calcular NPS (Net Promoter Score)
+    // Promotores: 4-5, Pasivos: 3, Detractores: 0-2
+    const promoters = (ratingCounts[4] || 0) + (ratingCounts[5] || 0);
+    const passives = ratingCounts[3] || 0;
+    const detractors = (ratingCounts[0] || 0) + (ratingCounts[1] || 0) + (ratingCounts[2] || 0);
+    const npsScore = totalResponses > 0
+      ? Math.round(((promoters - detractors) / totalResponses) * 100)
+      : 0;
+
+    // Calcular tasa de satisfacción (rating 4-5)
+    const satisfiedCount = promoters;
+    const satisfactionRate = totalResponses > 0
+      ? Math.round((satisfiedCount / totalResponses) * 100)
+      : 0;
+
+    // Calcular rating promedio
+    const totalRating = Object.entries(ratingCounts).reduce((sum, [rating, count]) => {
+      return sum + (parseInt(rating) * count);
+    }, 0);
+    const averageRating = totalResponses > 0
+      ? (totalRating / totalResponses).toFixed(1)
+      : 0;
+
+    // Distribución de satisfacción para el gráfico
+    const satisfactionDistribution = [
+      {
+        name: 'Muy Satisfecho',
+        value: ratingCounts[5] || 0,
+        color: 'hsl(142 76% 36%)'
+      },
+      {
+        name: 'Satisfecho',
+        value: ratingCounts[4] || 0,
+        color: 'hsl(221 83% 53%)'
+      },
+      {
+        name: 'Neutral',
+        value: ratingCounts[3] || 0,
+        color: 'hsl(38 92% 50%)'
+      },
+      {
+        name: 'Insatisfecho',
+        value: (ratingCounts[0] || 0) + (ratingCounts[1] || 0) + (ratingCounts[2] || 0),
+        color: 'hsl(0 84% 60%)'
+      },
+    ];
+
+    // Obtener últimas respuestas (para comentarios destacados)
+    const recentSurveys = allSurveys
+      .slice(-10) // Últimas 10 respuestas
+      .reverse()
+      .map(survey => ({
+        rating: survey.rating,
+        from: survey.from,
+        timestamp: survey.timestamp || new Date().toISOString()
+      }));
+
+    res.json({
+      success: true,
+      data: {
+        npsScore,
+        totalResponses,
+        satisfactionRate,
+        averageRating: parseFloat(averageRating),
+        distribution: satisfactionDistribution,
+        recentSurveys,
+        breakdown: {
+          promoters,
+          passives,
+          detractors
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error obteniendo resultados de encuestas:', error);
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
+  }
+});
+
 // ============================================================================
 // ENDPOINTS DE PEDIDOS INDIVIDUALES
 // ============================================================================
@@ -3979,6 +4087,48 @@ app.get('/api/health', async (req, res) => {
         res.json(health);
     } catch (error) {
         console.error('Error obteniendo estado de salud:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Endpoints en raíz para compatibilidad con herramientas de monitoreo estándar
+app.get('/health', async (req, res) => {
+    try {
+        if (!healthChecker) {
+            return res.status(503).json({
+                status: 'unhealthy',
+                error: 'Health checker no disponible'
+            });
+        }
+        const health = await healthChecker.performHealthCheck();
+        res.json({
+            status: health.status === 'healthy' ? 'healthy' : 'unhealthy',
+            uptime: process.uptime(),
+            timestamp: new Date().toISOString(),
+            details: health
+        });
+    } catch (error) {
+        console.error('Error obteniendo estado de salud:', error);
+        res.status(500).json({
+            status: 'unhealthy',
+            error: 'Error interno del servidor'
+        });
+    }
+});
+
+app.get('/metrics', async (req, res) => {
+    try {
+        if (!metricsCollector) {
+            return res.status(503).json({ error: 'Sistema de monitoreo no disponible' });
+        }
+        const metrics = await metricsCollector.getSystemMetrics();
+        res.json({
+            ...metrics,
+            uptime: process.uptime(),
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Error obteniendo métricas:', error);
         res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
