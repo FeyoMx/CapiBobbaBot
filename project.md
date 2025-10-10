@@ -720,6 +720,46 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.12.1 (2025-10-10) - Integración de Encuestas con Endpoint Real 📊
+- 📊 **Página de Encuestas Conectada al Backend** (`dashboard-next/src/app/encuestas/page.tsx`):
+  - Eliminados datos mock hardcodeados, ahora usa fetch al endpoint real
+  - Integración completa con `GET /api/survey/results`
+  - Sistema de auto-refresh cada 5 minutos para datos actualizados
+  - Manejo robusto de estados: loading, error y datos vacíos
+
+- ⚡ **Nuevas Funcionalidades**:
+  - **Estado de carga**: Spinner con mensaje "Cargando datos de encuestas..."
+  - **Estado de error**: Card con mensaje de error si falla el fetch
+  - **Datos vacíos**: Mensaje informativo cuando no hay encuestas completadas
+  - **Datos dinámicos**: Gráfico circular y comentarios se actualizan con datos reales
+  - **Timestamps**: Fechas formateadas en comentarios de encuestas
+
+- 🔄 **Integración con API**:
+  - Fetch a `https://capibobbabot.onrender.com/api/survey/results`
+  - Parsing de estructura: `{success, data: {npsScore, totalResponses, satisfactionRate, averageRating, distribution, recentSurveys}}`
+  - Validación de datos antes de renderizar gráficos
+  - Fallback a 0 o "N/A" cuando no hay datos disponibles
+
+- 🎨 **Mejoras de UX**:
+  - Removido mensaje confuso de "datos de ejemplo"
+  - Nuevo mensaje claro cuando no hay encuestas: "Aún no se han completado encuestas..."
+  - Rating promedio muestra "N/A" cuando es 0
+  - Gráficos muestran mensaje "No hay datos disponibles" si todos los valores son 0
+  - Comentarios muestran mensaje "No hay comentarios disponibles" si array está vacío
+
+- 📁 **Archivos modificados**:
+  - `dashboard-next/src/app/encuestas/page.tsx:1-267` - Refactorización completa
+  - Agregadas interfaces TypeScript para tipado fuerte
+  - Implementado useEffect con cleanup de interval
+  - Estados: isLoading, error, surveyData
+
+- ✅ **Impacto**:
+  - ✅ Página funcional con datos reales del backend
+  - ✅ UX mejorada con estados de carga y error
+  - ✅ Auto-actualización sin intervención del usuario
+  - ✅ Build exitoso sin errores ni warnings
+  - ✅ Dashboard de encuestas 100% operativo
+
 ### v2.12.0 (2025-10-06) - Adaptación de Configuración del Negocio en Dashboard 📝
 - 📝 **Sección de Información de Pago Implementada** (`dashboard-next/src/app/configuracion/page.tsx:236-287`):
   - Agregados campos para gestión de métodos de pago
@@ -1459,8 +1499,8 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ---
 
-**Última actualización**: 06 de Octubre, 2025 - Fix Errores Dashboard Analytics
-**Versión del proyecto**: 2.11.1
+**Última actualización**: 10 de Octubre, 2025 - Integración de Encuestas con Endpoint Real
+**Versión del proyecto**: 2.12.1
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones
