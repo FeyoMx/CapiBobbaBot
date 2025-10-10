@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, Typography, Accordion, AccordionSummary, AccordionDetails, CircularProgress, List, ListItem, ListItemText, Box, Alert } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import axios from 'axios';
@@ -7,8 +7,14 @@ function SurveyResultsDashboard() {
   const [surveys, setSurveys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
-  const fetchSurveyResults = async () => {
+  const fetchSurveyResults = useCallback(async () => {
+    // Only fetch if component is expanded (accordion open)
+    if (!isExpanded && surveys.length > 0) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -20,15 +26,18 @@ function SurveyResultsDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isExpanded, surveys.length]);
 
   useEffect(() => {
-    fetchSurveyResults();
-    const interval = setInterval(fetchSurveyResults, 10000); // Refresh every 10 seconds
-    return () => clearInterval(interval);
-  }, []);
+    // Only start polling when expanded
+    if (isExpanded) {
+      fetchSurveyResults();
+      const interval = setInterval(fetchSurveyResults, 30000); // Refresh every 30 seconds (reduced from 10s)
+      return () => clearInterval(interval);
+    }
+  }, [isExpanded, fetchSurveyResults]);
 
-  const calculateStats = () => {
+  const calculateStats = useMemo(() => {
     if (surveys.length === 0) {
       return { average: 0, distribution: {}, lowRatings: [] };
     }
@@ -48,14 +57,18 @@ function SurveyResultsDashboard() {
     const average = (totalRating / surveys.length).toFixed(2);
 
     return { average, distribution, lowRatings };
-  };
+  }, [surveys]); // Memoize calculation - only recalculate when surveys change
 
-  const { average, distribution, lowRatings } = calculateStats();
+  const { average, distribution, lowRatings } = calculateStats;
+
+  const handleAccordionChange = useCallback((event, expanded) => {
+    setIsExpanded(expanded);
+  }, []);
 
   return (
     <Card style={{ marginTop: '2rem' }}>
       <CardContent>
-        <Accordion>
+        <Accordion onChange={handleAccordionChange}>
           <AccordionSummary
             expandIcon={<ExpandMoreIcon />}
             aria-controls="survey-results-content"

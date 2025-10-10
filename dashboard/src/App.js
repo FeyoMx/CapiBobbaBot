@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import MaintenanceMode from './MaintenanceMode';
 import BusinessDataEditor from './BusinessDataEditor';
 import MessageLogViewer from './MessageLogViewer';
 import OrderViewer from './OrderViewer';
 import ChatInterface from './ChatInterface';
 import RedisStateViewer from './RedisStateViewer';
-import SurveyResultsDashboard from './SurveyResultsDashboard';
-import SecurityDashboard from './SecurityDashboard';
+
+// Lazy load heavy components for better performance
+const SurveyResultsDashboard = lazy(() => import('./SurveyResultsDashboard'));
+const SecurityDashboard = lazy(() => import('./SecurityDashboard'));
 
 function App() {
   return (
@@ -69,7 +71,9 @@ function App() {
               <h3><i className="fas fa-chart-bar"></i> Dashboard de Encuestas</h3>
             </div>
             <div className="card-content">
-              <SurveyResultsDashboard />
+              <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}><i className="fas fa-spinner fa-spin"></i> Cargando encuestas...</div>}>
+                <SurveyResultsDashboard />
+              </Suspense>
             </div>
           </div>
 
@@ -78,7 +82,9 @@ function App() {
               <h3><i className="fas fa-shield-alt"></i> Dashboard de Seguridad</h3>
             </div>
             <div className="card-content">
-              <SecurityDashboard />
+              <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}><i className="fas fa-spinner fa-spin"></i> Cargando seguridad...</div>}>
+                <SecurityDashboard />
+              </Suspense>
             </div>
           </div>
 
