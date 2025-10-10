@@ -136,6 +136,7 @@ const SalesChart = dynamic(
 - ✅ SalesAnalysisChart (Analytics)
 - ✅ TopProductsChart (Analytics)
 - ✅ GeminiPerformanceChart (Analytics)
+- ✅ **PieChart en Encuestas** (Nuevo - 2025-10-09)
 
 **Impacto:**
 - Initial bundle reducido ~25%
@@ -290,6 +291,7 @@ dashboard-next/next.config.js             (Bundle optimization)
 dashboard-next/src/app/layout.tsx         (Resource hints)
 dashboard-next/src/app/page.tsx           (Lazy loading)
 dashboard-next/src/app/analytics/page.tsx (Lazy loading)
+dashboard-next/src/app/encuestas/page.tsx (Lazy loading + Fixed heights) ⭐ NUEVO
 
 # Dashboard Components (Fixed heights)
 dashboard-next/src/components/dashboard/SalesChart.tsx
@@ -479,10 +481,36 @@ Con Sprint 6 completado, las siguientes optimizaciones prioritarias:
 
 ---
 
-**Versión:** 1.0.0
-**Última actualización:** 2025-10-09
+**Versión:** 1.1.0
+**Última actualización:** 2025-10-09 19:15
 **Sprint Lead:** Dashboard Expert Agent
 **Status:** ✅ COMPLETADO
+
+---
+
+## 📝 Changelog
+
+### v1.1.0 (2025-10-09 19:15)
+**Optimización Adicional: Página de Encuestas**
+
+**Cambios realizados:**
+- ✅ Implementado lazy loading de Recharts en `/encuestas`:
+  - `PieChart`, `Pie`, `Cell`, `ResponsiveContainer`, `Tooltip` ahora se cargan dinámicamente
+  - Configurado con `ssr: false` para mejor performance
+- ✅ Agregadas alturas fijas para prevenir CLS:
+  - Card principal del PieChart: `h-[460px]` con content `h-[340px]`
+  - Card de comentarios: `h-[460px]` con content `h-[340px]` y `overflow-y-auto`
+- ✅ Build exitoso verificado con Next.js 14.2.33
+- ✅ Documentación actualizada en SPRINT_6_SUMMARY.md
+
+**Archivos modificados:**
+- `dashboard-next/src/app/encuestas/page.tsx` (líneas 1-13, 90-143)
+- `docs/dashboard/SPRINT_6_SUMMARY.md` (este archivo)
+
+**Impacto esperado:**
+- Reducción adicional del initial bundle (~5-10 KB)
+- Mejor CLS en página de encuestas (0.09 → ~0.03)
+- Carga más rápida del componente PieChart (on-demand)
 
 ---
 

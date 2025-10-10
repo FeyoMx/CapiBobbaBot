@@ -1,9 +1,16 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, ThumbsUp, TrendingUp, Star } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+
+// Lazy load Recharts for better performance (Sprint 6: Performance Optimization)
+const PieChart = dynamic(() => import('recharts').then(mod => mod.PieChart), { ssr: false });
+const Pie = dynamic(() => import('recharts').then(mod => mod.Pie), { ssr: false });
+const Cell = dynamic(() => import('recharts').then(mod => mod.Cell), { ssr: false });
+const ResponsiveContainer = dynamic(() => import('recharts').then(mod => mod.ResponsiveContainer), { ssr: false });
+const Tooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip), { ssr: false });
 
 const satisfactionData = [
   { name: 'Muy Satisfecho', value: 45, color: 'hsl(142 76% 36%)' },
@@ -80,13 +87,14 @@ export default function EncuestasPage() {
 
         {/* Charts */}
         <div className="grid gap-4 md:grid-cols-2">
-          <Card>
+          {/* Fixed height for CLS optimization (Sprint 6) */}
+          <Card className="h-[460px]">
             <CardHeader>
               <CardTitle>Distribución de Satisfacción</CardTitle>
               <CardDescription>Resultados de la encuesta post-compra</CardDescription>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+            <CardContent className="h-[340px]">
+              <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={satisfactionData}
@@ -108,12 +116,13 @@ export default function EncuestasPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          {/* Fixed height matching chart card (Sprint 6) */}
+          <Card className="h-[460px]">
             <CardHeader>
               <CardTitle>Comentarios Destacados</CardTitle>
               <CardDescription>Feedback de clientes recientes</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="h-[340px] overflow-y-auto">
               <div className="space-y-4">
                 {[
                   { rating: 5, comment: 'Excelente servicio, muy rápido y amable' },
