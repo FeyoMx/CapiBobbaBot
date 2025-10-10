@@ -34,7 +34,7 @@ export function GeminiPerformanceChart() {
   const cacheHitRate = data?.cacheHitRate || 0;
 
   return (
-    <Card className="col-span-full h-[620px]">
+    <Card className="col-span-full min-h-[620px]">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Cpu className="h-5 w-5 text-primary" />
@@ -44,13 +44,17 @@ export function GeminiPerformanceChart() {
           Análisis de uso y performance de la IA
         </CardDescription>
       </CardHeader>
-      <CardContent className="h-[calc(100%-100px)]">
-        {isLoading ? (
-          <div className="h-full w-full bg-muted animate-pulse rounded" />
-        ) : (
-          <>
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-6 h-[100px]">
+      <CardContent className="min-h-[520px]">
+        {/* Stats - Always reserve space */}
+        <div className="grid grid-cols-3 gap-4 mb-6 min-h-[100px]">
+          {isLoading ? (
+            <>
+              <div className="p-4 rounded-lg bg-muted animate-pulse h-[100px]" />
+              <div className="p-4 rounded-lg bg-muted animate-pulse h-[100px]" />
+              <div className="p-4 rounded-lg bg-muted animate-pulse h-[100px]" />
+            </>
+          ) : (
+            <>
               <div className="p-4 rounded-lg bg-muted/50">
                 <div className="text-sm text-muted-foreground flex items-center gap-1">
                   <Zap className="h-3 w-3" />
@@ -70,9 +74,15 @@ export function GeminiPerformanceChart() {
                   {avgResponseTime.toFixed(0)}ms
                 </div>
               </div>
-            </div>
+            </>
+          )}
+        </div>
 
-            {/* Chart */}
+        {/* Chart - Fixed dimensions to prevent CLS */}
+        <div className="w-full h-[380px]">
+          {isLoading ? (
+            <div className="h-full w-full bg-muted animate-pulse rounded" />
+          ) : (
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -113,8 +123,8 @@ export function GeminiPerformanceChart() {
                 />
               </ComposedChart>
             </ResponsiveContainer>
-          </>
-        )}
+          )}
+        </div>
       </CardContent>
     </Card>
   );

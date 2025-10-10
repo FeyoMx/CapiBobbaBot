@@ -6,17 +6,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { BarChart3, TrendingUp, Package, Cpu } from 'lucide-react';
 import { useMetrics } from '@/lib/hooks/useMetrics';
 
-// Lazy load heavy analytics charts
+// Lazy load heavy analytics charts with CLS-preventing skeletons
 const SalesAnalysisChart = dynamic(
   () => import('@/components/analytics/SalesAnalysisChart').then(mod => ({ default: mod.SalesAnalysisChart })),
   {
     loading: () => (
-      <Card className="col-span-full h-[640px]">
+      <Card className="col-span-full min-h-[640px]">
         <CardHeader>
           <CardTitle>Análisis de Ventas</CardTitle>
+          <CardDescription>Cargando datos de ventas...</CardDescription>
         </CardHeader>
-        <CardContent className="h-[calc(100%-120px)]">
-          <div className="h-full w-full bg-muted animate-pulse rounded" />
+        <CardContent className="min-h-[520px]">
+          {/* Stats skeleton - Reserve exact space */}
+          <div className="grid grid-cols-3 gap-4 mb-6 min-h-[100px]">
+            <div className="p-4 rounded-lg bg-muted animate-pulse h-[100px]" />
+            <div className="p-4 rounded-lg bg-muted animate-pulse h-[100px]" />
+            <div className="p-4 rounded-lg bg-muted animate-pulse h-[100px]" />
+          </div>
+          {/* Chart skeleton - Fixed dimensions */}
+          <div className="w-full h-[380px] bg-muted animate-pulse rounded" />
         </CardContent>
       </Card>
     ),
@@ -28,12 +36,22 @@ const TopProductsChart = dynamic(
   () => import('@/components/analytics/TopProductsChart').then(mod => ({ default: mod.TopProductsChart })),
   {
     loading: () => (
-      <Card className="h-[620px]">
+      <Card className="min-h-[620px]">
         <CardHeader>
           <CardTitle>Top 5 Productos</CardTitle>
+          <CardDescription>Cargando productos más vendidos...</CardDescription>
         </CardHeader>
-        <CardContent className="h-[calc(100%-100px)]">
-          <div className="h-full w-full bg-muted animate-pulse rounded" />
+        <CardContent className="min-h-[520px]">
+          {/* Product list skeleton - Reserve exact space */}
+          <div className="space-y-3 mb-6 min-h-[200px]">
+            <div className="h-10 bg-muted animate-pulse rounded" />
+            <div className="h-10 bg-muted animate-pulse rounded" />
+            <div className="h-10 bg-muted animate-pulse rounded" />
+            <div className="h-10 bg-muted animate-pulse rounded" />
+            <div className="h-10 bg-muted animate-pulse rounded" />
+          </div>
+          {/* Chart skeleton - Fixed dimensions */}
+          <div className="w-full h-[280px] bg-muted animate-pulse rounded" />
         </CardContent>
       </Card>
     ),
@@ -45,12 +63,20 @@ const GeminiPerformanceChart = dynamic(
   () => import('@/components/analytics/GeminiPerformanceChart').then(mod => ({ default: mod.GeminiPerformanceChart })),
   {
     loading: () => (
-      <Card className="col-span-full h-[620px]">
+      <Card className="col-span-full min-h-[620px]">
         <CardHeader>
           <CardTitle>Rendimiento de Gemini AI</CardTitle>
+          <CardDescription>Cargando métricas de IA...</CardDescription>
         </CardHeader>
-        <CardContent className="h-[calc(100%-100px)]">
-          <div className="h-full w-full bg-muted animate-pulse rounded" />
+        <CardContent className="min-h-[520px]">
+          {/* Stats skeleton - Reserve exact space */}
+          <div className="grid grid-cols-3 gap-4 mb-6 min-h-[100px]">
+            <div className="p-4 rounded-lg bg-muted animate-pulse h-[100px]" />
+            <div className="p-4 rounded-lg bg-muted animate-pulse h-[100px]" />
+            <div className="p-4 rounded-lg bg-muted animate-pulse h-[100px]" />
+          </div>
+          {/* Chart skeleton - Fixed dimensions */}
+          <div className="w-full h-[380px] bg-muted animate-pulse rounded" />
         </CardContent>
       </Card>
     ),

@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+/* CLS Prevention - Fixed dimensions for dynamic content */
+@layer utilities {
+  /* Chart containers with aspect ratio to prevent layout shift */
+  .chart-container {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    min-height: 300px;
+  }
+
+  .chart-container-square {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    min-height: 400px;
+  }
+
+  /* Stats grid fixed heights */
+  .stats-grid {
+    min-height: 100px;
+  }
+
+  /* Prevent CLS on skeleton transitions */
+  .skeleton-preserve-space {
+    min-height: inherit;
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

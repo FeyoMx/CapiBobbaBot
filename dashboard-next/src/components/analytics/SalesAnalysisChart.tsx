@@ -51,7 +51,7 @@ export function SalesAnalysisChart() {
   }
 
   return (
-    <Card className="col-span-full h-[640px]">
+    <Card className="col-span-full min-h-[640px]">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
@@ -67,6 +67,7 @@ export function SalesAnalysisChart() {
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value as TimeRange)}
             className="w-[150px]"
+            aria-label="Seleccionar rango de tiempo"
           >
             <option value="daily">Diario (24h)</option>
             <option value="weekly">Semanal (7 días)</option>
@@ -74,13 +75,17 @@ export function SalesAnalysisChart() {
           </Select>
         </div>
       </CardHeader>
-      <CardContent className="h-[calc(100%-120px)]">
-        {isLoading ? (
-          <div className="h-full w-full bg-muted animate-pulse rounded" />
-        ) : (
-          <>
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-6 h-[100px]">
+      <CardContent className="min-h-[520px]">
+        {/* Stats - Always reserve space */}
+        <div className="grid grid-cols-3 gap-4 mb-6 min-h-[100px]">
+          {isLoading ? (
+            <>
+              <div className="p-4 rounded-lg bg-muted animate-pulse h-[100px]" />
+              <div className="p-4 rounded-lg bg-muted animate-pulse h-[100px]" />
+              <div className="p-4 rounded-lg bg-muted animate-pulse h-[100px]" />
+            </>
+          ) : (
+            <>
               <div className="p-4 rounded-lg bg-muted/50">
                 <div className="text-sm text-muted-foreground">Total de Ventas</div>
                 <div className="text-2xl font-bold">${totalSales.toFixed(2)}</div>
@@ -93,9 +98,15 @@ export function SalesAnalysisChart() {
                 <div className="text-sm text-muted-foreground">Total Pedidos</div>
                 <div className="text-2xl font-bold">{chartData.reduce((acc: number, item: any) => acc + (item.orders || 0), 0)}</div>
               </div>
-            </div>
+            </>
+          )}
+        </div>
 
-            {/* Chart */}
+        {/* Chart - Fixed dimensions to prevent CLS */}
+        <div className="w-full h-[380px]" style={{ aspectRatio: '16/9' }}>
+          {isLoading ? (
+            <div className="h-full w-full bg-muted animate-pulse rounded" />
+          ) : (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs>
@@ -141,8 +152,8 @@ export function SalesAnalysisChart() {
                 />
               </AreaChart>
             </ResponsiveContainer>
-          </>
-        )}
+          )}
+        </div>
       </CardContent>
     </Card>
   );

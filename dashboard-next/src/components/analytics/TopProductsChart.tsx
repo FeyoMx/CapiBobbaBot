@@ -38,7 +38,7 @@ export function TopProductsChart() {
   const totalRevenue = topProducts.reduce((sum, p) => sum + p.revenue, 0);
 
   return (
-    <Card className="h-[620px]">
+    <Card className="min-h-[620px]">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Package className="h-5 w-5 text-primary" />
@@ -48,17 +48,23 @@ export function TopProductsChart() {
           Productos más vendidos por ingresos
         </CardDescription>
       </CardHeader>
-      <CardContent className="h-[calc(100%-100px)]">
-        {isLoading ? (
-          <div className="h-full w-full bg-muted animate-pulse rounded" />
-        ) : topProducts.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-muted-foreground">
-            No hay datos de productos
-          </div>
-        ) : (
-          <>
-            {/* Product List */}
-            <div className="space-y-3 mb-6 h-[200px] overflow-y-auto">
+      <CardContent className="min-h-[520px]">
+        {/* Product List - Always reserve space */}
+        <div className="space-y-3 mb-6 min-h-[200px] overflow-y-auto">
+          {isLoading ? (
+            <>
+              <div className="h-10 bg-muted animate-pulse rounded" />
+              <div className="h-10 bg-muted animate-pulse rounded" />
+              <div className="h-10 bg-muted animate-pulse rounded" />
+              <div className="h-10 bg-muted animate-pulse rounded" />
+              <div className="h-10 bg-muted animate-pulse rounded" />
+            </>
+          ) : topProducts.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-muted-foreground">
+              No hay datos de productos
+            </div>
+          ) : (
+            <>
               {topProducts.map((product, index) => (
                 <div key={product.name} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -83,9 +89,15 @@ export function TopProductsChart() {
                   </div>
                 </div>
               ))}
-            </div>
+            </>
+          )}
+        </div>
 
-            {/* Chart */}
+        {/* Chart - Fixed dimensions to prevent CLS */}
+        <div className="w-full h-[280px]">
+          {isLoading ? (
+            <div className="h-full w-full bg-muted animate-pulse rounded" />
+          ) : topProducts.length === 0 ? null : (
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={topProducts} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -111,8 +123,8 @@ export function TopProductsChart() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-          </>
-        )}
+          )}
+        </div>
       </CardContent>
     </Card>
   );
