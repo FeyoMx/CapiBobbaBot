@@ -793,11 +793,20 @@ Grid Principal (2 columnas desktop, 1 móvil)
   - ✅ Build sin errores ni warnings
   - ✅ Documentación clara para usuarios del nodo
 
+- ✅ **Publicación a npm Exitosa** (2025-10-11):
+  - ✅ Publicado a npm registry: https://www.npmjs.com/package/n8n-nodes-encuestacapibobba
+  - ✅ Versión 0.2.1 disponible públicamente
+  - ✅ Tamaño del paquete: 7.7 kB (comprimido), 15.9 kB (descomprimido)
+  - ✅ SHA-512: `43f15c8fb47eeca4715906420611edfe181f7ee7`
+  - ✅ Verificación exitosa con `npm info n8n-nodes-encuestacapibobba@0.2.1`
+  - ✅ Publicado por: capibobba <elfeyo1980@gmail.com>
+  - ✅ 8 versiones publicadas: 0.1.0 → 0.2.1
+
 - 🔜 **Próximos Pasos**:
-  1. Publicar a npm: `cd n8n-nodes-encuestacapibobba && npm publish`
-  2. Verificar publicación: `npm info n8n-nodes-encuestacapibobba`
-  3. Actualizar n8n instance con la nueva versión
-  4. Monitorear uso en producción
+  1. Actualizar n8n instance con la nueva versión: `npm update n8n-nodes-encuestacapibobba`
+  2. Reiniciar n8n para cargar el nodo actualizado
+  3. Verificar que el mensaje actualizado aparece en las encuestas
+  4. Monitorear uso en producción y feedback de usuarios
 
 ### v2.12.1 (2025-10-10) - Integración de Encuestas con Endpoint Real 📊
 - 📊 **Página de Encuestas Conectada al Backend** (`dashboard-next/src/app/encuestas/page.tsx`):
