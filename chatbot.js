@@ -1148,7 +1148,9 @@ async function processIncomingMessage(message) {
                 } else {
                     // Detectar intención y reaccionar antes de procesar
                     if (message.id && reactionManager) {
-                        reactionManager.reactToIntention(from, message.id, text).catch(() => {});
+                        reactionManager.reactToIntention(from, message.id, text).catch((err) => {
+                            console.error('Error al procesar reacción de intención:', err.message || err);
+                        });
                     }
                     // Procesar como mensaje de texto normal
                     await handleTextMessage(from, text, userState);

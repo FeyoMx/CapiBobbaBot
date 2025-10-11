@@ -157,7 +157,21 @@ class ReactionManager {
 
       return true;
     } catch (error) {
-      console.error('Error al enviar reacción:', error.response?.data || error.message);
+      const errorDetails = error.response?.data
+        ? JSON.stringify(error.response.data)
+        : error.message || 'Error desconocido';
+      console.error(`❌ Error al enviar reacción a ${messageId}:`, errorDetails);
+
+      // Log adicional para debugging
+      if (error.response) {
+        console.error(`   Status: ${error.response.status}`);
+        console.error(`   Headers:`, JSON.stringify(error.response.headers));
+      } else if (error.request) {
+        console.error(`   No se recibió respuesta del servidor`);
+      } else {
+        console.error(`   Error de configuración:`, error.message);
+      }
+
       return false;
     }
   }
