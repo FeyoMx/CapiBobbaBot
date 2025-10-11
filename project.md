@@ -421,6 +421,29 @@ UV_THREADPOOL_SIZE=2
 - Análisis de sentimiento
 - Reportes automáticos
 
+### Nodo Personalizado de n8n: Encuesta CapiBobba
+
+**Paquete npm**: `n8n-nodes-encuestacapibobba` (versión 0.2.1)
+
+Nodo personalizado desarrollado para enviar encuestas de satisfacción post-compra a través de WhatsApp Business API usando mensajes interactivos.
+
+**Características**:
+- Encuesta con escala de 1-5 estrellas (⭐)
+- Mensaje personalizado con fecha del pedido
+- Invitación a comentarios opcionales post-calificación
+- Integración directa con WhatsApp Cloud API
+- Credenciales configurables para autenticación
+
+**Parámetros**:
+- `phoneNumber` (requerido): Número de teléfono del cliente
+- `fecha` (requerido): Fecha del pedido para personalización
+
+**Repositorio**: [n8n-nodes-encuestacapibobba/](n8n-nodes-encuestacapibobba/)
+- Estructura TypeScript con compilación automática
+- Build: `npm run build` en el directorio del nodo
+- Historial de versiones en [CHANGELOG.md](n8n-nodes-encuestacapibobba/CHANGELOG.md)
+- Publicación manual a npm registry
+
 ## 🧪 Testing
 
 ### Endpoints a Probar
@@ -721,6 +744,60 @@ Grid Principal (2 columnas desktop, 1 móvil)
 ---
 
 ## 📋 Historial de Cambios
+
+### v0.2.1-nodo (2025-10-11) - Actualización Nodo n8n de Encuestas 📦
+- 📦 **Actualización de Versión del Nodo**: Bumped versión 0.2.0 → 0.2.1 en `n8n-nodes-encuestacapibobba`
+  - Cambio tipo **PATCH** (semver) - Mejora menor sin breaking changes
+  - Repositorio independiente con control de versiones propio
+
+- ✨ **Mejoras en Mensaje de Encuesta** ([n8n-nodes-encuestacapibobba/nodes/EncuestaCapiBobba/EncuestaCapiBobba.node.ts:83](n8n-nodes-encuestacapibobba/nodes/EncuestaCapiBobba/EncuestaCapiBobba.node.ts#L83)):
+  - Agregado texto informativo sobre comentarios opcionales
+  - Mensaje actualizado: "*💬 Opcional: Después de calificar, puedes enviarnos un comentario...*"
+  - Mejora UX del flujo de encuestas
+
+- 📝 **CHANGELOG.md Creado** ([n8n-nodes-encuestacapibobba/CHANGELOG.md](n8n-nodes-encuestacapibobba/CHANGELOG.md)):
+  - Historial completo de versiones (0.1.0 → 0.2.1)
+  - Formato basado en [Keep a Changelog](https://keepachangelog.com/)
+  - Adherencia a [Versionado Semántico](https://semver.org/)
+  - Documentación de características técnicas por versión
+
+- 🔧 **Build y Compilación**:
+  - Build exitoso ejecutado: `npm run build`
+  - Archivos compilados actualizados en [dist/](n8n-nodes-encuestacapibobba/dist/)
+  - 0 errores de TypeScript
+  - Listo para publicación a npm
+
+- 📚 **Documentación Actualizada**:
+  - [project.md:424-445](project.md#L424-L445) - Nueva sección "Nodo Personalizado de n8n"
+  - Descripción completa del paquete npm
+  - Parámetros, características y estructura del nodo
+  - Referencias a CHANGELOG y repositorio
+
+- 🎯 **Preparación para Publicación**:
+  - Script `prepublishOnly` configurado para validación automática
+  - Lint check antes de publicar
+  - Build obligatorio antes de publicación
+  - README con instrucciones de uso
+
+- 📁 **Archivos modificados**:
+  - `n8n-nodes-encuestacapibobba/package.json:3` - Version 0.2.0 → 0.2.1
+  - `n8n-nodes-encuestacapibobba/nodes/EncuestaCapiBobba/EncuestaCapiBobba.node.ts:83` - Mensaje mejorado
+  - `n8n-nodes-encuestacapibobba/CHANGELOG.md` - Creado (nuevo archivo)
+  - `n8n-nodes-encuestacapibobba/dist/*` - Build actualizado
+  - `project.md:424-445,1105-1145` - Documentación completa
+
+- ✅ **Impacto**:
+  - ✅ Nodo listo para publicación a npm con `npm publish`
+  - ✅ Versioning semántico correctamente implementado
+  - ✅ Historial de cambios completo y profesional
+  - ✅ Build sin errores ni warnings
+  - ✅ Documentación clara para usuarios del nodo
+
+- 🔜 **Próximos Pasos**:
+  1. Publicar a npm: `cd n8n-nodes-encuestacapibobba && npm publish`
+  2. Verificar publicación: `npm info n8n-nodes-encuestacapibobba`
+  3. Actualizar n8n instance con la nueva versión
+  4. Monitorear uso en producción
 
 ### v2.12.1 (2025-10-10) - Integración de Encuestas con Endpoint Real 📊
 - 📊 **Página de Encuestas Conectada al Backend** (`dashboard-next/src/app/encuestas/page.tsx`):
