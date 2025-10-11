@@ -1265,6 +1265,10 @@ async function handleTextMessage(from, text, userState) {
     // 2. Manejar estados específicos del usuario
     if (userState && userState.step) {
         switch (userState.step) {
+            case 'awaiting_survey_comment':
+                await handleSurveyComment(from, text, userState);
+                return;
+
             case 'awaiting_address':
                 await handleAddressResponse(from, text);
                 return;
@@ -1326,13 +1330,29 @@ async function handleTextMessage(from, text, userState) {
  */
 async function handleInteractiveMessage(from, interactive, userState) {
     console.log(`🎯 Procesando mensaje interactivo de ${from}:`, interactive);
-    
+
+    // Manejar respuestas de lista (encuestas)
+    if (interactive.type === 'list_reply') {
+        const listReplyId = interactive.list_reply?.id;
+        const listReplyTitle = interactive.list_reply?.title;
+
+        console.log(`📋 Lista respondida: ${listReplyId} - ${listReplyTitle}`);
+
+        // Detectar si es una respuesta de encuesta
+        if (listReplyId && listReplyId.startsWith('rating_')) {
+            const rating = parseInt(listReplyId.replace('rating_', ''));
+            console.log(`⭐ Calificación de encuesta detectada: ${rating}`);
+            await handleSurveyResponse(from, rating);
+            return;
+        }
+    }
+
     if (interactive.type === 'button_reply') {
         const buttonId = interactive.button_reply?.id;
         const buttonTitle = interactive.button_reply?.title;
-        
+
         console.log(`Botón presionado: ${buttonId} - ${buttonTitle}`);
-        
+
         // Verificar si hay un manejador específico para este botón
         if (buttonCommandHandlers[buttonId]) {
             await buttonCommandHandlers[buttonId](from);
@@ -1710,27 +1730,27 @@ Total del pedido: $75.00
  * Esta función es universal y funciona para pedidos de cualquier canal.
  * @param {string} from El número del remitente.
  * @param {string} text El texto del mensaje.
- * @returns {number|null} El rating numérico (0-5) si es una respuesta válida, null en caso contrario.
+ * @returns {number|null} El rating numérico (1-5) si es una respuesta válida, null en caso contrario.
  */
 async function detectSurveyResponse(from, text) {
     // Limpiar el texto y extraer solo números
     const cleanText = text.trim();
 
-    // Buscar un número entre 0 y 5 en el mensaje
-    const ratingMatch = cleanText.match(/^[0-5]$/);
+    // Buscar un número entre 1 y 5 en el mensaje
+    const ratingMatch = cleanText.match(/^[1-5]$/);
 
     if (!ratingMatch) {
-        // Si no es un número simple 0-5, buscar patrones más complejos
-        const complexMatch = cleanText.match(/(?:calific|punt|rate|star|estrell)[^\d]*([0-5])/i) ||
-                            cleanText.match(/([0-5])\s*(?:de\s*5|\/5|\*|star|estrell)/i) ||
-                            cleanText.match(/^.*?([0-5]).*$/);
+        // Si no es un número simple 1-5, buscar patrones más complejos
+        const complexMatch = cleanText.match(/(?:calific|punt|rate|star|estrell)[^\d]*([1-5])/i) ||
+                            cleanText.match(/([1-5])\s*(?:de\s*5|\/5|\*|star|estrell)/i) ||
+                            cleanText.match(/^.*?([1-5]).*$/);
 
         if (!complexMatch) {
             return null;
         }
 
         const potentialRating = parseInt(complexMatch[1]);
-        if (potentialRating < 0 || potentialRating > 5) {
+        if (potentialRating < 1 || potentialRating > 5) {
             return null;
         }
 
@@ -1824,30 +1844,104 @@ async function checkRecentUserActivity(from) {
 /**
  * Maneja la respuesta numérica de una encuesta de satisfacción.
  * @param {string} from El número del remitente.
- * @param {number} rating La calificación dada por el usuario (0-5).
+ * @param {number} rating La calificación dada por el usuario (1-5).
  */
 async function handleSurveyResponse(from, rating) {
-  console.log(`Respuesta de encuesta recibida de ${from}: Calificación ${rating}`);
-  logSurveyResponseToFile({ from: from, rating: rating }); // Log the survey response
+  console.log(`⭐ Respuesta de encuesta recibida de ${from}: Calificación ${rating}`);
+
+  // Guardar la calificación con timestamp en Redis para asociarla con el próximo comentario
+  const surveyData = {
+    from: from,
+    rating: rating,
+    timestamp: new Date().toISOString(),
+    comment: null // Se actualizará si el usuario envía un comentario
+  };
+
+  // Guardar en Redis con TTL de 10 minutos para capturar comentarios
+  await redisClient.setex(`survey_pending:${from}`, 600, JSON.stringify(surveyData));
+
+  // Establecer estado del usuario para detectar comentarios posteriores
+  await setUserState(from, {
+    step: 'awaiting_survey_comment',
+    surveyRating: rating,
+    surveyTimestamp: surveyData.timestamp
+  });
 
   let responseText;
 
   // Personalizamos el mensaje de agradecimiento según la calificación.
   if (rating <= 2) {
-    responseText = `Lamentamos mucho que tu experiencia no haya sido la mejor. Agradecemos tus comentarios y los tomaremos en cuenta para mejorar. Un agente podría contactarte para entender mejor qué pasó.`;
+    responseText = `Lamentamos mucho que tu experiencia no haya sido la mejor 😔\n\n¿Te gustaría contarnos qué podríamos mejorar? Tu comentario nos ayudará a brindarte un mejor servicio.`;
     // Notificamos a un admin sobre la mala calificación para un seguimiento.
-    notifyAdmin(`⚠️ ¡Alerta de Calificación Baja! ⚠️\n\nEl cliente ${formatDisplayNumber(from)} ha calificado el servicio con un: *${rating}*.\n\nSería bueno contactarlo para entender qué podemos mejorar.`);
+    notifyAdmin(`⚠️ ¡Alerta de Calificación Baja! ⚠️\n\nEl cliente ${formatDisplayNumber(from)} ha calificado el servicio con un: *${rating}* estrellas.\n\nSería bueno contactarlo para entender qué podemos mejorar.`);
   } else if (rating >= 4) {
-    responseText = `¡Nos alegra mucho que hayas tenido una buena experiencia! Gracias por tu calificación. ¡Esperamos verte pronto! 🎉`;
-  } else { // Para calificaciones de 3
-    responseText = `¡Muchas gracias por tus comentarios! Tu opinión es muy importante para nosotros y nos ayuda a mejorar. 😊`;
+    responseText = `¡Nos alegra mucho que hayas tenido una buena experiencia! 🎉\n\nSi deseas, puedes enviarnos un comentario adicional sobre tu experiencia. ¡Tu opinión es muy valiosa!`;
+  } else { // Para calificación de 3
+    responseText = `Gracias por tu calificación 😊\n\n¿Hay algo específico que te gustaría que mejoráramos? Tu comentario es muy importante para nosotros.`;
   }
 
   await sendTextMessage(from, responseText);
 
-  // Opcional: Si usaras un estado como 'awaiting_survey', aquí lo limpiarías.
-  // await deleteUserState(from);
+  // Log inicial sin comentario (se actualizará si el usuario comenta)
+  logSurveyResponseToFile(surveyData);
 }
+
+/**
+ * Maneja el comentario de texto que el usuario envía después de calificar la encuesta.
+ * @param {string} from El número del remitente.
+ * @param {string} text El comentario del usuario.
+ * @param {object} userState El estado del usuario con la calificación previa.
+ */
+async function handleSurveyComment(from, text, userState) {
+  console.log(`💬 Comentario de encuesta recibido de ${from}: "${text}"`);
+
+  // Recuperar la encuesta pendiente de Redis
+  const surveyKey = `survey_pending:${from}`;
+  const pendingSurveyData = await redisClient.get(surveyKey);
+
+  if (pendingSurveyData) {
+    const surveyData = JSON.parse(pendingSurveyData);
+    surveyData.comment = text;
+    surveyData.commentTimestamp = new Date().toISOString();
+
+    // Actualizar el log con el comentario
+    logSurveyResponseToFile(surveyData);
+
+    // Eliminar la entrada pendiente de Redis
+    await redisClient.del(surveyKey);
+
+    console.log(`✅ Comentario guardado para encuesta de ${from} con rating ${surveyData.rating}`);
+  } else {
+    // Si no hay encuesta pendiente, usar el rating del userState
+    const surveyData = {
+      from: from,
+      rating: userState.surveyRating,
+      timestamp: userState.surveyTimestamp,
+      comment: text,
+      commentTimestamp: new Date().toISOString()
+    };
+
+    logSurveyResponseToFile(surveyData);
+    console.log(`✅ Comentario guardado (desde userState) para ${from}`);
+  }
+
+  // Limpiar el estado del usuario
+  await deleteUserState(from);
+
+  // Agradecer al usuario
+  await sendTextMessage(from, '¡Muchas gracias por tu comentario! Tu opinión es muy valiosa para nosotros y nos ayuda a mejorar cada día. 💜✨');
+
+  // Si el comentario es largo o la calificación fue baja, notificar a admin
+  if (userState.surveyRating <= 2 || text.length > 50) {
+    await notifyAdmin(
+      `💬 *Comentario de Encuesta*\n\n` +
+      `Cliente: ${formatDisplayNumber(from)}\n` +
+      `Calificación: ${userState.surveyRating} ⭐\n` +
+      `Comentario: "${text}"`
+    );
+  }
+}
+
 // --- MANEJADORES DE COMANDOS ---
 
 /**
@@ -3276,20 +3370,20 @@ app.get('/api/survey/results', async (req, res) => {
     // Calcular estadísticas
     const totalResponses = allSurveys.length;
 
-    // Agrupar por rating
-    const ratingCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    // Agrupar por rating (escala 1-5)
+    const ratingCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     allSurveys.forEach(survey => {
       const rating = survey.rating;
-      if (rating >= 0 && rating <= 5) {
+      if (rating >= 1 && rating <= 5) {
         ratingCounts[rating]++;
       }
     });
 
-    // Calcular NPS (Net Promoter Score)
-    // Promotores: 4-5, Pasivos: 3, Detractores: 0-2
+    // Calcular NPS (Net Promoter Score) adaptado a escala 1-5
+    // Promotores: 4-5, Pasivos: 3, Detractores: 1-2
     const promoters = (ratingCounts[4] || 0) + (ratingCounts[5] || 0);
     const passives = ratingCounts[3] || 0;
-    const detractors = (ratingCounts[0] || 0) + (ratingCounts[1] || 0) + (ratingCounts[2] || 0);
+    const detractors = (ratingCounts[1] || 0) + (ratingCounts[2] || 0);
     const npsScore = totalResponses > 0
       ? Math.round(((promoters - detractors) / totalResponses) * 100)
       : 0;
@@ -3308,7 +3402,7 @@ app.get('/api/survey/results', async (req, res) => {
       ? (totalRating / totalResponses).toFixed(1)
       : 0;
 
-    // Distribución de satisfacción para el gráfico
+    // Distribución de satisfacción para el gráfico (escala 1-5)
     const satisfactionDistribution = [
       {
         name: 'Muy Satisfecho',
@@ -3327,7 +3421,7 @@ app.get('/api/survey/results', async (req, res) => {
       },
       {
         name: 'Insatisfecho',
-        value: (ratingCounts[0] || 0) + (ratingCounts[1] || 0) + (ratingCounts[2] || 0),
+        value: (ratingCounts[1] || 0) + (ratingCounts[2] || 0),
         color: 'hsl(0 84% 60%)'
       },
     ];
@@ -3339,7 +3433,9 @@ app.get('/api/survey/results', async (req, res) => {
       .map(survey => ({
         rating: survey.rating,
         from: survey.from,
-        timestamp: survey.timestamp || new Date().toISOString()
+        timestamp: survey.timestamp || new Date().toISOString(),
+        comment: survey.comment || null,
+        commentTimestamp: survey.commentTimestamp || null
       }));
 
     res.json({
