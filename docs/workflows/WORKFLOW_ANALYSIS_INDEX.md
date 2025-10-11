@@ -22,10 +22,62 @@ Este es el documento principal que debes consultar. Contiene:
 
 ### Documentos Disponibles:
 1. **[ROADMAP_MEJORAS_WORKFLOW.md](workflow_analysis/ROADMAP_MEJORAS_WORKFLOW.md)** - Roadmap completo (37KB)
-2. **[workflow_analysis_output.txt](workflow_analysis/workflow_analysis_output.txt)** - Análisis de estructura (24KB)
-3. **[detailed_flow_analysis.js](workflow_analysis/detailed_flow_analysis.js)** - Script de análisis (11KB)
-4. **[parse_workflow.js](workflow_analysis/parse_workflow.js)** - Parser del workflow (4KB)
-5. **[README.md](workflow_analysis/README.md)** - Documentación de la carpeta
+2. **[N8N_ENCUESTAS_ANALISIS_TECNICO.md](workflow_analysis/N8N_ENCUESTAS_ANALISIS_TECNICO.md)** ⭐ NUEVO - Análisis técnico workflow de encuestas (58KB)
+3. **[SISTEMA_ENCUESTAS_RESUMEN.md](workflow_analysis/SISTEMA_ENCUESTAS_RESUMEN.md)** - Resumen sistema de encuestas (42KB)
+4. **[survey_workflow.json](workflow_analysis/survey_workflow.json)** - Workflow de encuestas exportado
+5. **[workflow_analysis_output.txt](workflow_analysis/workflow_analysis_output.txt)** - Análisis de estructura (24KB)
+6. **[detailed_flow_analysis.js](workflow_analysis/detailed_flow_analysis.js)** - Script de análisis (11KB)
+7. **[parse_workflow.js](workflow_analysis/parse_workflow.js)** - Parser del workflow (4KB)
+8. **[README.md](workflow_analysis/README.md)** - Documentación de la carpeta
+
+---
+
+## 📊 Workflow de Encuestas (Nuevo)
+
+### 📄 Análisis Técnico Completo
+**[N8N_ENCUESTAS_ANALISIS_TECNICO.md](workflow_analysis/N8N_ENCUESTAS_ANALISIS_TECNICO.md)** ⭐ NUEVO
+
+Este documento contiene un análisis técnico profundo del workflow "Encuestador":
+- 🔍 Análisis detallado de los 9 nodos del workflow
+- 📚 Documentación oficial de n8n para cada tipo de nodo
+- ✅ Validaciones técnicas realizadas
+- 🎯 6 mejoras prioritarias identificadas
+- 💡 Implementaciones sugeridas con código
+- 📋 Plan de sprints (Quick Wins → Botones Interactivos → Avanzado)
+
+### Mejoras Prioritarias Identificadas:
+
+#### 🔴 Alta Prioridad (3-4 horas)
+1. **Optimizar Trigger Schedule** (15 min)
+   - Cron expression: `0 9-22 * * *`
+   - 45% reducción en ejecuciones
+
+2. **Retry Logic en Google Sheets** (30 min)
+   - 3 reintentos con 2s de espera
+   - 95% reducción en errores
+
+3. **Botones Interactivos WhatsApp** (2-3h)
+   - Lista con opciones ⭐⭐⭐⭐⭐ (5) hasta ⭐ (1)
+   - 3-5x aumento esperado en tasa de respuesta
+
+#### 🟡 Media Prioridad (2 horas)
+4. **Personalizar Mensaje** (30 min)
+   - Incluir fecha, ID pedido, total
+   - +20% tasa de respuesta estimada
+
+5. **Ordenamiento + Batch Processing** (1h)
+   - FIFO garantizado
+   - Max 10 encuestas por hora
+
+#### 🟢 Baja Prioridad (1 hora)
+6. **Validación Robusta de Fechas** (1h)
+   - Formato, fecha pasada, rango 30 días
+
+### KPIs Post-Mejoras
+- **Ejecuciones diarias:** 13 (vs 24 actual) → 45% reducción
+- **Error rate:** <1% (con retry logic)
+- **Tasa de respuesta:** >60% (con botones interactivos)
+- **NPS Score objetivo:** >70
 
 ---
 

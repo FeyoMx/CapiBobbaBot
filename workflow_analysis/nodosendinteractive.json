@@ -1,0 +1,43 @@
+{
+  "type": "n8n-nodes-base.whatsApp",
+  "parameters": {
+    "operation": "sendInteractive",
+    "type": "list",
+    "body": {
+      "text": "¡Hola! Soy CapiBot, de CapiBobba 💜.\n\nNoté que disfrutaste de un pedido con nosotros el {{ fecha }}. ¡Esperamos que te haya encantado!\n\nPara mejorar, ¿podrías calificar tu experiencia?"
+    },
+    "action": {
+      "button": "Calificar ⭐",
+      "sections": [{
+        "title": "Selecciona tu calificación",
+        "rows": [
+          {
+            "id": "rating_5",
+            "title": "⭐⭐⭐⭐⭐ Excelente (5)",
+            "description": "¡Todo fue perfecto!"
+          },
+          {
+            "id": "rating_4",
+            "title": "⭐⭐⭐⭐ Muy Bueno (4)",
+            "description": "Me gustó mucho"
+          },
+          {
+            "id": "rating_3",
+            "title": "⭐⭐⭐ Bueno (3)",
+            "description": "Estuvo bien"
+          },
+          {
+            "id": "rating_2",
+            "title": "⭐⭐ Regular (2)",
+            "description": "Podría mejorar"
+          },
+          {
+            "id": "rating_1",
+            "title": "⭐ Malo (1)",
+            "description": "No me gustó"
+          }
+        ]
+      }]
+    }
+  }
+}

@@ -51,6 +51,52 @@ Este directorio contiene subagentes especializados para el desarrollo de CapiBob
 
 ---
 
+### 3. **n8n Workflow Expert** (`n8n-workflow-expert`)
+**Expertise**: n8n Workflows, Automatización, Integración de APIs, Optimización de Flujos
+
+**Cuándo usarlo:**
+- Crear o modificar workflows de n8n
+- Optimizar flujos existentes (performance, retry logic)
+- Debuggear errores en workflows
+- Integrar nuevas APIs o servicios
+- Implementar error handling y alertas
+- Buscar nodos y templates usando MCP tools
+
+**Tecnologías y Tools:**
+- **525 nodos n8n** (263 AI tools, 104 triggers)
+- **MCP Tools completo**: `mcp__n8n__*` (búsqueda, validación, templates)
+- **Integraciones**: WhatsApp Cloud API, Google Gemini, Sheets, Drive, Telegram
+- **CapiBobbaBot Context**: Workflows activos, documentación análisis, retry logic implementado
+
+**MCP Tools Disponibles:**
+- `mcp__n8n__search_nodes()` - Buscar nodos por keyword
+- `mcp__n8n__get_node_documentation()` - Docs completas con ejemplos
+- `mcp__n8n__validate_workflow()` - Validar workflows completos
+- `mcp__n8n__search_templates()` - Buscar templates
+- `mcp__n8n__list_ai_tools()` - Listar 263 AI tools
+- Y 20+ tools más...
+
+**Ejemplo de uso:**
+```
+@n8n-workflow-expert Optimiza el workflow de pedidos, agrega retry logic y valida con MCP tools
+```
+
+---
+
+## 📖 Ejemplos Completos
+
+Para ejemplos detallados del **n8n Workflow Expert** con MCP tools, ver:
+**[EJEMPLO_N8N_AGENT.md](EJEMPLO_N8N_AGENT.md)** ⭐
+
+Incluye:
+- Búsqueda y documentación de nodos
+- Optimización de workflows existentes
+- Creación desde templates
+- Debugging con validación MCP
+- Tips y mejores prácticas
+
+---
+
 ## 📖 Cómo Usar los Subagentes
 
 ### Método 1: Invocación Explícita

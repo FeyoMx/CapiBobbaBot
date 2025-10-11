@@ -1192,4 +1192,399 @@ Con estas mejoras implementadas, el workflow alcanzará un nivel de **producció
 
 ---
 
+## 📊 WORKFLOW DE ENCUESTAS - ANÁLISIS Y MEJORAS
+
+### Estado Actual (10 Oct 2025)
+- ✅ **Workflow Activo:** "Encuestador" (ID: Rc9iq3TKi55iqSW2)
+- ✅ **Funcionalidad:** Envío automático de encuestas post-entrega
+- ✅ **Frecuencia:** Cada hora (trigger schedule)
+- ✅ **Integración:** WhatsApp Cloud API + Google Sheets
+- ⚠️ **Análisis Técnico:** Disponible en `N8N_ENCUESTAS_ANALISIS_TECNICO.md`
+
+### 🔴 Mejoras Prioritarias - Workflow de Encuestas
+
+#### 1. OPTIMIZAR TRIGGER SCHEDULE ⚡ ALTA PRIORIDAD
+
+**Problema:**
+- Ejecuta cada hora 24/7 (24 ejecuciones/día)
+- Negocio solo abre 9am-10pm
+- 45% de ejecuciones son innecesarias (fuera de horario)
+
+**Solución:**
+```json
+{
+  "parameters": {
+    "rule": {
+      "interval": [{
+        "field": "cronExpression",
+        "cronExpression": "0 9-22 * * *"
+      }]
+    },
+    "timezone": "America/Mexico_City"
+  }
+}
+```
+
+**Beneficios:**
+- ✅ 45% reducción en ejecuciones (24 → 13 por día)
+- ✅ Ahorro de recursos del servidor
+- ✅ Alineado con horario comercial
+
+**Tiempo Estimado:** 15 minutos
+**Riesgo:** Bajo
+
+---
+
+#### 2. AGREGAR RETRY LOGIC EN NODOS CRÍTICOS 🔧 ALTA PRIORIDAD
+
+**Problema:**
+- Nodo "Actualiza lista de encuestas" sin retry
+- Si falla, puede enviar encuesta duplicada en próxima ejecución
+- Sin protección contra timeouts de Google Sheets
+
+**Solución:**
+Agregar a ambos nodos de Google Sheets:
+```json
+{
+  "retryOnFail": true,
+  "maxTries": 3,
+  "waitBetweenTries": 2000,
+  "alwaysOutputData": true
+}
+```
+
+**Nodos a modificar:**
+1. "Lee si ya se envió la encuesta"
+2. "Actualiza lista de encuestas"
+
+**Beneficios:**
+- ✅ 95% reducción en errores de Google Sheets API
+- ✅ Previene envíos duplicados
+- ✅ Manejo robusto de timeouts
+
+**Tiempo Estimado:** 30 minutos
+**Riesgo:** Bajo
+
+---
+
+#### 3. IMPLEMENTAR BOTONES INTERACTIVOS EN WHATSAPP 🎯 ALTA PRIORIDAD
+
+**Problema:**
+- Mensaje actual requiere escribir número (baja tasa de respuesta)
+- Sin opciones visuales para calificación
+- Usuario debe recordar escala 1-5
+
+**Solución:**
+Reemplazar nodo WhatsApp text por interactive list:
+
+```json
+{
+  "type": "n8n-nodes-base.whatsApp",
+  "parameters": {
+    "operation": "sendInteractive",
+    "type": "list",
+    "body": {
+      "text": "¡Hola! Soy CapiBot, de CapiBobba 💜.\n\nNoté que disfrutaste de un pedido con nosotros el {{ fecha }}. ¡Esperamos que te haya encantado!\n\nPara mejorar, ¿podrías calificar tu experiencia?"
+    },
+    "action": {
+      "button": "Calificar ⭐",
+      "sections": [{
+        "title": "Selecciona tu calificación",
+        "rows": [
+          {
+            "id": "rating_5",
+            "title": "⭐⭐⭐⭐⭐ Excelente (5)",
+            "description": "¡Todo fue perfecto!"
+          },
+          {
+            "id": "rating_4",
+            "title": "⭐⭐⭐⭐ Muy Bueno (4)",
+            "description": "Me gustó mucho"
+          },
+          {
+            "id": "rating_3",
+            "title": "⭐⭐⭐ Bueno (3)",
+            "description": "Estuvo bien"
+          },
+          {
+            "id": "rating_2",
+            "title": "⭐⭐ Regular (2)",
+            "description": "Podría mejorar"
+          },
+          {
+            "id": "rating_1",
+            "title": "⭐ Malo (1)",
+            "description": "No me gustó"
+          }
+        ]
+      }]
+    }
+  }
+}
+```
+
+**Beneficios:**
+- ✅ 3-5x aumento esperado en tasa de respuesta
+- ✅ UX mejorada (un tap vs escribir)
+- ✅ Datos más estructurados
+- ✅ Interfaz profesional
+
+**Tiempo Estimado:** 2-3 horas (incluye testing)
+**Riesgo:** Bajo
+
+---
+
+#### 4. PERSONALIZAR MENSAJE CON DATOS DEL PEDIDO 📝 MEDIA PRIORIDAD
+
+**Problema:**
+- Mensaje genérico sin contexto del pedido
+- Cliente debe recordar qué pidió
+- Menor tasa de respuesta por falta de contexto
+
+**Solución:**
+Agregar Set Node antes de WhatsApp para formatear mensaje:
+
+```json
+{
+  "type": "n8n-nodes-base.set",
+  "parameters": {
+    "assignments": {
+      "assignments": [
+        {
+          "name": "mensaje_personalizado",
+          "value": "¡Hola! Soy CapiBot, de CapiBobba 💜.\n\nNoté que disfrutaste de un pedido con nosotros el {{ DateTime.fromFormat($json.Fecha_Entrega, 'dd/MM/yyyy HH:mm:ss').toFormat('dd/MM/yyyy') }}. ¡Esperamos que te haya encantado! 🎉\n\nPedido: {{ $json.ID_Pedido }}\nTotal: ${{ $json.Total }}\n\nPara mejorar, ¿podrías calificar tu experiencia del 1 al 5? (donde 5 es excelente).",
+          "type": "string"
+        }
+      ]
+    }
+  }
+}
+```
+
+**Beneficios:**
+- ✅ Mayor tasa de respuesta (+20% estimado)
+- ✅ Contexto claro del pedido
+- ✅ Facilita recordar experiencia
+
+**Tiempo Estimado:** 30 minutos
+**Riesgo:** Bajo
+
+---
+
+#### 5. AGREGAR ORDENAMIENTO Y BATCH PROCESSING 🔄 MEDIA PRIORIDAD
+
+**Problema:**
+- Pedidos procesados en orden aleatorio (no FIFO)
+- Si hay 50 pedidos sin encuesta, envía 50 de golpe
+- Posible saturación de WhatsApp API
+
+**Solución:**
+
+**Paso 1: Ordenar por Fecha_Entrega**
+```json
+{
+  "type": "n8n-nodes-base.sort",
+  "parameters": {
+    "sortFieldsUI": {
+      "sortField": [{
+        "fieldName": "Fecha_Entrega",
+        "order": "ascending"
+      }]
+    }
+  }
+}
+```
+
+**Paso 2: Procesar en batches de 10**
+```json
+{
+  "type": "n8n-nodes-base.splitInBatches",
+  "parameters": {
+    "batchSize": 10,
+    "options": {
+      "reset": false
+    }
+  }
+}
+```
+
+**Flujo actualizado:**
+```
+Google Sheets (Lee pedidos)
+  → Sort (Ordena por fecha)
+  → Split In Batches (10 por ejecución)
+  → Loop: Procesa batch
+  → Siguiente batch en próxima hora
+```
+
+**Beneficios:**
+- ✅ FIFO garantizado (pedidos más antiguos primero)
+- ✅ Rate limiting natural
+- ✅ Previene spam de encuestas
+
+**Tiempo Estimado:** 1 hora
+**Riesgo:** Bajo
+
+---
+
+#### 6. MEJORAR VALIDACIÓN DE FECHA_ENTREGA 🔍 BAJA PRIORIDAD
+
+**Problema:**
+- Solo valida "no vacío", no formato de fecha
+- Valores inválidos como "N/A" o "Pendiente" pasarían
+- Sin validación de fechas futuras
+
+**Solución:**
+Reemplazar IF simple por Code Node con validación robusta:
+
+```javascript
+// Code Node: "Validate Delivery Date"
+const fechaStr = $json.Fecha_Entrega;
+
+try {
+  const fecha = DateTime.fromFormat(fechaStr, 'dd/MM/yyyy HH:mm:ss', {
+    zone: 'America/Mexico_City'
+  });
+
+  const isValid = fecha.isValid;
+  const isInPast = fecha < DateTime.now();
+  const isRecent = fecha > DateTime.now().minus({ days: 30 });
+
+  return {
+    isValid,
+    isInPast,
+    isRecent,
+    shouldSendSurvey: isValid && isInPast && isRecent,
+    fecha: fecha.toISO(),
+    ...item.json
+  };
+} catch (error) {
+  return {
+    isValid: false,
+    shouldSendSurvey: false,
+    error: error.message,
+    ...item.json
+  };
+}
+```
+
+**Beneficios:**
+- ✅ Validación robusta de formato
+- ✅ Previene fechas del futuro
+- ✅ Excluye pedidos muy antiguos (>30 días)
+
+**Tiempo Estimado:** 1 hora
+**Riesgo:** Bajo
+
+---
+
+### 📋 Plan de Implementación - Workflow de Encuestas
+
+#### 🔴 Sprint 1: Quick Wins (3-4 horas)
+
+**Semana 1:**
+1. ✅ **Día 1:** Optimizar trigger con cron expression (15 min)
+2. ✅ **Día 1:** Agregar retry logic en Google Sheets (30 min)
+3. ✅ **Día 2:** Implementar ordenamiento + batches (1h)
+4. ✅ **Día 2:** Personalizar mensaje (30 min)
+5. ✅ **Día 3:** Testing exhaustivo (1h)
+
+**Impacto esperado:**
+- 45% reducción en ejecuciones
+- 95% reducción en errores
+- FIFO garantizado
+- Mensajes más contextuales
+
+---
+
+#### 🟡 Sprint 2: Botones Interactivos (2-3 horas)
+
+**Semana 2:**
+1. ✅ **Día 1:** Diseñar estructura de lista interactiva (30 min)
+2. ✅ **Día 1:** Implementar nodo WhatsApp interactive (1h)
+3. ✅ **Día 2:** Testing con clientes reales (1h)
+4. ✅ **Día 2:** Validar detección de respuestas en chatbot.js (30 min)
+
+**Impacto esperado:**
+- 3-5x aumento en tasa de respuesta
+- Datos más estructurados
+- UX profesional
+
+---
+
+#### 🟢 Sprint 3: Mejoras Avanzadas (4-5 horas) - OPCIONAL
+
+**Semana 3-4:**
+1. ✅ Validación robusta de fechas (1h)
+2. ✅ Logging centralizado (2h)
+3. ✅ Dashboard de métricas de encuestas (2h)
+
+**Impacto esperado:**
+- Validaciones más robustas
+- Auditoría completa
+- Visibilidad de KPIs
+
+---
+
+### 📊 Métricas de Éxito - Workflow de Encuestas
+
+#### KPIs Actuales (Estimados)
+- **Tasa de envío:** 100% de pedidos ENTREGADOS sin encuesta
+- **Tasa de respuesta:** ~40-50% (estimado)
+- **Horario de envío:** 9am-10pm ✅ (con validación de horario)
+- **Prevención de duplicados:** 100% ✅ (campo Encuesta_Enviada)
+- **Error rate:** Desconocido (sin retry ni logging)
+
+#### KPIs Objetivo Post-Mejoras
+- **Ejecuciones diarias:** 13 (vs 24 actual) → 45% reducción ✅
+- **Error rate:** <1% (con retry logic) ✅
+- **Tasa de respuesta:** >60% (con botones interactivos) ✅
+- **FIFO compliance:** 100% (con ordenamiento) ✅
+- **Tiempo de procesamiento:** <3s promedio ✅
+
+#### Métricas de Negocio
+- **NPS Score:** >70 (Excelente)
+- **Satisfaction Rate:** >85%
+- **Average Rating:** >4.0/5
+- **Response time:** <24h desde envío
+
+---
+
+### 🔗 Documentación Relacionada
+
+- **Análisis Técnico Completo:** [N8N_ENCUESTAS_ANALISIS_TECNICO.md](N8N_ENCUESTAS_ANALISIS_TECNICO.md)
+- **Resumen del Sistema:** [SISTEMA_ENCUESTAS_RESUMEN.md](SISTEMA_ENCUESTAS_RESUMEN.md)
+- **Workflow JSON:** [survey_workflow.json](survey_workflow.json)
+- **Backend Integration:** [../chatbot.js](../chatbot.js) (L1715-1780, L1829-1850, L3260-3365)
+- **Dashboard:** [../dashboard-next/src/app/encuestas/page.tsx](../dashboard-next/src/app/encuestas/page.tsx)
+
+---
+
+### 🎯 Próximos Pasos Inmediatos
+
+**Esta semana (Prioridad ALTA):**
+1. [ ] Implementar cron expression en trigger (15 min)
+2. [ ] Agregar retry logic en Google Sheets (30 min)
+3. [ ] Implementar ordenamiento + batches (1h)
+4. [ ] Personalizar mensaje con datos del pedido (30 min)
+5. [ ] Testing y validación (1h)
+
+**Próxima semana (Prioridad MEDIA):**
+1. [ ] Implementar botones interactivos WhatsApp (2-3h)
+2. [ ] Validar integración con backend (30 min)
+3. [ ] Monitoreo de tasa de respuesta (1 semana)
+
+**Mes siguiente (Prioridad BAJA):**
+1. [ ] Validación robusta de fechas (1h)
+2. [ ] Logging centralizado (2h)
+3. [ ] Dashboard de métricas (2h)
+
+---
+
+**Última Actualización:** 10 de Octubre, 2025
+**Analista:** Claude Code (Anthropic)
+**Versión:** 1.0 (análisis técnico de workflow de encuestas)
+
+---
+
 **FIN DEL ROADMAP**

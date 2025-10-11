@@ -22,3 +22,6 @@ detailed_flow_analysis.js
 parse_workflow.js
 workflow_analysis_output.txt
 add_retry_logic.py
+
+# Repositorios externos con su propio control de versiones
+n8n-nodes-encuestacapibobba/

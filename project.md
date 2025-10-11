@@ -43,6 +43,7 @@ CapiBobbaBot es un sistema completo de automatización para una tienda de bubble
 5. **Subagentes Claude Code** (`.claude/agents/`)
    - **UI/UX Senior**: Diseño UI/UX, frontend moderno, accesibilidad
    - **Dashboard Expert**: Dashboards administrativos, data visualization
+   - **n8n Workflow Expert**: Automatización, workflows, MCP tools (525 nodos, validación)
    - Configuración personalizada para desarrollo especializado
    - Ver [.claude/agents/README.md](.claude/agents/README.md) para detalles
 
@@ -80,9 +81,10 @@ CapiBobbaBot/
 │
 ├── .claude/                # Configuración de Claude Code
 │   └── agents/            # Subagentes personalizados
-│       ├── README.md      # Documentación de subagentes
-│       ├── ui-ux-senior.md       # Subagente UI/UX experto
-│       └── dashboard-expert.md   # Subagente Dashboard experto
+│       ├── README.md              # Documentación de subagentes
+│       ├── ui-ux-senior.md        # Subagente UI/UX experto
+│       ├── dashboard-expert.md    # Subagente Dashboard experto
+│       └── n8n-workflow-expert.md # Subagente n8n workflows experto
 │
 └── [Workflows n8n]/      # Archivos JSON de workflows
     ├── CapiBobba Enhanced - Complete Message Processor (ACTIVE).json
