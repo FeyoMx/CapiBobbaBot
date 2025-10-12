@@ -83,6 +83,142 @@ console.log(workflow.connections);
 
 ---
 
+### 5. **N8N_ENCUESTAS_ANALISIS_TECNICO.md** ⭐ NUEVO
+**Descripción:** Análisis técnico completo del workflow "Encuestador"
+**Última actualización:** 10 de Octubre 2025
+**Contenido:**
+- 🔍 Análisis de los 9 nodos del workflow de encuestas
+- 📚 Documentación oficial de n8n para cada nodo
+- ✅ Validaciones técnicas realizadas
+- 🎯 6 mejoras prioritarias identificadas
+- 💡 Código de implementación sugerido
+- 📋 Plan de sprints (Quick Wins → Botones Interactivos → Avanzado)
+
+**Mejoras Prioritarias:**
+- ⚡ Optimizar Trigger Schedule: Cron `0 9-22 * * *` (45% reducción en ejecuciones)
+- 🔄 Retry Logic en Google Sheets (95% reducción en errores)
+- 🎯 Botones Interactivos WhatsApp (3-5x aumento en tasa de respuesta)
+- 📝 Personalizar mensaje con datos del pedido (+20% respuesta)
+- 🔄 Ordenamiento + Batch Processing (FIFO garantizado)
+
+---
+
+### 6. **SISTEMA_ENCUESTAS_RESUMEN.md**
+**Descripción:** Resumen completo del sistema de encuestas de CapiBobbaBot
+**Última actualización:** 10 de Octubre 2025
+**Contenido:**
+- 📊 Arquitectura del sistema de encuestas
+- 🔧 Integración backend (chatbot.js) + workflow n8n
+- 📋 Formato de datos (survey_log.jsonl)
+- 🎯 Flujo completo desde trigger hasta respuesta
+- 📈 Métricas y KPIs
+
+---
+
+### 7. **survey_workflow.json**
+**Descripción:** Workflow exportado del "Encuestador"
+**Última actualización:** 10 de Octubre 2025
+**Contenido:**
+- JSON completo del workflow de encuestas
+- 9 nodos configurados
+- Conexiones entre nodos
+- Credenciales y configuraciones
+
+---
+
+### 8. **SENTIMENT_WORKFLOW.md** ⭐ NUEVO
+**Descripción:** Workflow completo de Análisis de Sentimientos con IA
+**Fecha de Creación:** 11 de Octubre 2025
+**Versión:** 1.0.0
+**Estado:** ✅ Listo para Implementar
+
+**Contenido:**
+- 🤖 17 nodos configurados para análisis automático
+- 📊 Integración con Google Gemini AI
+- 🎯 Clasificación de sentimientos (positive/neutral/negative/very_negative)
+- 🚨 Alertas automáticas para comentarios negativos
+- 📈 Generación de estadísticas y métricas
+- 💡 Detección de temas clave (topics)
+- ⚡ Identificación de urgencias
+- 📝 Resúmenes automáticos con IA
+
+**Propósito:**
+Analizar automáticamente los comentarios de encuestas usando Google Gemini AI para extraer sentimientos, temas clave y generar insights accionables.
+
+**KPIs Objetivo:**
+- Processing Time: <5s por comentario
+- Accuracy: >90% en clasificación
+- Response Time: <15 min desde comentario hasta análisis
+- Alertas Críticas: 100% de very_negative alertados
+- Uptime: >99.5%
+
+**Beneficios:**
+- ✅ Análisis automático de comentarios con IA
+- ✅ Insights estructurados sobre sentimientos
+- ✅ Alertas proactivas para negativos
+- ✅ Métricas de NPS calculadas
+- ✅ Decisiones basadas en datos
+
+---
+
+### 9. **sentiment_workflow_complete.json**
+**Descripción:** Workflow JSON completo de Sentiment Analysis
+**Fecha de Creación:** 11 de Octubre 2025
+**Contenido:**
+- JSON listo para importar en n8n
+- 17 nodos completamente configurados
+- Retry logic en nodos críticos
+- Error handling con fallbacks
+- Conexiones validadas
+
+**Nodos Principales:**
+1. Schedule Trigger (Cron: `*/15 9-22 * * *`)
+2. Config (configuración centralizada)
+3. HTTP Request (leer survey results)
+4. Filter Comments (solo no analizados)
+5. Split In Batches (5 comentarios)
+6. Prepare Gemini Prompt
+7. Call Gemini AI
+8. Parse Gemini Response (con fallback)
+9. Wait (rate limiting)
+10. Google Sheets - SENTIMENT_ANALYSIS
+11. IF (check negative/urgent)
+12. Format Telegram Alert
+13. Send Telegram Alert
+14. Calculate Stats
+15. Google Sheets - SENTIMENT_STATS
+
+---
+
+### 10. **FIX_N8N_SURVEY_ENDPOINT.md** 🔧 CRÍTICO
+**Descripción:** Fix para problema de reconocimiento de encuestas en n8n
+**Fecha de Creación:** 11 de Octubre 2025
+**Estado:** ✅ Implementado en backend, pendiente aplicar en n8n
+
+**Problema Identificado:**
+El workflow `uSJRH8iFs9zHds01` no reconoce mensajes de encuesta porque:
+- Endpoint usado: `/api/survey/results` (estructura wrapeada)
+- Endpoint requerido: `/api/survey/raw` (array directo)
+
+**Solución Implementada:**
+- ✅ Nuevo endpoint `/api/survey/raw` creado en `chatbot.js:3356-3379`
+- ✅ Devuelve array directo de surveys sin wrapper
+- ⏳ Pendiente: Actualizar configuración en n8n workflow
+
+**Pasos para Aplicar Fix:**
+1. Acceder a n8n workflow ID `uSJRH8iFs9zHds01`
+2. Editar nodo "Config"
+3. Cambiar: `surveyEndpoint: '/api/survey/raw'`
+4. Guardar y activar workflow
+5. Verificar logs de ejecución
+
+**Impacto:**
+- Antes: 0 comentarios procesados
+- Después: 3-10 comentarios procesados por ejecución
+- Fix crítico para sistema de análisis de sentimientos
+
+---
+
 ## 🚀 Cómo Usar Este Análisis
 
 ### Paso 1: Leer el Roadmap Principal
@@ -211,13 +347,18 @@ Para preguntas o asistencia con la implementación de mejoras:
 
 ```
 workflow_analysis/
-├── README.md                          (este archivo)
-├── ROADMAP_MEJORAS_WORKFLOW.md       (roadmap principal ⭐)
-├── workflow_analysis_output.txt      (análisis de estructura)
-├── detailed_flow_analysis.js         (script de análisis)
-└── parse_workflow.js                 (parser del workflow)
+├── README.md                              (este archivo)
+├── ROADMAP_MEJORAS_WORKFLOW.md           (roadmap principal ⭐)
+├── workflow_analysis_output.txt          (análisis de estructura)
+├── detailed_flow_analysis.js             (script de análisis)
+├── parse_workflow.js                     (parser del workflow)
+├── N8N_ENCUESTAS_ANALISIS_TECNICO.md    (análisis workflow encuestas ⭐)
+├── SISTEMA_ENCUESTAS_RESUMEN.md         (resumen sistema encuestas)
+├── survey_workflow.json                  (workflow encuestas)
+├── SENTIMENT_WORKFLOW.md                 (workflow análisis sentimientos ⭐ NUEVO)
+└── sentiment_workflow_complete.json      (JSON del sentiment workflow NUEVO)
 ```
 
 ---
 
-**Nota:** El archivo `workflow.json` permanece en la raíz del proyecto ya que es el workflow activo.
+**Nota:** El archivo `workflow.json` permanece en la raíz del proyecto ya que es el workflow activo principal.

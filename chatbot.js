@@ -3352,6 +3352,32 @@ app.get('/api/surveys', (req, res) => {
   sendJsonlLogResponse('survey_log.jsonl', res, 'encuestas');
 });
 
+// Endpoint RAW para n8n: devuelve array directo de surveys sin procesar
+app.get('/api/survey/raw', async (req, res) => {
+  try {
+    const logFilePath = path.join(__dirname, 'survey_log.jsonl');
+
+    let allSurveys = [];
+    try {
+      const data = await fs.promises.readFile(logFilePath, 'utf8');
+      const lines = data.trim().split('\n').filter(line => line.trim());
+      allSurveys = lines.map(line => JSON.parse(line));
+    } catch (err) {
+      if (err.code !== 'ENOENT') {
+        throw err;
+      }
+      // Si el archivo no existe, retornar array vacío
+    }
+
+    // Devolver array directo para n8n (sin wrapper)
+    // Cada survey tiene: from, rating, timestamp, comment, commentTimestamp
+    res.json(allSurveys);
+  } catch (error) {
+    console.error('❌ Error obteniendo surveys raw para n8n:', error);
+    res.status(500).json([]);
+  }
+});
+
 // Endpoint para obtener resultados procesados de encuestas (para dashboard)
 app.get('/api/survey/results', async (req, res) => {
   try {
