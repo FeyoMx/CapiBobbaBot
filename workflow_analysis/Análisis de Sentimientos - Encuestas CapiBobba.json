@@ -1,0 +1,828 @@
+{
+  "name": "Análisis de Sentimientos - Encuestas CapiBobba",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 9-21 * * *"
+            }
+          ]
+        }
+      },
+      "id": "b6f9ee21-7ea0-48d9-999f-d1704c93a38e",
+      "name": "⏰ Every 15 Minutes (9am-10pm)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2416,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://capibobbabot.onrender.com/api/survey/raw",
+        "options": {
+          "response": {
+            "response": {}
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "63836c5d-bc45-4af5-8b8e-c3b719cef1ae",
+      "name": "📊 Read Survey Results from API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2192,
+        -64
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter survey responses that have comments but no sentiment analysis yet\nconst apiResponse = $input.first().json;\n\n// Validar estructura de respuesta\nif (!apiResponse.success || !apiResponse.data) {\n  console.log('❌ API response invalid or empty');\n  return [];\n}\n\nconst recentSurveys = apiResponse.data.recentSurveys || [];\nconsole.log(`📊 Total surveys received: ${recentSurveys.length}`);\n\n// Filtrar encuestas con comentarios sin procesar\nconst unprocessedComments = recentSurveys.filter(survey => {\n  // Must have a comment\n  if (!survey.comment || survey.comment.trim() === '') return false;\n  \n  // Must NOT have sentiment already analyzed\n  if (survey.sentiment) return false;\n  \n  // Must have a valid rating (1-5)\n  if (!survey.rating || survey.rating < 1 || survey.rating > 5) return false;\n  \n  return true;\n});\n\nconsole.log(`💬 Surveys with comments: ${recentSurveys.filter(s => s.comment).length}`);\nconsole.log(`🔄 Comments to process: ${unprocessedComments.length}`);\n\n// Limit to 20 per execution to avoid overwhelming Gemini API\nconst toProcess = unprocessedComments.slice(0, 20);\n\nif (toProcess.length === 0) {\n  console.log('✅ No new comments to process');\n  return [];\n}\n\nreturn toProcess.map(survey => ({ json: survey }));"
+      },
+      "id": "eb12ed46-b920-47e2-ab03-47e766cf1bd4",
+      "name": "🔍 Filter Unprocessed Comments",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1968,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "id": "18a9844d-6cdc-4037-8f5f-f706138cfb20",
+      "name": "🔄 Loop Over Comments",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1744,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract sentiment analysis from Gemini API response\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  try {\n    const response = item.json;\n    \n    // Get original survey data from Loop Over Comments\n    const originalData = $node[\"🔄 Loop Over Comments\"].json;\n    \n    let analysis = null;\n    let parseError = null;\n    \n    // Try to extract JSON from response\n    if (response?.candidates && response.candidates.length > 0) {\n      const candidate = response.candidates[0];\n      \n      if (candidate?.content?.parts && candidate.content.parts.length > 0) {\n        const text = candidate.content.parts[0].text || '';\n        \n        try {\n          // Parse JSON response\n          analysis = JSON.parse(text);\n          console.log(`✅ Successfully parsed sentiment for ${originalData.from}`);\n        } catch (jsonError) {\n          console.error(`❌ Failed to parse JSON: ${jsonError.message}`);\n          console.error(`Raw text: ${text}`);\n          parseError = jsonError.message;\n        }\n      }\n    }\n    \n    // Validate analysis structure\n    if (analysis && typeof analysis === 'object') {\n      // Ensure required fields exist\n      const validatedAnalysis = {\n        sentiment: analysis.sentiment || 'unknown',\n        sentiment_score: parseFloat(analysis.sentiment_score) || 0.5,\n        topics: Array.isArray(analysis.topics) ? analysis.topics.slice(0, 3) : [],\n        key_phrases: Array.isArray(analysis.key_phrases) ? analysis.key_phrases.slice(0, 3) : [],\n        urgency: analysis.urgency || 'low',\n        actionable: Boolean(analysis.actionable),\n        action_type: analysis.action_type || 'none',\n        summary_es: analysis.summary_es || 'Sin resumen',\n        customer_intent: analysis.customer_intent || 'unknown',\n        nps_alignment: analysis.nps_alignment || 'passive'\n      };\n      \n      results.push({\n        json: {\n          ...originalData,\n          sentiment_analysis: validatedAnalysis,\n          processed_at: new Date().toISOString(),\n          processing_status: 'success'\n        }\n      });\n    } else {\n      // Failed to get valid analysis\n      console.error(`❌ Invalid analysis structure for ${originalData.from}`);\n      \n      results.push({\n        json: {\n          ...originalData,\n          sentiment_analysis: {\n            sentiment: 'error',\n            sentiment_score: 0,\n            topics: [],\n            key_phrases: [],\n            urgency: 'low',\n            actionable: false,\n            action_type: 'none',\n            summary_es: 'Error al procesar',\n            customer_intent: 'unknown',\n            nps_alignment: 'passive'\n          },\n          processed_at: new Date().toISOString(),\n          processing_status: 'error',\n          error_message: parseError || 'Invalid response structure'\n        }\n      });\n    }\n    \n  } catch (error) {\n    console.error('❌ Error processing item:', error);\n    \n    const originalData = $node[\"🔄 Loop Over Comments\"].json;\n    \n    results.push({\n      json: {\n        ...originalData,\n        sentiment_analysis: null,\n        processed_at: new Date().toISOString(),\n        processing_status: 'fatal_error',\n        error_message: error.message\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "2b74cfaa-4f27-4ec9-bf63-4b755a825ebe",
+      "name": "🧠 Extract Sentiment Analysis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1168,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 1000,
+        "unit": "milliseconds"
+      },
+      "id": "99c8b842-466b-4942-8a6a-75b6b7586d7d",
+      "name": "⏱️ Wait 1s (Rate Limit)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -944,
+        -80
+      ],
+      "webhookId": "a5fd4f2a-1d06-40c3-8e67-38bcf7527fd3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://capibobbabot.onrender.com/api/survey/update-sentiment",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  from: $json.from,\n  timestamp: $json.timestamp,\n  rating: $json.rating,\n  comment: $json.comment,\n  sentiment: $json.sentiment_analysis?.sentiment || 'unknown',\n  sentiment_score: $json.sentiment_analysis?.sentiment_score || 0,\n  topics: $json.sentiment_analysis?.topics || [],\n  key_phrases: $json.sentiment_analysis?.key_phrases || [],\n  urgency: $json.sentiment_analysis?.urgency || 'low',\n  actionable: $json.sentiment_analysis?.actionable || false,\n  action_type: $json.sentiment_analysis?.action_type || 'none',\n  summary_es: $json.sentiment_analysis?.summary_es || '',\n  customer_intent: $json.sentiment_analysis?.customer_intent || 'unknown',\n  nps_alignment: $json.sentiment_analysis?.nps_alignment || 'passive',\n  processed_at: $json.processed_at\n}) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "5e9cd68c-1bff-4894-9cf6-405c6a90b0f9",
+      "name": "💾 Update Survey with Sentiment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -720,
+        -80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1wPTRd3fknn-jBs_OvpoU8L8y7j3wtjCQqI4bxnYMqN0",
+          "mode": "list",
+          "cachedResultName": "SURVEY_SENTIMENT_ANALYSIS",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1wPTRd3fknn-jBs_OvpoU8L8y7j3wtjCQqI4bxnYMqN0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Hoja 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1wPTRd3fknn-jBs_OvpoU8L8y7j3wtjCQqI4bxnYMqN0/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "from": "={{ $json.from }}",
+            "timestamp": "={{ $json.timestamp }}",
+            "rating": "={{ $json.rating }}",
+            "comment": "={{ $json.comment }}",
+            "sentiment": "={{ $json.sentiment_analysis.sentiment }}",
+            "sentiment_score": "={{ $json.sentiment_analysis.sentiment_score }}",
+            "topics": "={{ $json.sentiment_analysis.topics.join(', ') }}",
+            "key_phrases": "={{ $json.sentiment_analysis.key_phrases.join('; ') }}",
+            "urgency": "={{ $json.sentiment_analysis.urgency }}",
+            "actionable": "={{ $json.sentiment_analysis.actionable }}",
+            "action_type": "={{ $json.sentiment_analysis.action_type }}",
+            "summary_es": "={{ $json.sentiment_analysis.summary_es }}",
+            "customer_intent": "={{ $json.sentiment_analysis.customer_intent }}",
+            "nps_alignment": "={{ $json.sentiment_analysis.nps_alignment }}",
+            "processed_at": "={{ $json.processed_at }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "from",
+              "displayName": "from",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rating",
+              "displayName": "rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "comment",
+              "displayName": "comment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sentiment",
+              "displayName": "sentiment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sentiment_score",
+              "displayName": "sentiment_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "topics",
+              "displayName": "topics",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "key_phrases",
+              "displayName": "key_phrases",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "urgency",
+              "displayName": "urgency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "actionable",
+              "displayName": "actionable",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "action_type",
+              "displayName": "action_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "summary_es",
+              "displayName": "summary_es",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_intent",
+              "displayName": "customer_intent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nps_alignment",
+              "displayName": "nps_alignment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "processed_at",
+              "displayName": "processed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "526fabbd-7b07-45b5-9dff-cbdeeedeedb7",
+      "name": "📊 Save to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -496,
+        -80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googleApi": {
+          "id": "JbqYZ9uwPD4BpgyL",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.sentiment_analysis?.sentiment }}",
+              "operation": "equals",
+              "value2": "negative"
+            },
+            {
+              "value1": "={{ $json.sentiment_analysis?.sentiment }}",
+              "operation": "equals",
+              "value2": "very_negative"
+            },
+            {
+              "value1": "={{ $json.sentiment_analysis?.urgency }}",
+              "operation": "equals",
+              "value2": "high"
+            },
+            {
+              "value1": "={{ $json.sentiment_analysis?.urgency }}",
+              "operation": "equals",
+              "value2": "critical"
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "8509024e-c28d-4b9f-91ca-515d1cac53a9",
+      "name": "😟 Is Negative or High Urgency?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Format enhanced Telegram alert for survey comments\nconst data = $input.item.json;\nconst analysis = data.sentiment_analysis || {};\n\n// Enhanced emojis based on urgency\nconst urgencyEmojis = {\n  'critical': '🚨',\n  'high': '⚠️',\n  'medium': '⚡',\n  'low': '💬'\n};\n\nconst sentimentEmojis = {\n  'very_negative': '😡',\n  'negative': '😟',\n  'neutral': '😐',\n  'positive': '😊'\n};\n\nconst emoji = sentimentEmojis[analysis.sentiment] || '📊';\nconst urgencyEmoji = urgencyEmojis[analysis.urgency] || '';\n\n// NPS indicator\nconst npsEmoji = {\n  'detractor': '🔴',\n  'passive': '🟡',\n  'promoter': '🟢'\n}[analysis.nps_alignment] || '';\n\n// Format timestamp\nconst timestamp = new Date(data.commentTimestamp || data.timestamp).toLocaleString('es-MX', {\n  timeZone: 'America/Mexico_City',\n  dateStyle: 'short',\n  timeStyle: 'short'\n});\n\n// Truncate comment if too long\nconst maxLength = 200;\nlet commentText = data.comment || 'Sin comentario';\nif (commentText.length > maxLength) {\n  commentText = commentText.substring(0, maxLength) + '...';\n}\n\n// Build enhanced Telegram message\nconst message = `${urgencyEmoji}${emoji}${npsEmoji} <b>ENCUESTA - ${(analysis.sentiment || 'UNKNOWN').toUpperCase()}</b>\n\n👤 <b>Cliente:</b> <code>${data.from}</code>\n⭐ <b>Rating:</b> ${data.rating}/5\n📊 <b>NPS:</b> ${analysis.nps_alignment || 'unknown'}\n⏰ <b>Fecha:</b> ${timestamp}\n\n💬 <b>Comentario:</b>\n<i>\"${commentText}\"</i>\n\n🤖 <b>Análisis IA:</b>\n• <b>Sentimiento:</b> ${analysis.sentiment} (${((analysis.sentiment_score || 0) * 100).toFixed(0)}%)\n• <b>Intención:</b> ${analysis.customer_intent || 'unknown'}\n• <b>Temas:</b> ${(analysis.topics || []).join(', ')}\n• <b>Urgencia:</b> ${analysis.urgency}\n• <b>Acción:</b> ${analysis.action_type || 'none'}\n\n📝 <b>Resumen:</b>\n${analysis.summary_es || 'Sin resumen'}\n\n${analysis.key_phrases && analysis.key_phrases.length > 0 ? `\\n🔑 <b>Frases clave:</b>\\n${analysis.key_phrases.map(p => `  • \"${p}\"`).join('\\n')}` : ''}\n\n${analysis.actionable ? '\\n⚠️ <b>Este comentario requiere atención inmediata</b>' : ''}\n\n📊 <a href=\"https://docs.google.com/spreadsheets/d/1XGPUuCRzf2bEOm4UOPmjhnqUuNCsFyaL6Ycbqof_JuI/edit\">Ver análisis completo</a>`;\n\nreturn [{\n  json: {\n    message,\n    chatId: $env.TELEGRAM_CHAT_ID || '27606954',\n    parseMode: 'HTML'\n  }\n}];"
+      },
+      "id": "bb5c8af5-5c92-4c16-b8cf-f9c05a26f388",
+      "name": "📱 Format Telegram Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "id": "798ac350-9977-4fa7-b76d-4d3ebfd57e67",
+      "name": "📢 Send Telegram Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        176,
+        -176
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500,
+      "webhookId": "14ed6ce5-c1b2-4f64-9697-7f1c85933a5e",
+      "credentials": {
+        "telegramApi": {
+          "id": "pXgiAdNH5LwxlCKI",
+          "name": "Telegram account 3"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate sentiment statistics for this batch\nconst items = $input.all();\n\n// Initialize counters\nconst stats = {\n  total: items.length,\n  positive: 0,\n  neutral: 0,\n  negative: 0,\n  very_negative: 0,\n  errors: 0,\n  actionable: 0,\n  high_urgency: 0,\n  critical_urgency: 0\n};\n\n// Count sentiments and urgencies\nfor (const item of items) {\n  const analysis = item.json.sentiment_analysis || {};\n  const sentiment = analysis.sentiment;\n  \n  switch (sentiment) {\n    case 'positive':\n      stats.positive++;\n      break;\n    case 'neutral':\n      stats.neutral++;\n      break;\n    case 'negative':\n      stats.negative++;\n      break;\n    case 'very_negative':\n      stats.very_negative++;\n      break;\n    case 'error':\n    case 'unknown':\n      stats.errors++;\n      break;\n  }\n  \n  // Count actionable items\n  if (analysis.actionable) {\n    stats.actionable++;\n  }\n  \n  // Count urgency levels\n  if (analysis.urgency === 'high') {\n    stats.high_urgency++;\n  } else if (analysis.urgency === 'critical') {\n    stats.critical_urgency++;\n  }\n}\n\n// Calculate percentages\nstats.positive_pct = ((stats.positive / stats.total) * 100).toFixed(1);\nstats.negative_pct = (((stats.negative + stats.very_negative) / stats.total) * 100).toFixed(1);\nstats.actionable_pct = ((stats.actionable / stats.total) * 100).toFixed(1);\n\n// Add timestamp\nstats.fecha_ejecucion = new Date().toISOString();\nstats.fecha_formato = new Date().toLocaleString('es-MX', {\n  timeZone: 'America/Mexico_City',\n  dateStyle: 'medium',\n  timeStyle: 'short'\n});\n\nconsole.log('📊 Sentiment Analysis Statistics:', stats);\n\nreturn [{ json: stats }];"
+      },
+      "id": "318b131b-12ae-461a-b7a6-8759283caa7f",
+      "name": "📊 Calculate Statistics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1XP9c-Yg4Yxj9CmkMFurTGMMz9dqsQVC8pB4l0LDHJvQ",
+          "mode": "list",
+          "cachedResultName": "SENTIMENT_STATS",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XP9c-Yg4Yxj9CmkMFurTGMMz9dqsQVC8pB4l0LDHJvQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Hoja 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XP9c-Yg4Yxj9CmkMFurTGMMz9dqsQVC8pB4l0LDHJvQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "total": "={{ $json.total }}",
+            "positive": "={{ $json.positive }}",
+            "neutral": "={{ $json.neutral }}",
+            "negative": "={{ $json.negative }}",
+            "very_negative": "={{ $json.very_negative }}",
+            "errors": "={{ $json.errors }}",
+            "actionable": "={{ $json.actionable }}",
+            "high_urgency": "={{ $json.high_urgency }}",
+            "critical_urgency": "={{ $json.critical_urgency }}",
+            "positive_pct": "={{ $json.positive_pct }}",
+            "negative_pct": "={{ $json.negative_pct }}",
+            "actionable_pc": "= {{ $json.actionable_pct }}",
+            "fecha_ejecucion": "={{ $json.fecha_ejecucion }}",
+            "fecha_formato": "={{ $json.fecha_formato }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "total",
+              "displayName": "total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "positive",
+              "displayName": "positive",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "neutral",
+              "displayName": "neutral",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "negative",
+              "displayName": "negative",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "very_negative",
+              "displayName": "very_negative",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "errors",
+              "displayName": "errors",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "actionable",
+              "displayName": "actionable",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "high_urgency",
+              "displayName": "high_urgency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "critical_urgency",
+              "displayName": "critical_urgency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "positive_pct",
+              "displayName": "positive_pct",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "negative_pct",
+              "displayName": "negative_pct",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "actionable_pc",
+              "displayName": "actionable_pc",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fecha_ejecucion",
+              "displayName": "fecha_ejecucion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fecha_formato",
+              "displayName": "fecha_formato",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "0ac01381-5496-4344-b90d-ce68ca496690",
+      "name": "📈 Save Statistics",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -48,
+        16
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googleApi": {
+          "id": "JbqYZ9uwPD4BpgyL",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "= 1         Analiza el siguiente comentario de una encuesta de satisfacción de CapiBobba (bubble tea + capigofres).\n    2 \n    3         RATING: {{ $json.rating }}/5 estrellas\n    4         COMENTARIO: \"{{ $json.comment }}\"\n    5 \n    6         Genera un análisis JSON detallado (SOLO el JSON, sin markdown):\n    7 \n    8         {\n    9           \"sentiment\": \"positive|neutral|negative|very_negative\",\n   10           \"sentiment_score\": 0.0-1.0,\n   11           \"topics\": [\"product_quality\", \"delivery_time\", \"customer_service\", \"price\", \"presentation\", \"taste\",\n      \"temperature\"],\n   12           \"key_phrases\": [\"frase relevante del comentario\"],\n   13           \"urgency\": \"low|medium|high|critical\",\n   14           \"actionable\": true|false,\n   15           \"action_type\": \"response_needed|investigation|improvement|none\",\n   16           \"summary_es\": \"Resumen en español (1-2 líneas)\",\n   17           \"customer_intent\": \"complaint|suggestion|praise|question\",\n   18           \"nps_alignment\": \"detractor|passive|promoter\"\n   19         }"
+            }
+          ]
+        },
+        "simplify": false,
+        "jsonOutput": true,
+        "options": {
+          "systemMessage": "1         CONTEXTO:\n    2         - Rating 1-2: Típicamente negativo (detractores)\n    3         - Rating 3: Neutral (pasivos)\n    4         - Rating 4-5: Positivo (promotores)\n    5         - CapiBobba vende: bubble tea, waffles de capibara, postres\n    6 \n    7         REGLAS:\n    8         - Si rating ≤2 pero comentario es positivo → sentiment=negative, urgency=high (sarcasmo o problema)\n    9         - Si rating ≥4 pero comentario es negativo → urgency=high (expectativas no cumplidas)\n   10         - topics: máximo 3 temas más relevantes\n   11         - key_phrases: extraer frases textuales (max 3)\n   12         - urgency: critical si rating=1 O palabras como \"pésimo\", \"nunca más\", \"horrible\"\n   13         - nps_alignment debe coincidir con el rating (1-2=detractor, 3=passive, 4-5=promoter)",
+          "maxOutputTokens": 500,
+          "temperature": 0.3,
+          "topP": 1,
+          "topK": 1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1520,
+        -80
+      ],
+      "id": "6420aa0d-be8e-4888-8d1f-8679e5dc6485",
+      "name": "Message a model",
+      "retryOnFail": true,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "xKR94u7Ntn5sqaF1",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "⏰ Every 15 Minutes (9am-10pm)": {
+      "main": [
+        [
+          {
+            "node": "📊 Read Survey Results from API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Read Survey Results from API": {
+      "main": [
+        [
+          {
+            "node": "🔍 Filter Unprocessed Comments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Filter Unprocessed Comments": {
+      "main": [
+        [
+          {
+            "node": "🔄 Loop Over Comments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 Loop Over Comments": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🔄 Loop Over Comments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧠 Extract Sentiment Analysis": {
+      "main": [
+        [
+          {
+            "node": "⏱️ Wait 1s (Rate Limit)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏱️ Wait 1s (Rate Limit)": {
+      "main": [
+        [
+          {
+            "node": "💾 Update Survey with Sentiment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💾 Update Survey with Sentiment": {
+      "main": [
+        [
+          {
+            "node": "📊 Save to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Save to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "😟 Is Negative or High Urgency?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📊 Calculate Statistics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "😟 Is Negative or High Urgency?": {
+      "main": [
+        [
+          {
+            "node": "📱 Format Telegram Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📱 Format Telegram Alert": {
+      "main": [
+        [
+          {
+            "node": "📢 Send Telegram Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Calculate Statistics": {
+      "main": [
+        [
+          {
+            "node": "📈 Save Statistics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "🧠 Extract Sentiment Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "MMlYj8Cmws8Je6Pk"
+  },
+  "versionId": "d8a21596-7a52-472d-adfc-7b88e3431bdc",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "13ceb1c1b612f9d6c3c493318bdf1c4ba9770c6c831ae1660737158128caeb2a"
+  },
+  "id": "uSJRH8iFs9zHds01",
+  "tags": [
+    {
+      "createdAt": "2025-10-11T21:06:27.436Z",
+      "updatedAt": "2025-10-11T21:06:27.436Z",
+      "id": "FfwSLjykVdb7PSiy",
+      "name": "surveys"
+    },
+    {
+      "createdAt": "2025-10-11T21:06:27.431Z",
+      "updatedAt": "2025-10-11T21:06:27.431Z",
+      "id": "TWQVxLE5h4ROFoYe",
+      "name": "ai"
+    },
+    {
+      "createdAt": "2025-10-11T21:06:27.419Z",
+      "updatedAt": "2025-10-11T21:06:27.419Z",
+      "id": "fiEdjrVFSbEYHjwu",
+      "name": "analytics"
+    }
+  ]
+}

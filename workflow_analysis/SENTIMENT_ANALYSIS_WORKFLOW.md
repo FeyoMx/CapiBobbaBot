@@ -1,9 +1,9 @@
 # 📊 Workflow: Análisis de Sentimientos de Encuestas - CapiBobbaBot
 
 **Versión:** 1.0.0
-**Estado:** ✅ Listo para implementar
+**Estado:** ✅ Implementado en n8n (activo)
 **Última actualización:** 11 de Octubre, 2025
-**Archivo JSON:** [sentiment_analysis_workflow.json](sentiment_analysis_workflow.json)
+**Archivo JSON:** [Análisis de Sentimientos - Encuestas CapiBobba.json](Análisis%20de%20Sentimientos%20-%20Encuestas%20CapiBobba.json)
 
 ---
 
@@ -482,7 +482,7 @@ Fecha | Total_Analizados | Positivos | Neutrales | Negativos | Muy_Negativos | E
 # En n8n Dashboard
 1. Click "Workflows" → "New"
 2. Click "..." (menú) → "Import from File"
-3. Seleccionar: workflow_analysis/sentiment_analysis_workflow.json
+3. Seleccionar: workflow_analysis/Análisis de Sentimientos - Encuestas CapiBobba.json
 4. Click "Import"
 ```
 
@@ -887,7 +887,7 @@ redis-cli
 ## 📧 Soporte
 
 **Documentación técnica:** [project.md](../project.md)
-**Workflow JSON:** [sentiment_analysis_workflow.json](sentiment_analysis_workflow.json)
+**Workflow JSON:** [Análisis de Sentimientos - Encuestas CapiBobba.json](Análisis%20de%20Sentimientos%20-%20Encuestas%20CapiBobba.json)
 **n8n Docs:** https://docs.n8n.io
 **Gemini API Docs:** https://ai.google.dev/docs
 
