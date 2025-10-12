@@ -3239,9 +3239,229 @@ function logToFile(fileName, logEntry) {
   });
 }
 
+/**
+ * REDIS ORDER STORAGE - Sistema de persistencia de pedidos en Redis
+ *
+ * Estructura de almacenamiento:
+ * - orders:all -> Sorted Set con scores = timestamp, values = order IDs
+ * - orders:data:{orderId} -> Hash con todos los datos del pedido
+ * - orders:by_phone:{phone} -> Set con IDs de pedidos de ese cliente
+ * - orders:by_status:{status} -> Set con IDs de pedidos con ese estado
+ *
+ * TTL: Los pedidos se mantienen por 90 días (configurable)
+ */
+
+const ORDER_TTL_DAYS = 90;
+const ORDER_TTL_SECONDS = ORDER_TTL_DAYS * 24 * 60 * 60;
+
+/**
+ * Guarda un pedido completo en Redis con indexación
+ */
+async function saveOrderToRedis(orderData) {
+  try {
+    const timestamp = Date.now();
+    const orderId = orderData.id || `order_${timestamp}_${orderData.from}`;
+    const orderWithId = { ...orderData, id: orderId, timestamp };
+
+    // 1. Guardar en sorted set principal (ordenado por timestamp)
+    await redisClient.zAdd('orders:all', {
+      score: timestamp,
+      value: orderId
+    });
+
+    // 2. Guardar datos completos del pedido
+    await redisClient.hSet(`orders:data:${orderId}`, {
+      data: JSON.stringify(orderWithId)
+    });
+
+    // 3. Indexar por teléfono del cliente
+    if (orderData.from) {
+      await redisClient.sAdd(`orders:by_phone:${orderData.from}`, orderId);
+    }
+
+    // 4. Indexar por estado
+    const status = orderData.status || 'pending';
+    await redisClient.sAdd(`orders:by_status:${status}`, orderId);
+
+    // 5. Indexar por método de pago
+    if (orderData.payment && orderData.payment.method) {
+      await redisClient.sAdd(`orders:by_payment:${orderData.payment.method}`, orderId);
+    }
+
+    // 6. Establecer TTL en todas las keys
+    await redisClient.expire(`orders:data:${orderId}`, ORDER_TTL_SECONDS);
+
+    console.log(`✅ Pedido ${orderId} guardado en Redis`);
+    return orderId;
+  } catch (error) {
+    console.error('❌ Error guardando pedido en Redis:', error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene pedidos desde Redis con filtros y paginación
+ */
+async function getOrdersFromRedis(options = {}) {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'timestamp',
+      sortOrder = 'desc',
+      status,
+      payment_method,
+      search
+    } = options;
+
+    // 1. Obtener IDs de pedidos (más recientes primero)
+    let orderIds = [];
+
+    if (status && status !== 'all') {
+      // Filtrar por estado
+      orderIds = await redisClient.sMembers(`orders:by_status:${status}`);
+    } else if (payment_method && payment_method !== 'all') {
+      // Filtrar por método de pago
+      orderIds = await redisClient.sMembers(`orders:by_payment:${payment_method}`);
+    } else {
+      // Obtener todos (ordenados por timestamp descendente)
+      const start = sortOrder === 'desc' ? '+inf' : '-inf';
+      const end = sortOrder === 'desc' ? '-inf' : '+inf';
+      orderIds = await redisClient.zRange('orders:all', start, end, {
+        BY: 'SCORE',
+        REV: sortOrder === 'desc',
+        LIMIT: { offset: 0, count: 1000 } // Límite de seguridad
+      });
+    }
+
+    if (orderIds.length === 0) {
+      return { orders: [], total: 0, page, limit, totalPages: 0 };
+    }
+
+    // 2. Obtener datos completos de los pedidos
+    const orders = await Promise.all(
+      orderIds.map(async (orderId) => {
+        try {
+          const orderHash = await redisClient.hGetAll(`orders:data:${orderId}`);
+          if (orderHash && orderHash.data) {
+            return JSON.parse(orderHash.data);
+          }
+          return null;
+        } catch (err) {
+          console.error(`Error obteniendo pedido ${orderId}:`, err);
+          return null;
+        }
+      })
+    );
+
+    // Filtrar nulos
+    let validOrders = orders.filter(Boolean);
+
+    // 3. Aplicar búsqueda si existe
+    if (search && search.trim()) {
+      const searchLower = search.toLowerCase().trim();
+      validOrders = validOrders.filter(order => {
+        return (
+          (order.customer_name && order.customer_name.toLowerCase().includes(searchLower)) ||
+          (order.customer_phone && order.customer_phone.includes(searchLower)) ||
+          (order.from && order.from.includes(searchLower)) ||
+          (order.id && order.id.toLowerCase().includes(searchLower))
+        );
+      });
+    }
+
+    // 4. Ordenar
+    validOrders.sort((a, b) => {
+      const aVal = a[sortBy] || a.timestamp || 0;
+      const bVal = b[sortBy] || b.timestamp || 0;
+      return sortOrder === 'desc' ? (bVal > aVal ? 1 : -1) : (aVal > bVal ? 1 : -1);
+    });
+
+    // 5. Paginar
+    const total = validOrders.length;
+    const startIndex = (page - 1) * limit;
+    const paginatedOrders = validOrders.slice(startIndex, startIndex + limit);
+
+    return {
+      orders: paginatedOrders,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    };
+  } catch (error) {
+    console.error('❌ Error obteniendo pedidos desde Redis:', error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene un pedido específico por ID desde Redis
+ */
+async function getOrderByIdFromRedis(orderId) {
+  try {
+    const orderHash = await redisClient.hGetAll(`orders:data:${orderId}`);
+    if (orderHash && orderHash.data) {
+      return JSON.parse(orderHash.data);
+    }
+    return null;
+  } catch (error) {
+    console.error(`❌ Error obteniendo pedido ${orderId} desde Redis:`, error);
+    return null;
+  }
+}
+
+/**
+ * Migra pedidos desde el archivo JSONL a Redis (ejecutar una vez)
+ */
+async function migrateOrdersToRedis() {
+  try {
+    const logFilePath = path.join(__dirname, 'order_log.jsonl');
+
+    // Verificar si el archivo existe
+    if (!fs.existsSync(logFilePath)) {
+      console.log('ℹ️  No hay archivo order_log.jsonl para migrar');
+      return 0;
+    }
+
+    const data = await fs.promises.readFile(logFilePath, 'utf8');
+    const lines = data.split('\n').filter(Boolean);
+
+    let migratedCount = 0;
+    for (const line of lines) {
+      try {
+        const order = JSON.parse(line);
+        await saveOrderToRedis(order);
+        migratedCount++;
+      } catch (err) {
+        console.error('Error migrando pedido:', err);
+      }
+    }
+
+    console.log(`✅ ${migratedCount} pedidos migrados a Redis`);
+    return migratedCount;
+  } catch (error) {
+    console.error('❌ Error en migración de pedidos:', error);
+    return 0;
+  }
+}
+
 // Funciones específicas de log que usan el logger genérico
 const logMessageToFile = (logEntry) => logToFile('message_log.jsonl', logEntry);
-const logOrderToFile = (orderData) => logToFile('order_log.jsonl', orderData);
+
+// Función mejorada para guardar pedidos (archivo + Redis)
+const logOrderToFile = async (orderData) => {
+  // Guardar en archivo (para backup)
+  logToFile('order_log.jsonl', orderData);
+
+  // Guardar en Redis (persistencia principal)
+  try {
+    await saveOrderToRedis(orderData);
+  } catch (error) {
+    console.error('Error guardando pedido en Redis, pero se guardó en archivo:', error);
+  }
+};
+
 const logSurveyResponseToFile = (surveyData) => logToFile('survey_log.jsonl', surveyData);
 
 /**
@@ -3277,90 +3497,31 @@ app.get('/api/message-log', (req, res) => {
   sendJsonlLogResponse('message_log.jsonl', res, 'mensajes');
 });
 
-// Endpoint para obtener el log de pedidos con paginación y filtros
-app.get('/api/orders', (req, res) => {
-  const logFilePath = path.join(__dirname, 'order_log.jsonl');
+// Endpoint para obtener el log de pedidos con paginación y filtros (REDIS VERSION)
+app.get('/api/orders', async (req, res) => {
+  try {
+    // Obtener parámetros de query
+    const options = {
+      limit: parseInt(req.query.limit) || 10,
+      page: parseInt(req.query.page) || 1,
+      sortBy: req.query.sort_by || 'timestamp',
+      sortOrder: req.query.sort_order || 'desc',
+      status: req.query.status,
+      payment_method: req.query.payment_method,
+      search: req.query.search
+    };
 
-  fs.readFile(logFilePath, 'utf8', (err, data) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        return res.json({ success: true, data: { orders: [], total: 0, page: 1, limit: 10 } });
-      }
-      console.error('Error al leer el archivo de pedidos:', err);
-      return res.status(500).json({ success: false, error: 'Error al leer pedidos' });
-    }
+    // Obtener pedidos desde Redis
+    const result = await getOrdersFromRedis(options);
 
-    try {
-      // Parsear todas las líneas
-      const allOrders = data.split('\n').filter(Boolean).map(line => {
-        try {
-          return JSON.parse(line);
-        } catch (parseError) {
-          console.error('Error al parsear línea del log de pedidos:', parseError);
-          return null;
-        }
-      }).filter(Boolean);
-
-      // Obtener parámetros de query
-      const limit = parseInt(req.query.limit) || 10;
-      const page = parseInt(req.query.page) || 1;
-      const sortBy = req.query.sort_by || 'timestamp';
-      const sortOrder = req.query.sort_order || 'desc';
-      const status = req.query.status;
-      const paymentMethod = req.query.payment_method;
-      const search = req.query.search;
-
-      // Aplicar filtros
-      let filteredOrders = allOrders;
-
-      // Filtrar por estado
-      if (status && status !== 'all') {
-        filteredOrders = filteredOrders.filter(order => order.status === status);
-      }
-
-      // Filtrar por método de pago
-      if (paymentMethod && paymentMethod !== 'all') {
-        filteredOrders = filteredOrders.filter(order => order.payment_method === paymentMethod);
-      }
-
-      // Filtrar por búsqueda (nombre, teléfono, ID)
-      if (search && search.trim()) {
-        const searchLower = search.toLowerCase().trim();
-        filteredOrders = filteredOrders.filter(order => {
-          return (
-            (order.customer_name && order.customer_name.toLowerCase().includes(searchLower)) ||
-            (order.customer_phone && order.customer_phone.includes(searchLower)) ||
-            (order.id && order.id.toLowerCase().includes(searchLower))
-          );
-        });
-      }
-
-      // Ordenar
-      filteredOrders.sort((a, b) => {
-        const aVal = a[sortBy] || a.timestamp;
-        const bVal = b[sortBy] || b.timestamp;
-        return sortOrder === 'desc' ? (bVal > aVal ? 1 : -1) : (aVal > bVal ? 1 : -1);
-      });
-
-      // Paginar
-      const startIndex = (page - 1) * limit;
-      const paginatedOrders = filteredOrders.slice(startIndex, startIndex + limit);
-
-      res.json({
-        success: true,
-        data: {
-          orders: paginatedOrders,
-          total: filteredOrders.length,
-          page,
-          limit,
-          totalPages: Math.ceil(filteredOrders.length / limit)
-        }
-      });
-    } catch (error) {
-      console.error('Error procesando pedidos:', error);
-      res.status(500).json({ success: false, error: 'Error procesando pedidos' });
-    }
-  });
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('Error obteniendo pedidos desde Redis:', error);
+    res.status(500).json({ success: false, error: 'Error al obtener pedidos' });
+  }
 });
 
 // Endpoint para obtener el log de encuestas
@@ -3512,42 +3673,23 @@ app.get('/api/survey/results', async (req, res) => {
  * Endpoint para obtener un pedido específico por ID
  * GET /api/orders/:id
  */
-app.get('/api/orders/:id', (req, res) => {
-  const { id } = req.params;
-  const logFilePath = path.join(__dirname, 'order_log.jsonl');
+// Endpoint para obtener un pedido específico por ID (REDIS VERSION)
+app.get('/api/orders/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
 
-  fs.readFile(logFilePath, 'utf8', (err, data) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        return res.status(404).json({ success: false, error: 'Pedido no encontrado' });
-      }
-      console.error('Error al leer el archivo de pedidos:', err);
-      return res.status(500).json({ success: false, error: 'Error al leer pedidos' });
+    // Obtener pedido desde Redis
+    const order = await getOrderByIdFromRedis(id);
+
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Pedido no encontrado' });
     }
 
-    try {
-      const allOrders = data.split('\n').filter(Boolean).map(line => {
-        try {
-          return JSON.parse(line);
-        } catch (parseError) {
-          console.error('Error al parsear línea del log de pedidos:', parseError);
-          return null;
-        }
-      }).filter(Boolean);
-
-      // Buscar el pedido por ID
-      const order = allOrders.find(o => o.id === id || o.timestamp === id);
-
-      if (!order) {
-        return res.status(404).json({ success: false, error: 'Pedido no encontrado' });
-      }
-
-      res.json({ success: true, data: order });
-    } catch (error) {
-      console.error('Error procesando pedido:', error);
-      res.status(500).json({ success: false, error: 'Error procesando pedido' });
-    }
-  });
+    res.json({ success: true, data: order });
+  } catch (error) {
+    console.error('Error obteniendo pedido desde Redis:', error);
+    res.status(500).json({ success: false, error: 'Error al obtener pedido' });
+  }
 });
 
 /**
@@ -4567,8 +4709,19 @@ app.get('/api/memory-report', (req, res) => {
 });
 
 // Redis está listo
-redisClient.on('ready', () => {
+redisClient.on('ready', async () => {
     console.log('🎯 Redis conectado y listo');
+
+    // Migrar pedidos existentes del archivo a Redis (si existen)
+    try {
+        console.log('🔄 Iniciando migración de pedidos a Redis...');
+        const migratedCount = await migrateOrdersToRedis();
+        if (migratedCount > 0) {
+            console.log(`✅ Migración completada: ${migratedCount} pedidos migrados a Redis`);
+        }
+    } catch (error) {
+        console.error('❌ Error en migración de pedidos:', error);
+    }
 });
 
 // Manejo de cierre limpio
