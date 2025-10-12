@@ -911,8 +911,14 @@ async function sendToN8n(message, extraData = {}) {
           id: message.interactive.button_reply?.id,
           title: message.interactive.button_reply?.title
         };
+      } else if (message.interactive?.type === 'list_reply') {
+        payload.interactive = {
+          type: 'list_reply',
+          id: message.interactive.list_reply?.id,
+          title: message.interactive.list_reply?.title,
+          description: message.interactive.list_reply?.description
+        };
       }
-      // Se puede añadir 'list_reply' aquí en el futuro.
       break;
     case 'image':
       payload.interactive = {
@@ -940,6 +946,16 @@ async function sendToN8n(message, extraData = {}) {
       };
       break;
     // Añadir más casos según sea necesario.
+  }
+
+  // Log específico para mensajes interactive (debugging de encuestas)
+  if (message.type === 'interactive') {
+    console.log('📊 Mensaje INTERACTIVE detectado:', {
+      type: message.interactive?.type,
+      button_reply: message.interactive?.button_reply,
+      list_reply: message.interactive?.list_reply,
+      payload_enviado: payload.interactive
+    });
   }
 
   // 3. Envío asíncrono con manejo de errores mejorado.
