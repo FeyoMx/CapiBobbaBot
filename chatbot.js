@@ -1876,7 +1876,7 @@ async function handleSurveyResponse(from, rating) {
   };
 
   // Guardar en Redis con TTL de 10 minutos para capturar comentarios
-  await redisClient.setex(`survey_pending:${from}`, 600, JSON.stringify(surveyData));
+  await redisClient.set(`survey_pending:${from}`, JSON.stringify(surveyData), { EX: 600 });
 
   // Establecer estado del usuario para detectar comentarios posteriores
   await setUserState(from, {

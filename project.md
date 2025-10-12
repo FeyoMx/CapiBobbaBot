@@ -745,6 +745,25 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.12.2 (2025-10-12) - Fix Crítico: Procesamiento de Encuestas 🐛
+- 🐛 **Bug Fix Crítico** - Sistema de encuestas fallaba al guardar respuestas (`chatbot.js:1879`):
+  - **Problema**: `TypeError: redisClient.setex is not a function`
+    - Error al recibir calificación de encuesta con comentario
+    - Bot respondía con mensaje de error genérico al usuario
+    - Las encuestas no se guardaban correctamente en Redis
+  - **Causa Raíz**: Sintaxis obsoleta de Redis v3 (`setex`) en lugar de Redis v4+ (`set` con opciones)
+  - **Solución**:
+    - ✅ Cambiar `redisClient.setex(key, ttl, value)` → `redisClient.set(key, value, { EX: ttl })`
+    - ✅ Usar sintaxis de Redis v4 consistente con el resto del código (línea 845, 4143)
+    - ✅ TTL de 600 segundos (10 minutos) para captura de comentarios posteriores
+  - **Impacto**:
+    - ✅ Encuestas ahora se procesan correctamente
+    - ✅ Sistema de comentarios opcionales funcional
+    - ✅ Datos de satisfacción se guardan en Redis para análisis
+  - **Archivos modificados**:
+    - `chatbot.js:1879` - Actualizada sintaxis de Redis para guardar datos de encuesta
+  - **Evidencia**: Logs de Render mostraban error en timestamp `2025-10-12T00:41:22.482846436Z`
+
 ### v0.2.1-nodo (2025-10-11) - Actualización Nodo n8n de Encuestas 📦
 - 📦 **Actualización de Versión del Nodo**: Bumped versión 0.2.0 → 0.2.1 en `n8n-nodes-encuestacapibobba`
   - Cambio tipo **PATCH** (semver) - Mejora menor sin breaking changes
@@ -1587,8 +1606,8 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ---
 
-**Última actualización**: 10 de Octubre, 2025 - Integración de Encuestas con Endpoint Real
-**Versión del proyecto**: 2.12.1
+**Última actualización**: 12 de Octubre, 2025 - Fix Crítico: Procesamiento de Encuestas
+**Versión del proyecto**: 2.12.2
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones
