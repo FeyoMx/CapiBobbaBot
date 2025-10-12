@@ -27,64 +27,70 @@ for (const item of items) {
 
     try {
       // ✅ NUEVO: DETECTAR MENSAJES INTERACTIVOS DIRECTOS (CASO CRÍTICO AÑADIDO)
-      if (rawBody && rawBody.type === 'interactive' && rawBody.interactive) {
+      // ✅ CORREGIDO: DETECTAR MENSAJES INTERACTIVOS DIRECTOS (CASO CRÍTICO AÑADIDO)
+      const interactivePayload = rawBody.interactive || (rawBody.rawMessage && rawBody.rawMessage.interactive);
+
+      if (rawBody && rawBody.type === 'interactive' && interactivePayload) {
         console.log('🔘 Mensaje interactivo directo detectado');
         normalizedBody.source = 'whatsapp_user';
         normalizedBody.isFromUser = true;
         normalizedBody.from = String(rawBody.from || 'unknown_interactive');
         normalizedBody.timestamp = parseInt(rawBody.timestamp) || normalizedBody.timestamp;
         
-        const interactive = rawBody.interactive;
+        const interactive = interactivePayload;
         
-        if (interactive.type === 'button_reply') {
+        if (interactive.type === 'button_reply' && interactive.button_reply) {
           console.log('✅ Button reply detectado');
           normalizedBody.messageType = 'interactive_button_reply';
+          const buttonReply = interactive.button_reply;
           
           // Extraer título del botón presionado
-          if (interactive.title) {
-            normalizedBody.text = String(interactive.title);
+          if (buttonReply.title) {
+            normalizedBody.text = String(buttonReply.title);
             normalizedBody.hasText = true;
             console.log('✅ Título de botón extraído:', normalizedBody.text);
-          }
-          // Fallback: buscar en rawMessage.interactive.button_reply.title
-          else if (rawBody.rawMessage && 
-                   rawBody.rawMessage.interactive && 
-                   rawBody.rawMessage.interactive.button_reply && 
-                   rawBody.rawMessage.interactive.button_reply.title) {
-            normalizedBody.text = String(rawBody.rawMessage.interactive.button_reply.title);
-            normalizedBody.hasText = true;
-            console.log('✅ Título de botón extraído del rawMessage:', normalizedBody.text);
-          }
-          else {
-            normalizedBody.text = `Botón presionado (ID: ${interactive.id || 'unknown'})`;
+          } else {
+            normalizedBody.text = `Botón presionado (ID: ${buttonReply.id || 'unknown'})`;
             normalizedBody.hasText = true;
           }
           
           // Guardar ID del botón para referencia
-          if (interactive.id) {
-            normalizedBody.buttonId = String(interactive.id);
+          if (buttonReply.id) {
+            normalizedBody.buttonId = String(buttonReply.id);
             console.log('✅ Button ID guardado:', normalizedBody.buttonId);
           }
         }
-        else if (interactive.type === 'list_reply') {
+        else if (interactive.type === 'list_reply' && interactive.list_reply) {
           console.log('📝 List reply detectado');
           normalizedBody.messageType = 'interactive_list_reply';
+          const listReply = interactive.list_reply;
           
-          if (interactive.title) {
-            normalizedBody.text = String(interactive.title);
+          let replyText = '';
+          if (listReply.title) {
+            replyText = String(listReply.title);
+          }
+          
+          // Opcional: añadir descripción si existe
+          if (listReply.description) {
+            replyText += ` (${listReply.description})`;
+          }
+
+          if (replyText) {
+            normalizedBody.text = replyText.trim();
             normalizedBody.hasText = true;
-            console.log('✅ Título de lista extraído:', normalizedBody.text);
+            console.log('✅ Texto de lista extraído:', normalizedBody.text);
           } else {
-            normalizedBody.text = `Opción de lista seleccionada (ID: ${interactive.id || 'unknown'})`;
+            normalizedBody.text = `Opción de lista seleccionada (ID: ${listReply.id || 'unknown'})`;
             normalizedBody.hasText = true;
           }
           
-          if (interactive.id) {
-            normalizedBody.listId = String(interactive.id);
+          if (listReply.id) {
+            normalizedBody.listId = String(listReply.id);
+            console.log('✅ List ID guardado:', normalizedBody.listId);
           }
         }
         else {
-          console.log('❓ Tipo interactivo desconocido:', interactive.type);
+          console.log('❓ Tipo interactivo desconocido o payload malformado:', interactive.type);
           normalizedBody.messageType = 'interactive_unknown';
           normalizedBody.text = `Mensaje interactivo de tipo: ${interactive.type}`;
           normalizedBody.hasText = true;

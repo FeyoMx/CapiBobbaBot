@@ -11,7 +11,14 @@ function OrderViewer() {
   useEffect(() => {
     axios.get('/api/orders')
       .then(response => {
-        setOrders(response.data.reverse()); // Reverse to show newest first
+        // La API devuelve {success: true, data: {orders: [...], total, page, ...}}
+        if (response.data.success && response.data.data && response.data.data.orders) {
+          // Invertir para mostrar los más recientes primero
+          setOrders(response.data.data.orders.reverse());
+        } else {
+          // Fallback para formato antiguo si existe
+          setOrders(Array.isArray(response.data) ? response.data.reverse() : []);
+        }
         setLoading(false);
       })
       .catch(err => {

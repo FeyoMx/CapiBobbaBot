@@ -745,6 +745,71 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.13.0 (2025-10-12) - Sistema de Persistencia de Pedidos en Redis 💾
+- 💾 **Persistencia de Pedidos en Redis** (`chatbot.js:3242-3447`):
+  - Sistema completo de almacenamiento de pedidos en Redis con TTL de 90 días
+  - Estructura de datos optimizada con Sorted Sets, Hashes y Sets
+  - Indexación múltiple para búsquedas rápidas por teléfono, estado y método de pago
+  - **Problema resuelto**: Pedidos se perdían en cada deploy por sistema de archivos efímero en Render
+  - **Solución**: Redis como almacenamiento principal + archivo JSONL como backup
+
+- 🗂️ **Estructura de Almacenamiento**:
+  - `orders:all` → Sorted Set ordenado por timestamp (score)
+  - `orders:data:{orderId}` → Hash con datos completos del pedido (JSON)
+  - `orders:by_phone:{phone}` → Set de IDs de pedidos por cliente
+  - `orders:by_status:{status}` → Set de IDs por estado (pending, confirmed, etc.)
+  - `orders:by_payment:{method}` → Set de IDs por método de pago
+
+- ⚡ **Funciones Principales**:
+  - `saveOrderToRedis(orderData)` → Guarda pedido con indexación automática (`chatbot.js:3260-3300`)
+  - `getOrdersFromRedis(options)` → Obtiene pedidos con filtros y paginación (`chatbot.js:3305-3396`)
+  - `getOrderByIdFromRedis(orderId)` → Obtiene pedido específico (`chatbot.js:3401-3412`)
+  - `migrateOrdersToRedis()` → Migra pedidos del archivo JSONL a Redis (`chatbot.js:3417-3447`)
+
+- 🔄 **Endpoints API Actualizados**:
+  - `GET /api/orders` → Ahora lee desde Redis con filtros (estado, pago, búsqueda) (`chatbot.js:3501-3525`)
+  - `GET /api/orders/:id` → Lee pedido individual desde Redis (`chatbot.js:3677-3693`)
+  - Ambos endpoints mantienen compatibilidad con estructura de respuesta existente
+
+- 🚀 **Migración Automática** (`chatbot.js:4712-4725`):
+  - Se ejecuta automáticamente al iniciar el servidor (evento Redis 'ready')
+  - Migra pedidos existentes en `order_log.jsonl` a Redis
+  - Logging claro del proceso: "🔄 Iniciando migración..." → "✅ X pedidos migrados"
+
+- 📊 **Beneficios**:
+  - ✅ Pedidos persisten entre deploys y reinicios de contenedor
+  - ✅ Búsquedas rápidas por múltiples criterios (índices Redis)
+  - ✅ TTL configurable (90 días default, ajustable con `ORDER_TTL_DAYS`)
+  - ✅ Backup automático en archivo JSONL (doble protección)
+  - ✅ Sin cambios en UX del dashboard (misma estructura de respuesta)
+
+- 🔧 **Configuración**:
+  - `ORDER_TTL_DAYS=90` → Tiempo de retención en días (hardcoded, modificable)
+  - Sistema híbrido: Redis (principal) + Archivo (backup)
+  - Migración idempotente (no duplica si se ejecuta múltiples veces)
+
+- 🎯 **Dashboard Next.js Actualizado** (`dashboard-next/.env.local:2-3`):
+  - Corregidas URLs de API para producción:
+    - `NEXT_PUBLIC_API_URL=https://capibobbabot.onrender.com/api`
+    - `NEXT_PUBLIC_WS_URL=https://capibobbabot.onrender.com`
+  - Variables de entorno actualizadas en Render:
+    - `PORT=3001` (puerto correcto para dashboard Next.js)
+
+- 📁 **Archivos modificados**:
+  - `chatbot.js:3242-3447` - Sistema completo de Redis para pedidos
+  - `chatbot.js:3453-3463` - logOrderToFile() ahora guarda en Redis + archivo
+  - `chatbot.js:3501-3525` - Endpoint /api/orders con lectura desde Redis
+  - `chatbot.js:3677-3693` - Endpoint /api/orders/:id con lectura desde Redis
+  - `chatbot.js:4712-4725` - Migración automática al iniciar
+  - `dashboard-next/.env.local:2-3` - URLs corregidas (no commiteado, archivo ignorado)
+
+- ✅ **Impacto**:
+  - ✅ Pedidos históricos preservados (hasta 90 días)
+  - ✅ Dashboard funcional con datos reales en producción
+  - ✅ Escalabilidad mejorada (Redis más rápido que archivos)
+  - ✅ Preparado para análisis de datos (queries eficientes)
+  - ✅ Deploy exitoso: commit c4d0fa0, Deploy dep-d3lrhsd6ubrc73bevv0g, Status LIVE
+
 ### v2.12.2 (2025-10-12) - Fix Crítico: Procesamiento de Encuestas 🐛
 - 🐛 **Bug Fix Crítico** - Sistema de encuestas fallaba al guardar respuestas (`chatbot.js:1879`):
   - **Problema**: `TypeError: redisClient.setex is not a function`
