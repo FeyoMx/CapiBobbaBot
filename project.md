@@ -1751,10 +1751,42 @@ Grid Principal (2 columnas desktop, 1 móvil)
   - workflow.json y error_workflow.json protegidos
   - Configuraciones sensibles excluidas del repositorio
 
+### v0.1.1-nodo (2025-10-15) - Actualización Nodo n8n de Plantilla WhatsApp 📦
+- 📦 **Actualización de Versión del Nodo**: Bumped versión 0.1.0 → 0.1.1 en `n8n-nodes-plantillawhatsapp`
+  - Cambio tipo **PATCH** (semver) - Mejoras en funcionalidad y UI
+  - Repositorio independiente con control de versiones propio
+
+- ✨ **Parametrización Completa de Plantilla**:
+  - El nodo ahora permite configurar dinámicamente:
+    - `Template Name`: Nombre de la plantilla de WhatsApp a enviar.
+    - `Language Code`: Código de idioma de la plantilla (ej. `es_MX`, `en_US`).
+    - `Header Type`: Tipo de contenido para el encabezado (Ninguno, Texto, Imagen, Video, Documento).
+    - `Header Text`: Contenido de texto para el encabezado (si `Header Type` es Texto).
+    - `Header Media Link`: URL del archivo multimedia para el encabezado (si `Header Type` es Imagen, Video o Documento).
+    - `Body Parameters`: Colección de parámetros para el cuerpo de la plantilla, permitiendo valores dinámicos.
+  - Esto elimina la necesidad de hardcodear la plantilla en el código, ofreciendo máxima flexibilidad.
+
+- 🎨 **Actualización de Icono del Nodo**:
+  - Se ha implementado el icono `plantilawhatsapp.png` para una mejor identificación visual en n8n.
+
+- 🔧 **Build y Publicación**:
+  - Build exitoso ejecutado: `npm run build`
+  - Publicación exitosa a npm: `npm publish`
+
+- 📁 **Archivos modificados**:
+  - `n8n-nodes-plantillawhatsapp/package.json:3` - Version 0.1.0 → 0.1.1
+  - `n8n-nodes-plantillawhatsapp/nodes/PlantillaWhatsApp/PlantillaWhatsApp.node.ts` - Propiedades y lógica de ejecución actualizadas.
+  - `project.md` - Documentación de la actualización.
+
+- ✅ **Impacto**:
+  - ✅ Nodo `WhatsApp Template Sender` completamente funcional y configurable.
+  - ✅ Mejor experiencia de usuario en n8n con un nodo más flexible y visualmente identificado.
+  - ✅ Preparado para enviar cualquier plantilla de WhatsApp con contenido dinámico.
+
 ---
 
-**Última actualización**: 12 de Octubre, 2025 - Fix Crítico: Procesamiento de Encuestas
-**Versión del proyecto**: 2.12.2
+**Última actualización**: 15 de Octubre, 2025 - Actualización Nodo n8n de Plantilla WhatsApp
+**Versión del proyecto**: 2.13.2
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones
@@ -1764,3 +1796,5 @@ Este archivo debe actualizarse con cada cambio significativo al proyecto, incluy
 - Modificaciones de arquitectura
 - Actualizaciones de dependencias
 - Correcciones importantes
+
+### v2.13.2 (2025-10-15) - Manejo de Notificaciones de Estado de Mensajes 📨
