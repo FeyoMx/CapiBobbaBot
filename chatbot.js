@@ -828,48 +828,45 @@ app.delete('/api/redis-states/:key', async (req, res) => {
 // --- LÓGICA DEL BOT ---
 
 /**
- * Procesa el cuerpo de un webhook de WhatsApp para encontrar y registrar estados de mensajes fallidos.
- * Busca en la matriz de estados y, si encuentra uno con 'failed', imprime sus detalles en la consola.
+ * Procesa el cuerpo de un webhook de WhatsApp para registrar TODOS los estados de los mensajes (MODO DEBUG).
  * @param {object} body - El objeto `req.body` proveniente del webhook de WhatsApp.
  */
 function manejarStatus(body) {
-  // 1. Accede de forma segura a la matriz de estados.
   const statuses = body?.entry?.[0]?.changes?.[0]?.value?.statuses;
 
-  // Si no es una matriz, no hay nada que procesar.
-  if (!Array.isArray(statuses)) {
+  if (!Array.isArray(statuses) || statuses.length === 0) {
     return;
   }
 
-  // 2. Filtra para encontrar solo los estados que han fallado.
-  const failedStatuses = statuses.filter(s => s.status === 'failed');
+  console.log(`📬 Se recibieron ${statuses.length} actualizaciones de estado.`);
 
-  if (failedStatuses.length > 0) {
-    console.log(`🔴 Se encontraron ${failedStatuses.length} mensajes con estado 'failed'.`);
-    
-    for (const status of failedStatuses) {
-      console.log('--- Detalles del Mensaje Fallido ---');
-      console.log(`  ID del Mensaje: ${status.id}`);
-      console.log(`  Destinatario: ${status.recipient_id}`);
-      
-      // 3. Si hay errores asociados, los imprime.
-      if (status.errors && status.errors.length > 0) {
-        const error = status.errors[0]; // El primer error suele ser el más relevante.
-        console.log(`  Código de Error: ${error.code}`);
-        console.log(`  Título del Error: ${error.title}`);
-        
-        // Imprime detalles adicionales si existen.
-        if (error.message) {
-          console.log(`  Mensaje: ${error.message}`);
-        }
-        if (error.error_data?.details) {
-          console.log(`  Detalles: ${error.error_data.details}`);
-        }
-      } else {
-        console.log('  El estado es fallido, pero no se proporcionaron detalles del error.');
+  for (const status of statuses) {
+    const statusType = status.status; // sent, delivered, read, failed
+    const emoji = {
+      sent: '➡️',
+      delivered: '✅',
+      read: '👀',
+      failed: '🔴'
+    }[statusType] || '📦';
+
+    console.log(`--- ${emoji} Estado: ${statusType.toUpperCase()} ---`);
+    console.log(`  ID del Mensaje: ${status.id}`);
+    console.log(`  Destinatario: ${status.recipient_id}`);
+    console.log(`  Timestamp: ${new Date(parseInt(status.timestamp) * 1000).toLocaleString()}`);
+
+    // Si el estado es 'failed', imprime los detalles del error.
+    if (statusType === 'failed' && status.errors && status.errors.length > 0) {
+      const error = status.errors[0];
+      console.log(`  Código de Error: ${error.code}`);
+      console.log(`  Título del Error: ${error.title}`);
+      if (error.message) {
+        console.log(`  Mensaje: ${error.message}`);
       }
-      console.log('------------------------------------');
+      if (error.error_data?.details) {
+        console.log(`  Detalles: ${error.error_data.details}`);
+      }
     }
+    console.log('-------------------------');
   }
 }
 
