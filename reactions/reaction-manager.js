@@ -111,7 +111,7 @@ const INTENTION_PATTERNS = {
 };
 
 class ReactionManager {
-  constructor(whatsappToken, phoneNumberId, apiVersion = 'v18.0') {
+  constructor(whatsappToken, phoneNumberId, apiVersion = 'v24.0') {
     this.whatsappToken = whatsappToken;
     this.phoneNumberId = phoneNumberId;
     this.apiVersion = apiVersion;

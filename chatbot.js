@@ -58,7 +58,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const ADMIN_WHATSAPP_NUMBERS = process.env.ADMIN_WHATSAPP_NUMBERS; // Plural
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
 const REDIS_URL = process.env.REDIS_URL;
-const WHATSAPP_API_VERSION = process.env.WHATSAPP_API_VERSION || 'v22.0';
+const WHATSAPP_API_VERSION = process.env.WHATSAPP_API_VERSION || 'v24.0';
 const MAINTENANCE_MODE_KEY = 'maintenance_mode_status'; // Clave para Redis
 
 // Validamos que las variables de entorno críticas estén definidas

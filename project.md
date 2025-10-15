@@ -745,6 +745,68 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.13.1 (2025-10-13) - Feed de Google Merchant Center 🛍️
+- 🛍️ **Feed de Productos para Google Shopping** (`google_merchant_center_products.csv`):
+  - Archivo CSV con 39 productos completos del menú de CapiBobba
+  - Formato compatible con Google Merchant Center según especificaciones 2025
+  - Campos obligatorios incluidos: id, title, description, link, image_link, price, condition, availability, brand, product_type, google_product_category
+  - **Estructura de productos**:
+    - 12 Bebidas Base Agua Frappe ($75.00 MXN)
+    - 11 Bebidas Base Leche Frappe ($75.00 MXN)
+    - 1 Bebida Caliente genérica ($60.00 MXN)
+    - 4 Especialidades ($75-$80 MXN)
+    - 6 Toppings ($10.00 MXN)
+    - 1 Postre: CapiGofre ($35.00 MXN)
+    - 2 Combos Promocionales ($110-$130 MXN)
+
+- 📚 **Documentación Completa** (`GOOGLE_MERCHANT_CENTER_FEED.md`):
+  - Guía paso a paso para configurar feed en Google Merchant Center
+  - Especificación detallada de todos los campos obligatorios y opcionales
+  - Requisitos de imágenes de productos (formato, tamaño, URLs)
+  - Instrucciones de subida manual y programada
+  - Opciones de integración automática (script desde business_data.js, API de Content)
+  - Mejores prácticas de optimización de feeds
+  - Secciones de referencia con enlaces a documentación oficial de Google
+
+- ⚠️ **Acciones Pendientes**:
+  - **ALTA PRIORIDAD**: Reemplazar URLs placeholder de imágenes con URLs reales
+    - Actualmente: `https://example.com/images/[nombre].jpg`
+    - Requisitos: Min 100x100px, recomendado 800x800px+, JPEG/PNG/GIF/WebP, HTTPS
+  - Opcionalmente agregar GTIN/MPN para mejorar posicionamiento
+  - Configurar feed dinámico desde business_data.js (recomendado)
+
+- 🎯 **Beneficios del Feed**:
+  - Productos listables en Google Shopping
+  - Mejora visibilidad del negocio en búsquedas de Google
+  - Integración con Google Ads Shopping Campaigns
+  - Tracking de performance de productos
+  - Mayor alcance a clientes potenciales
+
+- 📁 **Archivos creados**:
+  - `google_merchant_center_products.csv` - Feed de productos (39 items)
+  - `GOOGLE_MERCHANT_CENTER_FEED.md` - Documentación completa (16KB)
+  - `project.md:697-750` - Entrada en historial de cambios
+
+- 📊 **Cobertura del Menú**:
+  - ✅ 100% de productos de business_data.js incluidos
+  - ✅ Todos los sabores de bebidas (agua y leche)
+  - ✅ Especialidades completas
+  - ✅ Todos los toppings disponibles
+  - ✅ Postres & Snacks (CapiGofre)
+  - ✅ Combos promocionales (Día Lluvioso, Amigos)
+
+- 🔄 **Mantenimiento del Feed**:
+  - Sincronizar precios con business_data.js al actualizar
+  - Agregar nuevos productos al CSV cuando se agreguen al menú
+  - Actualizar disponibilidad (in_stock/out_of_stock) según inventario
+  - Considerar script automatizado para generación dinámica
+
+- ✅ **Impacto**:
+  - ✅ CapiBobba listo para aparecer en Google Shopping
+  - ✅ Infraestructura preparada para marketing digital
+  - ✅ Documentación completa para gestión del feed
+  - ✅ Base para integración futura con Google Ads
+
 ### v2.13.0 (2025-10-12) - Sistema de Persistencia de Pedidos en Redis 💾
 - 💾 **Persistencia de Pedidos en Redis** (`chatbot.js:3242-3447`):
   - Sistema completo de almacenamiento de pedidos en Redis con TTL de 90 días

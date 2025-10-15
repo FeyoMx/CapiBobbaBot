@@ -10,7 +10,7 @@ class MetricsCollector {
             webhookUrl: config.webhookUrl || process.env.N8N_WEBHOOK_URL,
             whatsappToken: config.whatsappToken || process.env.WHATSAPP_TOKEN,
             phoneNumberId: config.phoneNumberId || process.env.PHONE_NUMBER_ID,
-            whatsappApiVersion: config.whatsappApiVersion || process.env.WHATSAPP_API_VERSION || 'v18.0',
+            whatsappApiVersion: config.whatsappApiVersion || process.env.WHATSAPP_API_VERSION || 'v24.0',
             maintenanceModeKey: config.maintenanceModeKey || 'maintenance_mode_status',
             metricsRetentionHours: config.metricsRetentionHours || 24
         };

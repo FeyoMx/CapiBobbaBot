@@ -309,7 +309,7 @@ Guarda en Google Sheets para dashboard
 
 - [SISTEMA_ENCUESTAS_RESUMEN.md](workflow_analysis/SISTEMA_ENCUESTAS_RESUMEN.md) - Análisis completo del sistema
 - [ROADMAP_MEJORAS_WORKFLOW.md](workflow_analysis/ROADMAP_MEJORAS_WORKFLOW.md) - Mejoras pendientes
-- [WhatsApp Cloud API v22.0](https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages#interactive-object) - Documentación de mensajes interactivos
+- [WhatsApp Cloud API v24.0](https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages#interactive-object) - Documentación de mensajes interactivos
 
 ---
 
