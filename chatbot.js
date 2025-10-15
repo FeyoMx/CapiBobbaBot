@@ -182,6 +182,7 @@ app.post('/webhook', async (req, res) => {
         if (body.object === 'whatsapp_business_account' && body.entry && body.entry[0] && body.entry[0].changes) {
             const changes = body.entry[0].changes[0];
 
+            // Si es un mensaje nuevo
             if (changes.field === 'messages' && changes.value && changes.value.messages) {
                 const messages = changes.value.messages;
 
@@ -332,6 +333,11 @@ app.post('/webhook', async (req, res) => {
                         // Continuar con el siguiente mensaje en lugar de fallar completamente
                     }
                 }
+            }
+            // Si es una actualización de estado (ej: entregado, leído, fallido)
+            else if (changes.field === 'messages' && changes.value && changes.value.statuses) {
+                // Llamar a la nueva función para manejar los estados
+                manejarStatus(body);
             }
         }
 
@@ -820,6 +826,52 @@ app.delete('/api/redis-states/:key', async (req, res) => {
 });
 
 // --- LÓGICA DEL BOT ---
+
+/**
+ * Procesa el cuerpo de un webhook de WhatsApp para encontrar y registrar estados de mensajes fallidos.
+ * Busca en la matriz de estados y, si encuentra uno con 'failed', imprime sus detalles en la consola.
+ * @param {object} body - El objeto `req.body` proveniente del webhook de WhatsApp.
+ */
+function manejarStatus(body) {
+  // 1. Accede de forma segura a la matriz de estados.
+  const statuses = body?.entry?.[0]?.changes?.[0]?.value?.statuses;
+
+  // Si no es una matriz, no hay nada que procesar.
+  if (!Array.isArray(statuses)) {
+    return;
+  }
+
+  // 2. Filtra para encontrar solo los estados que han fallado.
+  const failedStatuses = statuses.filter(s => s.status === 'failed');
+
+  if (failedStatuses.length > 0) {
+    console.log(`🔴 Se encontraron ${failedStatuses.length} mensajes con estado 'failed'.`);
+    
+    for (const status of failedStatuses) {
+      console.log('--- Detalles del Mensaje Fallido ---');
+      console.log(`  ID del Mensaje: ${status.id}`);
+      console.log(`  Destinatario: ${status.recipient_id}`);
+      
+      // 3. Si hay errores asociados, los imprime.
+      if (status.errors && status.errors.length > 0) {
+        const error = status.errors[0]; // El primer error suele ser el más relevante.
+        console.log(`  Código de Error: ${error.code}`);
+        console.log(`  Título del Error: ${error.title}`);
+        
+        // Imprime detalles adicionales si existen.
+        if (error.message) {
+          console.log(`  Mensaje: ${error.message}`);
+        }
+        if (error.error_data?.details) {
+          console.log(`  Detalles: ${error.error_data.details}`);
+        }
+      } else {
+        console.log('  El estado es fallido, pero no se proporcionaron detalles del error.');
+      }
+      console.log('------------------------------------');
+    }
+  }
+}
 
 // --- GESTIÓN DE ESTADO CON REDIS ---
 // Las siguientes funciones reemplazan el `Map` en memoria para guardar y recuperar el estado de la conversación de forma persistente.

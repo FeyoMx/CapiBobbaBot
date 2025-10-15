@@ -745,6 +745,26 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.13.2 (2025-10-15) - Manejo de Notificaciones de Estado de Mensajes 📨
+- ✨ **Nueva Función `manejarStatus`**:
+  - Se implementó la función `manejarStatus(body)` en `chatbot.js` para procesar las notificaciones de estado de los mensajes enviadas por WhatsApp (ej. `sent`, `delivered`, `failed`).
+  - La función está diseñada para ser robusta, utilizando encadenamiento opcional para prevenir errores con cargas útiles inesperadas.
+- 🔴 **Detección de Mensajes Fallidos**:
+  - El manejador identifica específicamente los mensajes con estado `failed`.
+  - Cuando se detecta un fallo, se imprime en la consola un informe detallado que incluye el ID del mensaje, el destinatario y la información del error (código, título y detalles).
+- 🔄 **Integración en Webhook Principal**:
+  - Se actualizó el endpoint `POST /webhook` para diferenciar entre mensajes nuevos y actualizaciones de estado.
+  - Las notificaciones de estado ahora se enrutan a `manejarStatus` para su procesamiento, sin interferir con el flujo de mensajes de los usuarios.
+- 🎯 **Impacto**:
+  - Mejora significativa en la capacidad de depuración y monitoreo de la entrega de mensajes.
+  - Permite identificar y diagnosticar rápidamente por qué un mensaje no llegó a su destinatario, utilizando los códigos de error proporcionados por la API de WhatsApp.
+  - Aumenta la fiabilidad del bot al proporcionar visibilidad sobre el ciclo de vida completo del mensaje.
+- 📁 **Archivos modificados**:
+  - `chatbot.js`: Añadida la función `manejarStatus` y actualizada la lógica del webhook.
+  - `project.md`: Documentado el nuevo cambio en el historial.
+
+
+
 ### v2.13.1 (2025-10-13) - Feed de Google Merchant Center 🛍️
 - 🛍️ **Feed de Productos para Google Shopping** (`google_merchant_center_products.csv`):
   - Archivo CSV con 39 productos completos del menú de CapiBobba
