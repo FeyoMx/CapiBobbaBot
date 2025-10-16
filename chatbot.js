@@ -2001,13 +2001,24 @@ async function handleSurveyComment(from, text, userState) {
     surveyData.comment = text;
     surveyData.commentTimestamp = new Date().toISOString();
 
-    // Actualizar el log con el comentario
-    logSurveyResponseToFile(surveyData);
+    // Buscar la encuesta más reciente del cliente en Redis
+    const latestSurvey = await getLatestSurveyByPhone(from);
+
+    if (latestSurvey && latestSurvey.id) {
+      // Actualizar la encuesta existente con el comentario
+      await updateSurveyInRedis(latestSurvey.id, {
+        comment: text,
+        commentTimestamp: surveyData.commentTimestamp
+      });
+      console.log(`✅ Comentario agregado a encuesta ${latestSurvey.id} - Rating: ${surveyData.rating}/5`);
+    } else {
+      // Si no se encuentra, guardar como nueva (fallback)
+      logSurveyResponseToFile(surveyData);
+      console.log(`⚠️ No se encontró encuesta existente, guardada como nueva - Rating: ${surveyData.rating}/5`);
+    }
 
     // Eliminar la entrada pendiente de Redis
     await redisClient.del(surveyKey);
-
-    console.log(`✅ Comentario guardado para encuesta - Rating: ${surveyData.rating}/5`);
     console.log(`✅ Clave Redis eliminada: ${surveyKey}`);
   } else {
     // Si no hay encuesta pendiente, usar el rating del userState
@@ -2019,8 +2030,19 @@ async function handleSurveyComment(from, text, userState) {
       commentTimestamp: new Date().toISOString()
     };
 
-    logSurveyResponseToFile(surveyData);
-    console.log(`✅ Comentario guardado (desde userState) - Rating: ${surveyData.rating}/5`);
+    // Intentar actualizar la encuesta más reciente
+    const latestSurvey = await getLatestSurveyByPhone(from);
+
+    if (latestSurvey && latestSurvey.id) {
+      await updateSurveyInRedis(latestSurvey.id, {
+        comment: text,
+        commentTimestamp: surveyData.commentTimestamp
+      });
+      console.log(`✅ Comentario agregado (desde userState) a ${latestSurvey.id} - Rating: ${surveyData.rating}/5`);
+    } else {
+      logSurveyResponseToFile(surveyData);
+      console.log(`⚠️ No se encontró encuesta existente, guardada como nueva (desde userState) - Rating: ${surveyData.rating}/5`);
+    }
   }
 
   // Personalizar mensaje de agradecimiento según la calificación
@@ -3562,7 +3584,177 @@ const logOrderToFile = async (orderData) => {
   }
 };
 
-const logSurveyResponseToFile = (surveyData) => logToFile('survey_log.jsonl', surveyData);
+/**
+ * REDIS SURVEY STORAGE - Sistema de persistencia de encuestas en Redis
+ *
+ * Estructura de almacenamiento:
+ * - surveys:all -> Sorted Set con scores = timestamp, values = survey IDs
+ * - surveys:data:{surveyId} -> Hash con todos los datos de la encuesta
+ * - surveys:by_phone:{phone} -> Set con IDs de encuestas de ese cliente
+ * - surveys:by_rating:{rating} -> Set con IDs de encuestas con ese rating
+ *
+ * TTL: Las encuestas se mantienen por 180 días (6 meses)
+ */
+
+const SURVEY_TTL_DAYS = 180;
+const SURVEY_TTL_SECONDS = SURVEY_TTL_DAYS * 24 * 60 * 60;
+
+/**
+ * Guarda una encuesta completa en Redis con indexación
+ */
+async function saveSurveyToRedis(surveyData) {
+  try {
+    const timestamp = Date.now();
+    const surveyId = `survey_${timestamp}_${surveyData.from}`;
+    const surveyWithId = { ...surveyData, id: surveyId, savedAt: timestamp };
+
+    // 1. Guardar en sorted set principal (ordenado por timestamp)
+    await redisClient.zAdd('surveys:all', {
+      score: timestamp,
+      value: surveyId
+    });
+
+    // 2. Guardar datos completos de la encuesta
+    await redisClient.hSet(`surveys:data:${surveyId}`, {
+      data: JSON.stringify(surveyWithId)
+    });
+
+    // 3. Indexar por teléfono del cliente
+    if (surveyData.from) {
+      await redisClient.sAdd(`surveys:by_phone:${surveyData.from}`, surveyId);
+    }
+
+    // 4. Indexar por rating
+    if (surveyData.rating) {
+      await redisClient.sAdd(`surveys:by_rating:${surveyData.rating}`, surveyId);
+    }
+
+    // 5. Establecer TTL en todas las keys
+    await redisClient.expire(`surveys:data:${surveyId}`, SURVEY_TTL_SECONDS);
+
+    console.log(`✅ Encuesta ${surveyId} guardada en Redis (rating: ${surveyData.rating}/5)`);
+    return surveyId;
+  } catch (error) {
+    console.error('❌ Error guardando encuesta en Redis:', error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene encuestas desde Redis con filtros y paginación
+ */
+async function getSurveysFromRedis(options = {}) {
+  try {
+    const {
+      limit = 100,
+      rating,
+      phone
+    } = options;
+
+    // 1. Obtener IDs de encuestas
+    let surveyIds = [];
+
+    if (rating) {
+      // Filtrar por rating
+      surveyIds = await redisClient.sMembers(`surveys:by_rating:${rating}`);
+    } else if (phone) {
+      // Filtrar por teléfono
+      surveyIds = await redisClient.sMembers(`surveys:by_phone:${phone}`);
+    } else {
+      // Obtener todas (más recientes primero)
+      surveyIds = await redisClient.zRange('surveys:all', '+inf', '-inf', {
+        BY: 'SCORE',
+        REV: true,
+        LIMIT: { offset: 0, count: limit }
+      });
+    }
+
+    // 2. Obtener datos completos
+    const surveys = [];
+    for (const surveyId of surveyIds) {
+      const surveyHash = await redisClient.hGetAll(`surveys:data:${surveyId}`);
+      if (surveyHash && surveyHash.data) {
+        surveys.push(JSON.parse(surveyHash.data));
+      }
+    }
+
+    // 3. Ordenar por timestamp descendente
+    surveys.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+
+    return surveys.slice(0, limit);
+  } catch (error) {
+    console.error('❌ Error obteniendo encuestas desde Redis:', error);
+    return [];
+  }
+}
+
+/**
+ * Actualiza una encuesta existente en Redis (para agregar comentarios)
+ */
+async function updateSurveyInRedis(surveyId, updates) {
+  try {
+    const surveyHash = await redisClient.hGetAll(`surveys:data:${surveyId}`);
+
+    if (surveyHash && surveyHash.data) {
+      const surveyData = JSON.parse(surveyHash.data);
+      const updatedSurvey = { ...surveyData, ...updates };
+
+      await redisClient.hSet(`surveys:data:${surveyId}`, {
+        data: JSON.stringify(updatedSurvey)
+      });
+
+      console.log(`✅ Encuesta ${surveyId} actualizada en Redis`);
+      return updatedSurvey;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('❌ Error actualizando encuesta en Redis:', error);
+    throw error;
+  }
+}
+
+/**
+ * Encuentra la encuesta más reciente de un cliente
+ */
+async function getLatestSurveyByPhone(phone) {
+  try {
+    const surveyIds = await redisClient.sMembers(`surveys:by_phone:${phone}`);
+
+    if (surveyIds.length === 0) return null;
+
+    let latestSurvey = null;
+    let latestTimestamp = 0;
+
+    for (const surveyId of surveyIds) {
+      const surveyHash = await redisClient.hGetAll(`surveys:data:${surveyId}`);
+      if (surveyHash && surveyHash.data) {
+        const survey = JSON.parse(surveyHash.data);
+        if (survey.savedAt > latestTimestamp) {
+          latestTimestamp = survey.savedAt;
+          latestSurvey = survey;
+        }
+      }
+    }
+
+    return latestSurvey;
+  } catch (error) {
+    console.error('❌ Error obteniendo última encuesta:', error);
+    return null;
+  }
+}
+
+const logSurveyResponseToFile = async (surveyData) => {
+  // Guardar en archivo (para backup/logging)
+  logToFile('survey_log.jsonl', surveyData);
+
+  // Guardar en Redis (persistencia principal)
+  try {
+    await saveSurveyToRedis(surveyData);
+  } catch (error) {
+    console.error('Error guardando encuesta en Redis, pero se guardó en archivo:', error);
+  }
+};
 
 /**
  * Lee un archivo de log en formato JSONL y envía el contenido como respuesta JSON.
@@ -3624,53 +3816,36 @@ app.get('/api/orders', async (req, res) => {
   }
 });
 
-// Endpoint para obtener el log de encuestas
-app.get('/api/surveys', (req, res) => {
-  sendJsonlLogResponse('survey_log.jsonl', res, 'encuestas');
+// Endpoint para obtener el log de encuestas (lee desde Redis)
+app.get('/api/surveys', async (req, res) => {
+  try {
+    const surveys = await getSurveysFromRedis({ limit: 100 });
+    res.json(surveys);
+  } catch (error) {
+    console.error('❌ Error obteniendo encuestas desde Redis:', error);
+    res.status(500).json([]);
+  }
 });
 
-// Endpoint RAW para n8n: devuelve array directo de surveys sin procesar
+// Endpoint RAW para n8n: devuelve array directo de surveys desde Redis
 app.get('/api/survey/raw', async (req, res) => {
   try {
-    const logFilePath = path.join(__dirname, 'survey_log.jsonl');
-
-    let allSurveys = [];
-    try {
-      const data = await fs.promises.readFile(logFilePath, 'utf8');
-      const lines = data.trim().split('\n').filter(line => line.trim());
-      allSurveys = lines.map(line => JSON.parse(line));
-    } catch (err) {
-      if (err.code !== 'ENOENT') {
-        throw err;
-      }
-      // Si el archivo no existe, retornar array vacío
-    }
+    const surveys = await getSurveysFromRedis({ limit: 1000 });
 
     // Devolver array directo para n8n (sin wrapper)
     // Cada survey tiene: from, rating, timestamp, comment, commentTimestamp
-    res.json(allSurveys);
+    res.json(surveys);
   } catch (error) {
     console.error('❌ Error obteniendo surveys raw para n8n:', error);
     res.status(500).json([]);
   }
 });
 
-// Endpoint para obtener resultados procesados de encuestas (para dashboard)
+// Endpoint para obtener resultados procesados de encuestas (desde Redis para dashboard)
 app.get('/api/survey/results', async (req, res) => {
   try {
-    const logFilePath = path.join(__dirname, 'survey_log.jsonl');
-
-    let allSurveys = [];
-    try {
-      const data = await fs.promises.readFile(logFilePath, 'utf8');
-      const lines = data.trim().split('\n').filter(line => line.trim());
-      allSurveys = lines.map(line => JSON.parse(line));
-    } catch (err) {
-      if (err.code !== 'ENOENT') {
-        throw err;
-      }
-      // Si el archivo no existe, retornar datos vacíos
-    }
+    // Obtener todas las encuestas desde Redis
+    const allSurveys = await getSurveysFromRedis({ limit: 1000 });
 
     // Calcular estadísticas
     const totalResponses = allSurveys.length;
