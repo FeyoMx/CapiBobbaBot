@@ -26,9 +26,17 @@ for (const item of items) {
     console.log('🔍 Processing message from:', JSON.stringify(rawBody, null, 2).substring(0, 500));
 
     try {
-      // ✅ NUEVO: DETECTAR MENSAJES INTERACTIVOS DIRECTOS (CASO CRÍTICO AÑADIDO)
-      // ✅ CORREGIDO: DETECTAR MENSAJES INTERACTIVOS DIRECTOS (CASO CRÍTICO AÑADIDO)
-      const interactivePayload = rawBody.interactive || (rawBody.rawMessage && rawBody.rawMessage.interactive);
+      // ✅ DETECTAR MENSAJES INTERACTIVOS - BUSCAR EN MÚLTIPLES UBICACIONES
+      // Primero intentar en body.interactive, luego en body.rawMessage.interactive
+      let interactivePayload = null;
+
+      if (rawBody.interactive) {
+        interactivePayload = rawBody.interactive;
+        console.log('📍 Interactive encontrado en rawBody.interactive');
+      } else if (rawBody.rawMessage && rawBody.rawMessage.interactive) {
+        interactivePayload = rawBody.rawMessage.interactive;
+        console.log('📍 Interactive encontrado en rawBody.rawMessage.interactive');
+      }
 
       if (rawBody && rawBody.type === 'interactive' && interactivePayload) {
         console.log('🔘 Mensaje interactivo directo detectado');
@@ -43,7 +51,7 @@ for (const item of items) {
           console.log('✅ Button reply detectado');
           normalizedBody.messageType = 'interactive_button_reply';
           const buttonReply = interactive.button_reply;
-          
+
           // Extraer título del botón presionado
           if (buttonReply.title) {
             normalizedBody.text = String(buttonReply.title);
@@ -53,23 +61,50 @@ for (const item of items) {
             normalizedBody.text = `Botón presionado (ID: ${buttonReply.id || 'unknown'})`;
             normalizedBody.hasText = true;
           }
-          
+
           // Guardar ID del botón para referencia
           if (buttonReply.id) {
             normalizedBody.buttonId = String(buttonReply.id);
             console.log('✅ Button ID guardado:', normalizedBody.buttonId);
           }
+
+          // ✅ NUEVO: Guardar objeto interactive completo para Format Telegram Message
+          normalizedBody.interactive = {
+            type: 'button_reply',
+            id: buttonReply.id || null,
+            title: buttonReply.title || null
+          };
+          console.log('✅ Objeto interactive guardado para Format Telegram Message');
         }
-        else if (interactive.type === 'list_reply' && interactive.list_reply) {
+        else if (interactive.type === 'list_reply') {
           console.log('📝 List reply detectado');
           normalizedBody.messageType = 'interactive_list_reply';
-          const listReply = interactive.list_reply;
-          
+
+          // ✅ Manejar DOS formatos diferentes de list_reply
+          let listReply;
+
+          if (interactive.list_reply) {
+            // Formato estándar con objeto anidado
+            console.log('📍 Formato estándar: interactive.list_reply encontrado');
+            listReply = interactive.list_reply;
+          } else if (interactive.id || interactive.title) {
+            // Formato aplanado donde las propiedades están directamente en interactive
+            console.log('📍 Formato aplanado: propiedades en interactive directo');
+            listReply = {
+              id: interactive.id,
+              title: interactive.title,
+              description: interactive.description
+            };
+          } else {
+            console.log('⚠️ No se pudo extraer listReply de ningún formato');
+            listReply = { id: 'unknown', title: 'Unknown', description: null };
+          }
+
           let replyText = '';
           if (listReply.title) {
             replyText = String(listReply.title);
           }
-          
+
           // Opcional: añadir descripción si existe
           if (listReply.description) {
             replyText += ` (${listReply.description})`;
@@ -83,11 +118,20 @@ for (const item of items) {
             normalizedBody.text = `Opción de lista seleccionada (ID: ${listReply.id || 'unknown'})`;
             normalizedBody.hasText = true;
           }
-          
+
           if (listReply.id) {
             normalizedBody.listId = String(listReply.id);
             console.log('✅ List ID guardado:', normalizedBody.listId);
           }
+
+          // ✅ Guardar objeto interactive completo para Format Telegram Message
+          normalizedBody.interactive = {
+            type: 'list_reply',
+            id: listReply.id || null,
+            title: listReply.title || null,
+            description: listReply.description || null
+          };
+          console.log('✅ Objeto interactive guardado:', normalizedBody.interactive);
         }
         else {
           console.log('❓ Tipo interactivo desconocido o payload malformado:', interactive.type);

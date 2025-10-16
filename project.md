@@ -784,8 +784,53 @@ Grid Principal (2 columnas desktop, 1 móvil)
 - 💜 **Mejor experiencia del cliente con mensajes contextuales**
 - 📢 **Admins reciben notificaciones más informativas con estrellas visuales**
 
+**3️⃣ Detección y Formato para Telegram (n8n workflow)**
+- **Enhanced Message Normalizer.js:42-70**: Detección de button_reply con objeto interactive completo
+  - Guarda objeto `interactive` con type, id y title
+  - Logging confirmatorio para debugging
+- **Enhanced Message Normalizer.js:71-100**: Detección de list_reply con objeto interactive completo
+  - Identifica respuestas de encuesta con ID `rating_*`
+  - Extrae calificación numérica del ID (ej: `rating_5` → 5)
+  - Guarda objeto `interactive` con type, id, title y description
+  - Logging específico para respuestas de encuesta
+- **Format Telegram Message.js:75-88**: Detección automática de respuestas de encuesta
+  - Lee objeto `interactive` desde `normalizedBody`
+  - Verifica si ID empieza con `rating_`
+  - Extrae calificación y título
+- **Format Telegram Message.js:126-127**: Íconos especiales para mensajes interactive
+  - ✅ Para `interactive_button_reply`
+  - ⭐ Para `interactive_list_reply`
+- **Format Telegram Message.js:169-191**: Sección visual destacada para encuestas
+  - Header: ⭐⭐⭐ RESPUESTA DE ENCUESTA ⭐⭐⭐
+  - Estrellas visuales según calificación (⭐⭐⭐⭐⭐)
+  - Nivel de satisfacción codificado por colores:
+    - 🔴 BAJA (1-2 estrellas) - Requiere atención
+    - 🟡 Media (3 estrellas) - Mejorable
+    - 🟢 Alta (4-5 estrellas) - Excelente
+  - Título de la opción seleccionada
+
+**Ejemplo de mensaje Telegram para encuesta:**
+```
+⭐ Mensaje Recibido
+
+📞 De: +52 1 556 911 6160
+⭐ Tipo: interactive_list_reply
+
+⭐⭐⭐ RESPUESTA DE ENCUESTA ⭐⭐⭐
+📊 Calificación: ⭐⭐⭐⭐⭐ (5/5)
+🏷️ Selección: Excelente
+🟢 Nivel: Alta - Excelente
+
+📄 Contenido:
+Excelente
+
+🕒 Fecha: 2025-10-16 04:15:00
+```
+
 **Archivos modificados:**
 - [chatbot.js:1000-2061](chatbot.js#L1000-L2061) - Logging mejorado y respuestas personalizadas
+- [workflow_analysis/Enhanced Message Normalizer.js:42-100](workflow_analysis/Enhanced%20Message%20Normalizer.js#L42-L100) - Guardar objeto interactive
+- [workflow_analysis/Format Telegram Message.js:75-191](workflow_analysis/Format%20Telegram%20Message.js#L75-L191) - Detección y formato para Telegram
 
 ---
 
