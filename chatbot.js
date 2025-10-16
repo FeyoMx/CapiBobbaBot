@@ -999,12 +999,29 @@ async function sendToN8n(message, extraData = {}) {
 
   // Log específico para mensajes interactive (debugging de encuestas)
   if (message.type === 'interactive') {
-    console.log('📊 Mensaje INTERACTIVE detectado:', {
-      type: message.interactive?.type,
-      button_reply: message.interactive?.button_reply,
-      list_reply: message.interactive?.list_reply,
-      payload_enviado: payload.interactive
-    });
+    console.log('📊 ========== MENSAJE INTERACTIVE DETECTADO ==========');
+    console.log('📊 Tipo:', message.interactive?.type);
+
+    if (message.interactive?.type === 'list_reply') {
+      console.log('📊 ES UNA RESPUESTA DE LISTA (list_reply)');
+      console.log('📊 ID:', message.interactive?.list_reply?.id);
+      console.log('📊 Título:', message.interactive?.list_reply?.title);
+      console.log('📊 Descripción:', message.interactive?.list_reply?.description);
+
+      // Verificar si es encuesta
+      if (message.interactive?.list_reply?.id?.startsWith('rating_')) {
+        console.log('🎯 ⭐ ESTO ES UNA RESPUESTA DE ENCUESTA ⭐');
+      } else {
+        console.log('⚠️ NO es una encuesta (ID no empieza con "rating_")');
+      }
+    } else if (message.interactive?.type === 'button_reply') {
+      console.log('📊 ES UNA RESPUESTA DE BOTÓN (button_reply)');
+      console.log('📊 ID:', message.interactive?.button_reply?.id);
+      console.log('📊 Título:', message.interactive?.button_reply?.title);
+    }
+
+    console.log('📊 Payload completo a enviar a n8n:', JSON.stringify(payload.interactive, null, 2));
+    console.log('📊 ====================================================');
   }
 
   // 3. Envío asíncrono con manejo de errores mejorado.
@@ -1396,21 +1413,24 @@ async function handleTextMessage(from, text, userState) {
  * @param {object} userState El estado actual del usuario.
  */
 async function handleInteractiveMessage(from, interactive, userState) {
-    console.log(`🎯 Procesando mensaje interactivo de ${from}:`, interactive);
+    console.log(`🎯 Procesando mensaje interactivo de ${from}:`, JSON.stringify(interactive, null, 2));
 
     // Manejar respuestas de lista (encuestas)
     if (interactive.type === 'list_reply') {
         const listReplyId = interactive.list_reply?.id;
         const listReplyTitle = interactive.list_reply?.title;
 
-        console.log(`📋 Lista respondida: ${listReplyId} - ${listReplyTitle}`);
+        console.log(`📋 Lista respondida - ID: "${listReplyId}" - Título: "${listReplyTitle}"`);
+        console.log(`📋 Objeto list_reply completo:`, JSON.stringify(interactive.list_reply, null, 2));
 
         // Detectar si es una respuesta de encuesta
         if (listReplyId && listReplyId.startsWith('rating_')) {
             const rating = parseInt(listReplyId.replace('rating_', ''));
-            console.log(`⭐ Calificación de encuesta detectada: ${rating}`);
+            console.log(`⭐⭐⭐ ENCUESTA CAPTURADA - Cliente: ${from} - Calificación: ${rating}/5 ⭐⭐⭐`);
             await handleSurveyResponse(from, rating);
             return;
+        } else {
+            console.log(`⚠️ List reply NO es una encuesta (ID no empieza con 'rating_'): ${listReplyId}`);
         }
     }
 
@@ -1914,7 +1934,12 @@ async function checkRecentUserActivity(from) {
  * @param {number} rating La calificación dada por el usuario (1-5).
  */
 async function handleSurveyResponse(from, rating) {
-  console.log(`⭐ Respuesta de encuesta recibida de ${from}: Calificación ${rating}`);
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`⭐⭐⭐ ENCUESTA RECIBIDA ⭐⭐⭐`);
+  console.log(`Cliente: ${from}`);
+  console.log(`Calificación: ${rating}/5 estrellas`);
+  console.log(`Timestamp: ${new Date().toISOString()}`);
+  console.log(`${'='.repeat(60)}\n`);
 
   // Guardar la calificación con timestamp en Redis para asociarla con el próximo comentario
   const surveyData = {
@@ -1926,6 +1951,7 @@ async function handleSurveyResponse(from, rating) {
 
   // Guardar en Redis con TTL de 10 minutos para capturar comentarios
   await redisClient.set(`survey_pending:${from}`, JSON.stringify(surveyData), { EX: 600 });
+  console.log(`✅ Encuesta guardada en Redis con clave: survey_pending:${from} (TTL: 10 min)`);
 
   // Establecer estado del usuario para detectar comentarios posteriores
   await setUserState(from, {
@@ -1960,7 +1986,11 @@ async function handleSurveyResponse(from, rating) {
  * @param {object} userState El estado del usuario con la calificación previa.
  */
 async function handleSurveyComment(from, text, userState) {
-  console.log(`💬 Comentario de encuesta recibido de ${from}: "${text}"`);
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`💬 COMENTARIO DE ENCUESTA RECIBIDO`);
+  console.log(`Cliente: ${from}`);
+  console.log(`Comentario: "${text}"`);
+  console.log(`${'='.repeat(60)}\n`);
 
   // Recuperar la encuesta pendiente de Redis
   const surveyKey = `survey_pending:${from}`;
@@ -1977,7 +2007,8 @@ async function handleSurveyComment(from, text, userState) {
     // Eliminar la entrada pendiente de Redis
     await redisClient.del(surveyKey);
 
-    console.log(`✅ Comentario guardado para encuesta de ${from} con rating ${surveyData.rating}`);
+    console.log(`✅ Comentario guardado para encuesta - Rating: ${surveyData.rating}/5`);
+    console.log(`✅ Clave Redis eliminada: ${surveyKey}`);
   } else {
     // Si no hay encuesta pendiente, usar el rating del userState
     const surveyData = {
@@ -1989,7 +2020,7 @@ async function handleSurveyComment(from, text, userState) {
     };
 
     logSurveyResponseToFile(surveyData);
-    console.log(`✅ Comentario guardado (desde userState) para ${from}`);
+    console.log(`✅ Comentario guardado (desde userState) - Rating: ${surveyData.rating}/5`);
   }
 
   // Limpiar el estado del usuario
