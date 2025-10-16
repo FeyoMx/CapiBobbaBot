@@ -2023,20 +2023,40 @@ async function handleSurveyComment(from, text, userState) {
     console.log(`✅ Comentario guardado (desde userState) - Rating: ${surveyData.rating}/5`);
   }
 
+  // Personalizar mensaje de agradecimiento según la calificación
+  let thankYouMessage;
+  const rating = userState.surveyRating;
+
+  if (rating <= 2) {
+    // Calificación baja - empatía y compromiso de mejora
+    thankYouMessage = `Muchas gracias por tomarte el tiempo de compartir tu opinión. 🙏\n\nTu comentario es muy importante y nos ayuda a identificar áreas de mejora. Trabajaremos para brindarte una mejor experiencia en tu próxima visita. 💜`;
+  } else if (rating === 3) {
+    // Calificación media - agradecer y mostrar interés en mejorar
+    thankYouMessage = `¡Gracias por tu comentario! 😊\n\nNos esforzamos constantemente por mejorar y tu opinión es clave para lograrlo. ¡Esperamos sorprenderte en tu próxima visita! 💜✨`;
+  } else {
+    // Calificación alta - celebrar y agradecer
+    thankYouMessage = `¡Muchas gracias por tu comentario! 🎉\n\nNos alegra muchísimo saber que tuviste una buena experiencia. Tu opinión nos motiva a seguir mejorando cada día. ¡Te esperamos pronto! 💜✨`;
+  }
+
   // Limpiar el estado del usuario
   await deleteUserState(from);
 
-  // Agradecer al usuario
-  await sendTextMessage(from, '¡Muchas gracias por tu comentario! Tu opinión es muy valiosa para nosotros y nos ayuda a mejorar cada día. 💜✨');
+  // Enviar mensaje de agradecimiento personalizado
+  await sendTextMessage(from, thankYouMessage);
+
+  console.log(`✅ Mensaje de agradecimiento enviado (rating: ${rating}/5)`);
 
   // Si el comentario es largo o la calificación fue baja, notificar a admin
-  if (userState.surveyRating <= 2 || text.length > 50) {
+  if (rating <= 2 || text.length > 50) {
     await notifyAdmin(
-      `💬 *Comentario de Encuesta*\n\n` +
+      `💬 *Comentario de Encuesta Recibido*\n\n` +
       `Cliente: ${formatDisplayNumber(from)}\n` +
-      `Calificación: ${userState.surveyRating} ⭐\n` +
-      `Comentario: "${text}"`
+      `Calificación: ${rating}/5 ${'⭐'.repeat(rating)}\n` +
+      `Comentario: "${text}"\n\n` +
+      `_El cliente ha recibido un mensaje de agradecimiento personalizado._`
     );
+
+    console.log(`📢 Admin notificado sobre comentario (rating: ${rating}/5)`);
   }
 }
 

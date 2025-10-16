@@ -745,6 +745,50 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.13.3 (2025-10-16) - Sistema de Encuestas: Logging Mejorado y Respuestas Personalizadas 📊💬
+
+**Objetivo**: Mejorar la visibilidad de encuestas y personalizar respuestas de agradecimiento por comentarios
+
+**1️⃣ Mejora de Logging para list_reply**
+- **chatbot.js:1000-1025**: Logging detallado de mensajes interactive
+  - Muestra tipo de mensaje interactive (list_reply o button_reply)
+  - Captura completa de estructura list_reply con ID, título y descripción
+  - Identifica automáticamente si es respuesta de encuesta (rating_*)
+  - Logs visuales con separadores para mejor legibilidad en Render
+- **chatbot.js:1399-1418**: Logging mejorado en handleInteractiveMessage
+  - JSON completo del objeto interactive para debugging
+  - Mensajes específicos para encuestas capturadas vs no capturadas
+  - Alertas visuales cuando se detecta respuesta de encuesta
+- **chatbot.js:1936-1954**: Logging mejorado en handleSurveyResponse
+  - Header visual con separadores de 60 caracteres
+  - Muestra cliente, calificación y timestamp
+  - Confirma guardado en Redis con nombre de clave
+
+**2️⃣ Respuestas Personalizadas por Comentarios**
+- **chatbot.js:2026-2061**: Sistema de respuestas personalizadas en handleSurveyComment
+  - **Rating bajo (1-2 ⭐)**: Mensaje empático con compromiso de mejora
+    - Ejemplo: _"Tu comentario es muy importante y nos ayuda a identificar áreas de mejora..."_
+  - **Rating medio (3 ⭐)**: Mensaje de agradecimiento mostrando interés en mejorar
+    - Ejemplo: _"Nos esforzamos constantemente por mejorar y tu opinión es clave..."_
+  - **Rating alto (4-5 ⭐)**: Mensaje celebratorio y motivador
+    - Ejemplo: _"¡Muchas gracias! Nos alegra muchísimo saber que tuviste una buena experiencia..."_
+  - Logging confirmatorio de envío de agradecimiento
+  - Notificación a admin mejorada con emojis de estrellas y contexto completo
+
+**Impacto:**
+- ✅ Mayor visibilidad de captura de encuestas en logs de Render
+- ✅ Debugging más fácil de problemas con encuestas list_reply
+- ✅ Identificación rápida de respuestas no capturadas o con formato incorrecto
+- ✅ Mejor trazabilidad del flujo: encuesta → calificación → comentario → agradecimiento
+- 🎉 **Clientes ahora reciben respuesta personalizada según su calificación**
+- 💜 **Mejor experiencia del cliente con mensajes contextuales**
+- 📢 **Admins reciben notificaciones más informativas con estrellas visuales**
+
+**Archivos modificados:**
+- [chatbot.js:1000-2061](chatbot.js#L1000-L2061) - Logging mejorado y respuestas personalizadas
+
+---
+
 ### v2.13.2 (2025-10-15) - Manejo de Notificaciones de Estado de Mensajes 📨
 - ✨ **Nueva Función `manejarStatus`**:
   - Se implementó la función `manejarStatus(body)` en `chatbot.js` para procesar las notificaciones de estado de los mensajes enviadas por WhatsApp (ej. `sent`, `delivered`, `failed`).
