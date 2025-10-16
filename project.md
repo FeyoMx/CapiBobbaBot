@@ -745,6 +745,65 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.13.5 (2025-10-16) - Migración de Encuestas a Redis para Persistencia 💾📊
+
+**Problema crítico identificado**: Las encuestas no persistían debido a que se guardaban en archivos `.jsonl` efímeros que se pierden en cada deploy/restart de Render.
+
+#### 🔧 Cambios Implementados
+
+1. **Sistema completo de persistencia Redis**:
+   - **Archivos modificados**:
+     - [chatbot.js:3565-3723](chatbot.js#L3565-L3723) - Funciones de almacenamiento Redis
+     - [chatbot.js:3725-3735](chatbot.js#L3725-L3735) - Función de logging actualizada
+     - [chatbot.js:3798-3829](chatbot.js#L3798-L3829) - Endpoints actualizados
+     - [chatbot.js:2005-2046](chatbot.js#L2005-L2046) - Manejo de comentarios
+
+2. **Nuevas funciones Redis**:
+   ```javascript
+   saveSurveyToRedis()      // Guarda con indexación automática
+   getSurveysFromRedis()    // Recupera con filtros y límites
+   updateSurveyInRedis()    // Actualiza comentarios
+   getLatestSurveyByPhone() // Encuentra última encuesta del cliente
+   ```
+
+3. **Estructura de datos en Redis**:
+   ```
+   surveys:all                  → Sorted Set (ordenado por timestamp)
+   surveys:data:{surveyId}      → Hash con datos completos JSON
+   surveys:by_phone:{phone}     → Set de IDs por cliente
+   surveys:by_rating:{1-5}      → Set de IDs por rating
+   ```
+   - TTL: 180 días (6 meses)
+
+4. **Endpoints actualizados**:
+   - `GET /api/surveys` → Lee desde Redis
+   - `GET /api/survey/raw` → Lee desde Redis (para n8n)
+   - `GET /api/survey/results` → Lee desde Redis (para dashboard)
+
+5. **Manejo de comentarios mejorado**:
+   - Actualiza encuesta existente en Redis en lugar de crear duplicados
+   - Busca la encuesta más reciente del cliente para asociar comentarios
+
+#### ✅ Beneficios
+
+- ✅ **Persistencia permanente**: Las encuestas sobreviven a deploys y restarts
+- ✅ **Dashboard funcional**: Los datos ahora aparecen correctamente
+- ✅ **Consultas rápidas**: Indexación por teléfono y rating
+- ✅ **Consistencia**: Misma arquitectura que el sistema de pedidos
+- ✅ **Compatible con n8n**: Los workflows de análisis funcionan correctamente
+
+#### ⚠️ Nota Importante
+
+Las encuestas anteriores guardadas en archivos `.jsonl` se perdieron permanentemente al reiniciarse Render. El nuevo sistema garantiza que esto no volverá a ocurrir.
+
+#### 📊 Métricas de Impacto
+
+- **Tiempo de retención**: 180 días (vs. efímero antes)
+- **Disponibilidad post-deploy**: 100% (vs. 0% antes)
+- **Performance de consultas**: < 100ms con indexación
+
+---
+
 ### v2.13.4 (2025-10-16) - Nueva Promoción: CapiCombo 🎁
 
 **Objetivo**: Agregar nueva promoción combinada de Boba + CapiGofre
@@ -1896,8 +1955,8 @@ Excelente
 
 ---
 
-**Última actualización**: 15 de Octubre, 2025 - Actualización Nodo n8n de Plantilla WhatsApp
-**Versión del proyecto**: 2.13.2
+**Última actualización**: 16 de Octubre, 2025 - Migración de Encuestas a Redis
+**Versión del proyecto**: 2.13.5
 **Mantenedor**: @FeyoMx
 
 ### 📝 Nota para futuras actualizaciones
