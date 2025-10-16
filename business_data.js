@@ -58,7 +58,8 @@ const businessData = {
     ],
     promotions: [
         { name: "Combo día Lluvioso", description: "2 bebidas calientes del mismo sabor por $110." },
-        { name: "Combo Amigos", description: "2 Frappe base agua del mismo sabor por $130." }
+        { name: "Combo Amigos", description: "2 Frappe base agua del mismo sabor por $130." },
+        { name: "CapiCombo", description: "1 Boba del sabor de tu preferencia + 1 CapiGofre por $100." }
     ],
     info: {
         schedule: "Lunes a Viernes de 6:00 PM a 10:00 PM. Sábados y Domingos de 12:00 PM a 10:00 PM.",

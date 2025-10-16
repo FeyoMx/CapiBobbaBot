@@ -745,6 +745,28 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.13.4 (2025-10-16) - Nueva Promoción: CapiCombo 🎁
+
+**Objetivo**: Agregar nueva promoción combinada de Boba + CapiGofre
+
+**Cambios realizados:**
+- **business_data.js:62**: Agregada nueva promoción "CapiCombo"
+  - Incluye 1 Boba del sabor de preferencia del cliente
+  - Incluye 1 CapiGofre
+  - Precio promocional: $100
+  - Descripción completa para el chatbot
+
+**Impacto:**
+- 🎁 Nueva opción de combo para clientes
+- 💰 Precio promocional atractivo ($100 vs $110 individual)
+- 🤖 El chatbot puede informar automáticamente sobre esta promoción
+- 📊 Genera el contexto del negocio con la nueva promoción incluida
+
+**Archivos modificados:**
+- [business_data.js:62](business_data.js#L62) - Array de promociones actualizado
+
+---
+
 ### v2.13.3 (2025-10-16) - Sistema de Encuestas: Logging Mejorado y Respuestas Personalizadas 📊💬
 
 **Objetivo**: Mejorar la visibilidad de encuestas y personalizar respuestas de agradecimiento por comentarios
