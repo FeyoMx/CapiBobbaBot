@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-plantillawhatsapp",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "n8n node to send a WhatsApp template",
   "keywords": [
     "n8n-community-node-package"

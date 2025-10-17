@@ -216,7 +216,7 @@ export class PlantillaWhatsApp implements INodeType {
 
         const options: IRequestOptions = {
           method: 'POST',
-          uri: `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
+          uri: `https://graph.facebook.com/v24.0/${phoneNumberId}/marketing_messages`,
           headers: {
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json',

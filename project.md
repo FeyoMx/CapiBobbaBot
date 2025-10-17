@@ -745,6 +745,57 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v0.2.0 (2025-10-16) - Actualización n8n PlantillaWhatsApp a API v24.0 🚀📲
+
+**Actualización proactiva del nodo personalizado de n8n** para enviar plantillas de WhatsApp usando la versión más reciente de la API de Facebook Graph.
+
+#### 🔧 Cambios Implementados
+
+1. **Actualización de API de WhatsApp Cloud**:
+   - **Archivos modificados**:
+     - [n8n-nodes-plantillawhatsapp/nodes/PlantillaWhatsApp/PlantillaWhatsApp.node.ts:219](n8n-nodes-plantillawhatsapp/nodes/PlantillaWhatsApp/PlantillaWhatsApp.node.ts#L219) - Actualizado de v22.0 a v24.0
+     - [n8n-nodes-plantillawhatsapp/dist/nodes/PlantillaWhatsApp/PlantillaWhatsApp.node.js:201](n8n-nodes-plantillawhatsapp/dist/nodes/PlantillaWhatsApp/PlantillaWhatsApp.node.js#L201) - Compilado con v24.0
+     - [n8n-nodes-plantillawhatsapp/package.json:3](n8n-nodes-plantillawhatsapp/package.json#L3) - Version bump a 0.2.0
+
+2. **Endpoint actualizado**:
+   ```javascript
+   // Antes
+   uri: `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`
+
+   // Ahora
+   uri: `https://graph.facebook.com/v24.0/${phoneNumberId}/marketing_messages`
+   ```
+
+3. **Proceso de actualización**:
+   - ✅ Código fuente TypeScript actualizado
+   - ✅ Nodo recompilado exitosamente (`npm run build`)
+   - ✅ Versión incrementada de 0.1.1 a 0.2.0
+   - ✅ Publicado en npm registry
+
+#### ✅ Beneficios
+
+- ✅ **API actualizada**: Uso de la versión más reciente de Facebook Graph API (v24.0)
+- ✅ **Endpoint correcto**: `/marketing_messages` para plantillas de marketing
+- ✅ **Compatibilidad**: Acceso a nuevas features y mejoras de la API
+- ✅ **Estabilidad**: Versiones más recientes tienen mejor soporte y correcciones
+- ✅ **Disponible en npm**: Actualización disponible para toda la comunidad n8n
+
+#### 📦 Instalación/Actualización
+
+```bash
+# En n8n, actualizar el nodo:
+npm update n8n-nodes-plantillawhatsapp
+```
+
+#### ⚠️ Notas Importantes
+
+- El endpoint `/marketing_messages` está diseñado específicamente para plantillas de marketing aprobadas
+- Las plantillas deben estar pre-aprobadas por Meta/WhatsApp Business
+- Rate limiting puede variar según la versión de API
+- Verificar que la cuenta de WhatsApp Business tenga acceso a la API v24.0
+
+---
+
 ### v2.13.5 (2025-10-16) - Migración de Encuestas a Redis para Persistencia 💾📊
 
 **Problema crítico identificado**: Las encuestas no persistían debido a que se guardaban en archivos `.jsonl` efímeros que se pierden en cada deploy/restart de Render.
