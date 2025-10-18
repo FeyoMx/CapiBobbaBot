@@ -2199,6 +2199,13 @@ Total del pedido: $75.00
         case 'hola admin':
             await sendTextMessage(from, `🤖 Saludos, administrador. Estoy a tu disposición. Puedes usar "hablar con <numero>" para chatear con un cliente.`);
             break;
+
+        default:
+            // Si el administrador envía un mensaje que no es un comando específico,
+            // procesarlo como un mensaje normal usando Gemini AI
+            console.log(`💬 Admin enviando mensaje no-comando, procesando con Gemini: "${messageBody}"`);
+            await handleFreeformQuery(from, messageBody);
+            break;
     }
 }
 
@@ -2666,7 +2673,7 @@ async function handleShowMenu(to, text) {
  * @param {string} to Número del destinatario.
  */
 async function handleShowPromotions(to, text) {
-  const promoText = `¡Nuestras promos de hoy! ✨\n\n- *Combo dia Lluvioso:* 2 bebidas calientes del mismo sabor x $110.\n- *Combo Amigos:* 2 Frappe base agua del mismo sabor por $130.`;
+  const promoText = `¡Nuestras promos de hoy! ✨\n\n- *Combo dia Lluvioso:* 2 bebidas calientes del mismo sabor x $110.\n- *Combo Amigos:* 2 Frappe base agua del mismo sabor por $130.\n- *CapiCombo:* 1 Bubble Tea (del sabor que prefieras) + 1 CapiGofre por $100. 🧇🧋`;
   await sendTextMessage(to, promoText);
 }
 
@@ -3491,6 +3498,7 @@ async function handlePriceInquiry(to, text) {
 ✨ **Promociones actuales:**
 🌧️ Combo Día Lluvioso: 2 bebidas calientes x $110
 👥 Combo Amigos: 2 Frappes base agua x $130
+🧇 CapiCombo: 1 Bubble Tea + 1 CapiGofre x $100
 
 Para ver el menú completo con todos los precios: https://feyomx.github.io/menucapibobba/
 
