@@ -745,6 +745,237 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.14.0 (2025-10-18) - Sistema de Tracking de Campañas de Marketing 📊📲
+
+**Nueva funcionalidad**: Sistema completo para rastrear, analizar y medir el rendimiento de campañas de marketing de WhatsApp enviadas desde n8n.
+
+#### 🎯 Objetivo
+
+Proporcionar visibilidad total sobre mensajes de plantillas de marketing, incluyendo:
+- Estados de entrega (sent, delivered, read, failed)
+- Reacciones de usuarios a mensajes de campaña
+- Métricas de engagement y conversión
+- Analytics en tiempo real
+
+#### 🏗️ Arquitectura Implementada
+
+**Nuevos Módulos Backend:**
+
+1. **marketing/campaign-tracker.js** (560 líneas):
+   - Gestión completa de campañas (CRUD)
+   - Registro y tracking de mensajes individuales
+   - Captura de estados desde webhooks
+   - Sistema de reacciones vinculado a campañas
+   - Analytics y métricas agregadas
+   - Almacenamiento en Redis con TTL de 30 días
+
+2. **marketing/reaction-handler.js** (380 líneas):
+   - Procesamiento de reacciones de WhatsApp
+   - Análisis de sentimiento por emoji (positivo/negativo/neutral)
+   - Estadísticas de engagement
+   - Timeline de reacciones para gráficos
+   - Detección de patrones inusuales
+   - Top usuarios reactores
+
+#### 🔧 Cambios en chatbot.js
+
+**1. Importaciones y inicialización** ([chatbot.js:52-54, 124-125, 140-143](chatbot.js#L52-L54)):
+```javascript
+const CampaignTracker = require('./marketing/campaign-tracker');
+const ReactionHandler = require('./marketing/reaction-handler');
+
+// Inicialización en conexión a Redis
+campaignTracker = new CampaignTracker(redisClient);
+reactionHandler = new ReactionHandler(campaignTracker);
+```
+
+**2. Nuevos Endpoints API** ([chatbot.js:750-1040](chatbot.js#L750-L1040)):
+- `POST /api/marketing/register-message` - Registro desde n8n
+- `POST /api/marketing/campaign/create` - Crear campaña
+- `GET /api/marketing/campaigns` - Listar campañas
+- `GET /api/marketing/campaign/:id` - Detalle de campaña
+- `GET /api/marketing/campaign/:id/stats` - Estadísticas completas
+- `GET /api/marketing/campaign/:id/messages` - Mensajes de campaña
+- `GET /api/marketing/campaign/:id/reactions` - Análisis de reacciones
+- `GET /api/marketing/dashboard-stats` - Stats generales
+- `PATCH /api/marketing/campaign/:id/status` - Activar/desactivar
+
+**3. Actualización de manejarStatus()** ([chatbot.js:1146-1213](chatbot.js#L1146-L1213)):
+```javascript
+async function manejarStatus(body) {
+  // ... código existente ...
+
+  // 🔍 TRACKING DE CAMPAÑAS
+  if (campaignTracker) {
+    const campaignMessage = await campaignTracker.getMessage(messageId);
+
+    if (campaignMessage) {
+      // Actualizar estado en Redis
+      if (statusType === 'failed') {
+        await campaignTracker.markMessageFailed(messageId, errorData);
+      } else if (['delivered', 'read'].includes(statusType)) {
+        await campaignTracker.updateMessageStatus(messageId, statusType, timestamp);
+      }
+
+      console.log(`📊 [MARKETING] Campaña: ${campaignMessage.campaignId}`);
+    }
+  }
+}
+```
+
+**4. Handler de Reacciones en Webhook** ([chatbot.js:361-392](chatbot.js#L361-L392)):
+```javascript
+// Detecta reacciones tipo 'reaction'
+else if (changes.value?.messages?.[0]?.type === 'reaction') {
+  const messageId = reactionMsg.reaction?.message_id;
+  const emoji = reactionMsg.reaction?.emoji;
+
+  // Verificar si es reacción a mensaje de campaña
+  const campaignMessage = await campaignTracker.getMessage(messageId);
+
+  if (campaignMessage) {
+    await reactionHandler.handleReaction({
+      messageId,
+      campaignId: campaignMessage.campaignId,
+      emoji,
+      userId,
+      timestamp: Date.now()
+    });
+  }
+}
+```
+
+#### 📊 Estructura de Datos en Redis
+
+**Campaña:**
+```javascript
+marketing:campaign:{campaignId} = {
+  id, name, templateName, description,
+  created, active,
+  stats: { totalSent, delivered, read, failed, reactions }
+}
+```
+
+**Mensaje Individual:**
+```javascript
+marketing:message:{messageId} = {
+  messageId, campaignId, recipient, templateName,
+  status: "sent|delivered|read|failed",
+  timestamps: { sent, delivered, read, failed },
+  reactions: [{ emoji, userId, timestamp, sentiment }],
+  error: null
+}
+```
+
+**Índices:**
+```javascript
+marketing:campaigns:all = Set[campaignId1, campaignId2, ...]
+marketing:campaign:{campaignId}:messages = Set[msgId1, msgId2, ...]
+```
+
+#### 🔄 Integración con n8n
+
+**Workflow qSKrf1OiNFS6ZbSu** (a modificar):
+
+Agregar después del nodo `PlantillaWhatsApp`:
+
+**1. Extract Message ID** (Code Node):
+```javascript
+const response = $input.item.json;
+return {
+  messageId: response.messages?.[0]?.id,
+  recipient: response.contacts?.[0]?.wa_id,
+  campaignId: $('Set Campaign Info').item.json.campaignId,
+  templateName: $('Set Campaign Info').item.json.templateName,
+  sentAt: Date.now()
+};
+```
+
+**2. Register in Backend** (HTTP Request Node):
+```javascript
+// POST https://capibobbabot.onrender.com/api/marketing/register-message
+{
+  "messageId": "={{ $json.messageId }}",
+  "campaignId": "={{ $json.campaignId }}",
+  "recipient": "={{ $json.recipient }}",
+  "templateName": "={{ $json.templateName }}",
+  "sentAt": "={{ $json.sentAt }}"
+}
+```
+
+#### ✅ Beneficios
+
+- ✅ **Visibilidad Total**: Ver exactamente qué pasó con cada mensaje enviado
+- ✅ **ROI Medible**: Tasas de entrega, lectura y engagement por campaña
+- ✅ **Análisis de Sentimiento**: Clasificación automática de reacciones (positivo/negativo/neutral)
+- ✅ **Optimización**: Identificar mejores horarios, mensajes y audiencias
+- ✅ **Persistencia**: Datos almacenados en Redis por 30 días
+- ✅ **API Completa**: 9 endpoints RESTful para integración
+- ✅ **Real-Time**: Actualización automática vía webhooks
+
+#### 📁 Archivos Creados/Modificados
+
+**Creados:**
+- ✅ `marketing/campaign-tracker.js` - Sistema de tracking (560 líneas)
+- ✅ `marketing/reaction-handler.js` - Procesador de reacciones (380 líneas)
+
+**Modificados:**
+- 🔧 `chatbot.js` - 9 nuevos endpoints + integración webhooks (+290 líneas)
+- 🔧 `project.md` - Documentación del sistema
+
+#### 🚀 Próximos Pasos
+
+1. **n8n Workflow**: Modificar workflow `qSKrf1OiNFS6ZbSu` agregando nodos de registro
+2. **Dashboard Next.js**: Crear páginas `/marketing` y `/marketing/[id]` para visualización
+3. **Testing**: Probar con campaña real de marketing
+4. **Deploy**: Push a producción y monitoreo
+
+#### 📊 Ejemplo de Uso
+
+**Crear campaña:**
+```bash
+curl -X POST https://capibobbabot.onrender.com/api/marketing/campaign/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "promo_capicombo_2025_01",
+    "name": "Promoción Capicombo Enero",
+    "templateName": "capicombo_promo_v2",
+    "description": "Promo 2x1 fin de semana"
+  }'
+```
+
+**Ver estadísticas:**
+```bash
+curl https://capibobbabot.onrender.com/api/marketing/campaign/promo_capicombo_2025_01/stats
+```
+
+**Respuesta:**
+```json
+{
+  "campaign": {...},
+  "stats": {
+    "totalSent": 150,
+    "delivered": 145,
+    "read": 120,
+    "failed": 5,
+    "reactions": 45,
+    "deliveryRate": 96.7,
+    "readRate": 80.0,
+    "engagementRate": 30.0
+  },
+  "reactions": {
+    "total": 45,
+    "topEmojis": [
+      {"emoji": "👍", "count": 20, "sentiment": "positive"},
+      {"emoji": "❤️", "count": 15, "sentiment": "positive"},
+      {"emoji": "🔥", "count": 10, "sentiment": "positive"}
+    ]
+  }
+}
+```
+
+---
+
 ### v2.13.6 (2025-10-18) - Soporte para Mensajes de Tipo Button 🔘✨
 
 **Problema identificado**: El chatbot no reconocía mensajes de tipo `button` enviados desde campañas de marketing de WhatsApp, resultando en el error "⚠️ Tipo de mensaje no manejado: button".

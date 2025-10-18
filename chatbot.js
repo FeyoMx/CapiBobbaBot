@@ -49,6 +49,10 @@ const GeminiCache = require('./gemini-cache');
 // === SISTEMA DE REACCIONES INTELIGENTE ===
 const { ReactionManager, REACTION_EMOJIS } = require('./reactions/reaction-manager');
 
+// === MARKETING MODULES ===
+const CampaignTracker = require('./marketing/campaign-tracker');
+const ReactionHandler = require('./marketing/reaction-handler');
+
 // --- CONFIGURACIÓN ---
 // Lee las variables de entorno de forma segura. ¡No dejes tokens en el código!
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
@@ -116,6 +120,10 @@ let geminiCache = null;
 // === VARIABLES GLOBALES PARA REACCIONES ===
 let reactionManager = null;
 
+// Marketing tracking instances
+let campaignTracker = null;
+let reactionHandler = null;
+
 
 // --- CONEXIÓN A REDIS ---
 // Helper para pausas
@@ -126,7 +134,14 @@ const redisClient = redis.createClient({
 });
 
 redisClient.on('error', err => console.error('Error en el cliente de Redis', err));
-redisClient.on('connect', () => console.log('Conectado exitosamente a Redis.'));
+redisClient.on('connect', () => {
+  console.log('Conectado exitosamente a Redis.');
+
+  // Inicializar módulos de marketing
+  campaignTracker = new CampaignTracker(redisClient);
+  reactionHandler = new ReactionHandler(campaignTracker);
+  console.log('✅ Módulos de Marketing inicializados');
+});
 redisClient.connect(); // <-- CRÍTICO: Es necesario para iniciar la conexión con Redis.
 
 const PORT = process.env.PORT || 3000;
@@ -341,7 +356,39 @@ app.post('/webhook', async (req, res) => {
             // Si es una actualización de estado (ej: entregado, leído, fallido)
             else if (changes.field === 'messages' && changes.value && changes.value.statuses) {
                 // Llamar a la nueva función para manejar los estados
-                manejarStatus(body);
+                await manejarStatus(body);
+            }
+            // Si es una reacción a un mensaje
+            else if (changes.field === 'messages' && changes.value?.messages?.[0]?.type === 'reaction') {
+                try {
+                    const reactionMsg = changes.value.messages[0];
+                    const messageId = reactionMsg.reaction?.message_id;
+                    const emoji = reactionMsg.reaction?.emoji;
+                    const userId = reactionMsg.from;
+
+                    if (messageId && emoji && userId && campaignTracker && reactionHandler) {
+                        // Verificar si es reacción a mensaje de campaña
+                        const campaignMessage = await campaignTracker.getMessage(messageId);
+
+                        if (campaignMessage) {
+                            // Procesar reacción de campaña
+                            await reactionHandler.handleReaction({
+                                messageId,
+                                campaignId: campaignMessage.campaignId,
+                                emoji,
+                                userId,
+                                timestamp: Date.now()
+                            });
+
+                            console.log(`❤️ [MARKETING] Reacción ${emoji} a campaña ${campaignMessage.campaignId} por ${userId}`);
+                        } else {
+                            console.log(`ℹ️ Reacción ${emoji} a mensaje no-campaña ${messageId}`);
+                        }
+                    }
+                } catch (reactionError) {
+                    console.error('❌ Error procesando reacción:', reactionError);
+                    // No fallar el webhook por errores en reacciones
+                }
             }
         }
 
@@ -732,6 +779,298 @@ app.post('/api/reactions/cleanup', async (req, res) => {
     }
 });
 
+// ==================== MARKETING ENDPOINTS ====================
+
+/**
+ * POST /api/marketing/register-message
+ * Registra un mensaje de campaña enviado desde n8n
+ */
+app.post('/api/marketing/register-message', async (req, res) => {
+    try {
+        if (!campaignTracker) {
+            return res.status(503).json({ error: 'Sistema de marketing no inicializado' });
+        }
+
+        const { messageId, campaignId, recipient, templateName, sentAt } = req.body;
+
+        // Validar campos requeridos
+        if (!messageId || !campaignId || !recipient) {
+            return res.status(400).json({
+                error: 'Faltan campos requeridos: messageId, campaignId, recipient'
+            });
+        }
+
+        // Registrar mensaje
+        const message = await campaignTracker.registerMessage({
+            messageId,
+            campaignId,
+            recipient,
+            templateName,
+            sentAt
+        });
+
+        console.log(`✅ [MARKETING] Mensaje registrado vía API: ${messageId} → ${campaignId}`);
+
+        res.json({
+            success: true,
+            message,
+            campaignId
+        });
+
+    } catch (error) {
+        console.error('❌ Error registrando mensaje de campaña:', error);
+        res.status(500).json({
+            error: error.message || 'Error del servidor'
+        });
+    }
+});
+
+/**
+ * POST /api/marketing/campaign/create
+ * Crea una nueva campaña de marketing
+ */
+app.post('/api/marketing/campaign/create', async (req, res) => {
+    try {
+        if (!campaignTracker) {
+            return res.status(503).json({ error: 'Sistema de marketing no inicializado' });
+        }
+
+        const { id, name, templateName, description } = req.body;
+
+        // Validar campos requeridos
+        if (!id || !name || !templateName) {
+            return res.status(400).json({
+                error: 'Faltan campos requeridos: id, name, templateName'
+            });
+        }
+
+        const campaign = await campaignTracker.createCampaign({
+            id,
+            name,
+            templateName,
+            description
+        });
+
+        console.log(`✅ [MARKETING] Campaña creada vía API: ${id}`);
+
+        res.json({
+            success: true,
+            campaign
+        });
+
+    } catch (error) {
+        console.error('❌ Error creando campaña:', error);
+        res.status(500).json({
+            error: error.message || 'Error del servidor'
+        });
+    }
+});
+
+/**
+ * GET /api/marketing/campaigns
+ * Lista todas las campañas
+ */
+app.get('/api/marketing/campaigns', async (req, res) => {
+    try {
+        if (!campaignTracker) {
+            return res.status(503).json({ error: 'Sistema de marketing no inicializado' });
+        }
+
+        const activeOnly = req.query.active === 'true';
+        const campaigns = await campaignTracker.listCampaigns(activeOnly);
+
+        res.json({
+            success: true,
+            count: campaigns.length,
+            campaigns
+        });
+
+    } catch (error) {
+        console.error('❌ Error listando campañas:', error);
+        res.status(500).json({
+            error: error.message || 'Error del servidor'
+        });
+    }
+});
+
+/**
+ * GET /api/marketing/campaign/:id
+ * Obtiene una campaña específica
+ */
+app.get('/api/marketing/campaign/:id', async (req, res) => {
+    try {
+        if (!campaignTracker) {
+            return res.status(503).json({ error: 'Sistema de marketing no inicializado' });
+        }
+
+        const { id } = req.params;
+        const campaign = await campaignTracker.getCampaign(id);
+
+        if (!campaign) {
+            return res.status(404).json({
+                error: `Campaña '${id}' no encontrada`
+            });
+        }
+
+        res.json({
+            success: true,
+            campaign
+        });
+
+    } catch (error) {
+        console.error('❌ Error obteniendo campaña:', error);
+        res.status(500).json({
+            error: error.message || 'Error del servidor'
+        });
+    }
+});
+
+/**
+ * GET /api/marketing/campaign/:id/stats
+ * Obtiene estadísticas detalladas de una campaña
+ */
+app.get('/api/marketing/campaign/:id/stats', async (req, res) => {
+    try {
+        if (!campaignTracker) {
+            return res.status(503).json({ error: 'Sistema de marketing no inicializado' });
+        }
+
+        const { id } = req.params;
+        const stats = await campaignTracker.getCampaignStats(id);
+
+        res.json({
+            success: true,
+            stats
+        });
+
+    } catch (error) {
+        console.error('❌ Error obteniendo stats de campaña:', error);
+        res.status(500).json({
+            error: error.message || 'Error del servidor'
+        });
+    }
+});
+
+/**
+ * GET /api/marketing/campaign/:id/messages
+ * Obtiene todos los mensajes de una campaña
+ */
+app.get('/api/marketing/campaign/:id/messages', async (req, res) => {
+    try {
+        if (!campaignTracker) {
+            return res.status(503).json({ error: 'Sistema de marketing no inicializado' });
+        }
+
+        const { id } = req.params;
+        const status = req.query.status; // Filtro opcional
+
+        const filters = status ? { status } : {};
+        const messages = await campaignTracker.getMessagesByCampaign(id, filters);
+
+        res.json({
+            success: true,
+            count: messages.length,
+            messages
+        });
+
+    } catch (error) {
+        console.error('❌ Error obteniendo mensajes de campaña:', error);
+        res.status(500).json({
+            error: error.message || 'Error del servidor'
+        });
+    }
+});
+
+/**
+ * GET /api/marketing/campaign/:id/reactions
+ * Obtiene análisis de reacciones de una campaña
+ */
+app.get('/api/marketing/campaign/:id/reactions', async (req, res) => {
+    try {
+        if (!campaignTracker || !reactionHandler) {
+            return res.status(503).json({ error: 'Sistema de marketing no inicializado' });
+        }
+
+        const { id } = req.params;
+        const reactionStats = await reactionHandler.getReactionStats(id);
+        const timeline = await reactionHandler.getReactionTimeline(id, 'hour');
+        const patterns = await reactionHandler.detectPatterns(id);
+
+        res.json({
+            success: true,
+            stats: reactionStats,
+            timeline,
+            patterns
+        });
+
+    } catch (error) {
+        console.error('❌ Error obteniendo reacciones de campaña:', error);
+        res.status(500).json({
+            error: error.message || 'Error del servidor'
+        });
+    }
+});
+
+/**
+ * GET /api/marketing/dashboard-stats
+ * Obtiene estadísticas generales para el dashboard
+ */
+app.get('/api/marketing/dashboard-stats', async (req, res) => {
+    try {
+        if (!campaignTracker) {
+            return res.status(503).json({ error: 'Sistema de marketing no inicializado' });
+        }
+
+        const dashboardStats = await campaignTracker.getDashboardStats();
+
+        res.json({
+            success: true,
+            stats: dashboardStats
+        });
+
+    } catch (error) {
+        console.error('❌ Error obteniendo stats del dashboard:', error);
+        res.status(500).json({
+            error: error.message || 'Error del servidor'
+        });
+    }
+});
+
+/**
+ * PATCH /api/marketing/campaign/:id/status
+ * Actualiza el estado de una campaña (activa/inactiva)
+ */
+app.patch('/api/marketing/campaign/:id/status', async (req, res) => {
+    try {
+        if (!campaignTracker) {
+            return res.status(503).json({ error: 'Sistema de marketing no inicializado' });
+        }
+
+        const { id } = req.params;
+        const { active } = req.body;
+
+        if (typeof active !== 'boolean') {
+            return res.status(400).json({
+                error: 'Campo "active" debe ser un booleano'
+            });
+        }
+
+        await campaignTracker.updateCampaignStatus(id, active);
+
+        res.json({
+            success: true,
+            campaignId: id,
+            active
+        });
+
+    } catch (error) {
+        console.error('❌ Error actualizando estado de campaña:', error);
+        res.status(500).json({
+            error: error.message || 'Error del servidor'
+        });
+    }
+});
+
 // Endpoint para obtener métricas de un usuario específico (para reacciones personalizadas)
 app.get('/api/user/metrics/:phoneNumber', async (req, res) => {
     try {
@@ -833,9 +1172,10 @@ app.delete('/api/redis-states/:key', async (req, res) => {
 
 /**
  * Procesa el cuerpo de un webhook de WhatsApp para registrar TODOS los estados de los mensajes (MODO DEBUG).
+ * Ahora incluye tracking de campañas de marketing.
  * @param {object} body - El objeto `req.body` proveniente del webhook de WhatsApp.
  */
-function manejarStatus(body) {
+async function manejarStatus(body) {
   const statuses = body?.entry?.[0]?.changes?.[0]?.value?.statuses;
 
   if (!Array.isArray(statuses) || statuses.length === 0) {
@@ -845,7 +1185,10 @@ function manejarStatus(body) {
   console.log(`📬 Se recibieron ${statuses.length} actualizaciones de estado.`);
 
   for (const status of statuses) {
+    const messageId = status.id;
     const statusType = status.status; // sent, delivered, read, failed
+    const timestamp = parseInt(status.timestamp) * 1000;
+
     const emoji = {
       sent: '➡️',
       delivered: '✅',
@@ -854,9 +1197,36 @@ function manejarStatus(body) {
     }[statusType] || '📦';
 
     console.log(`--- ${emoji} Estado: ${statusType.toUpperCase()} ---`);
-    console.log(`  ID del Mensaje: ${status.id}`);
+    console.log(`  ID del Mensaje: ${messageId}`);
     console.log(`  Destinatario: ${status.recipient_id}`);
-    console.log(`  Timestamp: ${new Date(parseInt(status.timestamp) * 1000).toLocaleString()}`);
+    console.log(`  Timestamp: ${new Date(timestamp).toLocaleString()}`);
+
+    // 🔍 TRACKING DE CAMPAÑAS: Verificar si es mensaje de campaña
+    if (campaignTracker) {
+      try {
+        const campaignMessage = await campaignTracker.getMessage(messageId);
+
+        if (campaignMessage) {
+          // ✅ Es mensaje de campaña → actualizar estado
+          if (statusType === 'failed' && status.errors && status.errors.length > 0) {
+            // Marcar como fallido con detalles del error
+            await campaignTracker.markMessageFailed(messageId, {
+              code: status.errors[0].code,
+              title: status.errors[0].title,
+              message: status.errors[0].message,
+              details: status.errors[0].error_data?.details
+            });
+          } else if (['delivered', 'read'].includes(statusType)) {
+            // Actualizar estado normal
+            await campaignTracker.updateMessageStatus(messageId, statusType, timestamp);
+          }
+
+          console.log(`  📊 [MARKETING] Campaña: ${campaignMessage.campaignId}`);
+        }
+      } catch (error) {
+        console.error(`  ⚠️ Error actualizando tracking de campaña:`, error.message);
+      }
+    }
 
     // Si el estado es 'failed', imprime los detalles del error.
     if (statusType === 'failed' && status.errors && status.errors.length > 0) {
