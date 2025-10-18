@@ -745,6 +745,59 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.13.6 (2025-10-18) - Soporte para Mensajes de Tipo Button 🔘✨
+
+**Problema identificado**: El chatbot no reconocía mensajes de tipo `button` enviados desde campañas de marketing de WhatsApp, resultando en el error "⚠️ Tipo de mensaje no manejado: button".
+
+#### 🔧 Cambios Implementados
+
+1. **Nuevo manejador de mensajes tipo `button`**:
+   - **Archivos modificados**:
+     - [chatbot.js:1246-1260](chatbot.js#L1246-L1260) - Agregado case `button` en switch de tipos de mensaje
+     - [chatbot.js:286-290](chatbot.js#L286-L290) - Agregado soporte para botones en payload n8n
+
+2. **Funcionalidad implementada**:
+   ```javascript
+   case 'button':
+       // Extrae texto del botón desde button.text o button.payload
+       const buttonText = message.button?.text || message.button?.payload || '';
+
+       // Reacciona con emoji apropiado
+       reactionManager.reactToIntention(from, message.id, buttonText);
+
+       // Procesa el texto como mensaje normal
+       await handleTextMessage(from, buttonText, userState);
+       break;
+   ```
+
+3. **Payload n8n actualizado**:
+   ```javascript
+   // Ahora incluye datos del botón para procesamiento en workflows
+   else if (message.type === 'button' && message.button) {
+       n8nPayload.button = message.button;
+       n8nPayload.payload = message.button.payload || message.button.text;
+   }
+   ```
+
+#### ✅ Beneficios
+
+- ✅ **Campañas de marketing funcionales**: Ahora el bot reconoce respuestas como "¡Quiero mi Capicombo!"
+- ✅ **Experiencia fluida**: Los clientes pueden interactuar con botones preconfigurados en campañas
+- ✅ **Reacciones inteligentes**: El sistema detecta la intención y reacciona apropiadamente
+- ✅ **Integración n8n**: Los workflows pueden procesar datos de botones correctamente
+- ✅ **Logging mejorado**: Registra "🔘 Botón presionado: [texto]" para debugging
+
+#### 📊 Caso de Uso
+
+Cuando un cliente recibe una campaña de marketing de WhatsApp y presiona un botón de CTA (ej: "¡Quiero mi Capicombo!"), el bot ahora:
+1. Reconoce el mensaje tipo `button`
+2. Extrae el texto/payload del botón
+3. Lo procesa como si fuera un mensaje de texto normal
+4. Dispara la lógica de pedidos/promociones según corresponda
+5. Envía el payload a n8n para procesamiento adicional
+
+---
+
 ### v0.2.0 (2025-10-16) - Actualización n8n PlantillaWhatsApp a API v24.0 🚀📲
 
 **Actualización proactiva del nodo personalizado de n8n** para enviar plantillas de WhatsApp usando la versión más reciente de la API de Facebook Graph.

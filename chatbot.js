@@ -283,6 +283,10 @@ app.post('/webhook', async (req, res) => {
                         n8nPayload.text = message.text.body;
                     } else if (message.type === 'interactive' && message.interactive) {
                         n8nPayload.interactive = message.interactive;
+                    } else if (message.type === 'button' && message.button) {
+                        // Para mensajes de botones (ej: campañas de marketing)
+                        n8nPayload.button = message.button;
+                        n8nPayload.payload = message.button.payload || message.button.text;
                     }
 
                     // Registrar métrica de mensaje procesado
@@ -1241,6 +1245,22 @@ async function processIncomingMessage(message) {
 
             case 'interactive':
                 await handleInteractiveMessage(from, message.interactive, userState);
+                break;
+
+            case 'button':
+                // Manejar mensajes de botones (ej: campañas de marketing)
+                const buttonText = message.button?.text || message.button?.payload || '';
+                console.log(`🔘 Botón presionado: "${buttonText}"`);
+
+                // Reaccionar al botón
+                if (message.id && reactionManager) {
+                    reactionManager.reactToIntention(from, message.id, buttonText).catch((err) => {
+                        console.error('Error al procesar reacción de botón:', err.message || err);
+                    });
+                }
+
+                // Procesar el texto del botón como un mensaje de texto normal
+                await handleTextMessage(from, buttonText, userState);
                 break;
 
             case 'image':
