@@ -755,6 +755,10 @@ Grid Principal (2 columnas desktop, 1 móvil)
    - **Archivos modificados**:
      - [chatbot.js:1246-1260](chatbot.js#L1246-L1260) - Agregado case `button` en switch de tipos de mensaje
      - [chatbot.js:286-290](chatbot.js#L286-L290) - Agregado soporte para botones en payload n8n
+     - [workflow_analysis/Enhanced Message Normalizer.js:144-182](workflow_analysis/Enhanced%20Message%20Normalizer.js#L144-L182) - Detección de botones en rawBody directo
+     - [workflow_analysis/Enhanced Message Normalizer.js:444-467](workflow_analysis/Enhanced%20Message%20Normalizer.js#L444-L467) - Case button en webhook format
+     - [workflow_analysis/Format Telegram Message.js:135](workflow_analysis/Format%20Telegram%20Message.js#L135) - Ícono específico para botones de campaña (🔘📢)
+     - [workflow_analysis/Format Telegram Message.js:169-181](workflow_analysis/Format%20Telegram%20Message.js#L169-L181) - Sección especial para respuestas de campaña
 
 2. **Funcionalidad implementada**:
    ```javascript
@@ -779,12 +783,42 @@ Grid Principal (2 columnas desktop, 1 móvil)
    }
    ```
 
+4. **Enhanced Message Normalizer actualizado** (n8n workflow):
+   ```javascript
+   // Detecta botones en dos ubicaciones:
+   // 1. En rawBody directo (desde chatbot.js)
+   else if (rawBody && rawBody.type === 'button' && rawBody.button) {
+       normalizedBody.text = button.text || button.payload;
+       normalizedBody.button = { text, payload };
+   }
+
+   // 2. En formato webhook estándar
+   case 'button':
+       normalizedBody.text = message.button.text || message.button.payload;
+       normalizedBody.button = { text, payload };
+   ```
+
+5. **Formateador de mensajes Telegram actualizado**:
+   ```javascript
+   // Ícono específico para botones de campaña
+   else if (messageType === 'button') typeIcon = '🔘📢';
+
+   // Sección especial con información de campaña
+   if (messageType === 'button') {
+       telegramMessage += `\n<b>🔘📢 RESPUESTA DE CAMPAÑA DE MARKETING</b>\n`;
+       telegramMessage += `<b>🎯 Acción:</b> ${buttonPayload}\n`;
+       telegramMessage += `<b>📊 Origen:</b> Botón de campaña WhatsApp\n`;
+       telegramMessage += `<b>🎯 Estado:</b> Cliente interesado\n`;
+   }
+   ```
+
 #### ✅ Beneficios
 
 - ✅ **Campañas de marketing funcionales**: Ahora el bot reconoce respuestas como "¡Quiero mi Capicombo!"
 - ✅ **Experiencia fluida**: Los clientes pueden interactuar con botones preconfigurados en campañas
 - ✅ **Reacciones inteligentes**: El sistema detecta la intención y reacciona apropiadamente
-- ✅ **Integración n8n**: Los workflows pueden procesar datos de botones correctamente
+- ✅ **Integración n8n completa**: Los workflows normalizan y procesan datos de botones correctamente
+- ✅ **Notificaciones Telegram mejoradas**: Mensajes de botón claramente identificados con íconos especiales
 - ✅ **Logging mejorado**: Registra "🔘 Botón presionado: [texto]" para debugging
 
 #### 📊 Caso de Uso

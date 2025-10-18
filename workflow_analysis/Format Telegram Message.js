@@ -132,6 +132,7 @@ const fecha = getMexicoDateTime();
       if (messageType === 'confirmed_order' || messageType === 'order_completed') typeIcon = '🛒';
       else if (messageType === 'bot_response') typeIcon = '🤖';
       else if (messageType === 'text') typeIcon = '💬';
+      else if (messageType === 'button') typeIcon = '🔘📢'; // Botón de campaña
       else if (messageType === 'image' || messageType === 'bot_image') typeIcon = '🖼️';
       else if (messageType === 'video') typeIcon = '🎥';
       else if (messageType === 'audio') typeIcon = '🎵';
@@ -165,8 +166,22 @@ const fecha = getMexicoDateTime();
           telegramMessage += `\n`;
         }
         
+        // ✅ Si es BOTÓN DE CAMPAÑA, agregar información especial
+        if (messageType === 'button') {
+          telegramMessage += `\n<b>🔘📢 RESPUESTA DE CAMPAÑA DE MARKETING</b>\n`;
+
+          // Mostrar payload si existe
+          if (normalizedBody.buttonPayload) {
+            telegramMessage += `<b>🎯 Acción:</b> ${escapeHtml(String(normalizedBody.buttonPayload))}\n`;
+          }
+
+          // Indicar que es una respuesta a campaña
+          telegramMessage += `<b>📊 Origen:</b> Botón de campaña WhatsApp\n`;
+          telegramMessage += `<b>🎯 Estado:</b> Cliente interesado\n`;
+        }
+
         // ✅ Si es ENCUESTA, agregar información especial con alta prioridad
-        if (isSurveyResponse && surveyRating !== null) {
+        else if (isSurveyResponse && surveyRating !== null) {
           telegramMessage += `\n<b>⭐⭐⭐ RESPUESTA DE ENCUESTA ⭐⭐⭐</b>\n`;
 
           // Generar estrellas visuales

@@ -140,7 +140,47 @@ for (const item of items) {
           normalizedBody.hasText = true;
         }
       }
-      
+
+      // ✅ DETECTAR MENSAJES DE BOTONES (CAMPAÑAS DE MARKETING)
+      else if (rawBody && rawBody.type === 'button' && rawBody.button) {
+        console.log('🔘 Mensaje de botón de campaña detectado');
+        normalizedBody.source = 'whatsapp_user';
+        normalizedBody.isFromUser = true;
+        normalizedBody.messageType = 'button';
+        normalizedBody.from = String(rawBody.from || 'unknown_button');
+        normalizedBody.timestamp = parseInt(rawBody.timestamp) || normalizedBody.timestamp;
+
+        const button = rawBody.button;
+
+        // Extraer texto del botón desde text o payload
+        if (button.text) {
+          normalizedBody.text = String(button.text);
+          normalizedBody.hasText = true;
+          console.log('✅ Texto de botón extraído:', normalizedBody.text);
+        } else if (button.payload) {
+          normalizedBody.text = String(button.payload);
+          normalizedBody.hasText = true;
+          console.log('✅ Payload de botón extraído:', normalizedBody.text);
+        } else {
+          normalizedBody.text = 'Botón presionado (sin texto)';
+          normalizedBody.hasText = true;
+          console.log('⚠️ Botón sin texto ni payload');
+        }
+
+        // Guardar payload del botón para referencia
+        if (button.payload) {
+          normalizedBody.buttonPayload = String(button.payload);
+          console.log('✅ Button payload guardado:', normalizedBody.buttonPayload);
+        }
+
+        // Guardar objeto button completo para procesamiento adicional
+        normalizedBody.button = {
+          text: button.text || null,
+          payload: button.payload || null
+        };
+        console.log('✅ Objeto button guardado para procesamiento');
+      }
+
       // ✅ DETECTAR MENSAJES BOT_RESPONSE con messagePayload (CASO PRINCIPAL)
       else if (rawBody && rawBody.source === 'bot' && rawBody.messagePayload) {
         console.log('🤖 Bot response detectado con messagePayload');
@@ -400,7 +440,32 @@ for (const item of items) {
                 normalizedBody.hasText = true;
               }
               break;
-              
+
+            case 'button':
+              normalizedBody.messageType = 'button';
+              if (message.button) {
+                let buttonText = '';
+                if (message.button.text) {
+                  buttonText = String(message.button.text);
+                } else if (message.button.payload) {
+                  buttonText = String(message.button.payload);
+                }
+                if (buttonText) {
+                  normalizedBody.text = buttonText;
+                  normalizedBody.hasText = true;
+                  console.log('✅ Botón de webhook extraído:', buttonText);
+                }
+                // Guardar objeto button completo
+                normalizedBody.button = {
+                  text: message.button.text || null,
+                  payload: message.button.payload || null
+                };
+                if (message.button.payload) {
+                  normalizedBody.buttonPayload = String(message.button.payload);
+                }
+              }
+              break;
+
             case 'interactive':
               normalizedBody.messageType = 'interactive';
               if (message.interactive) {
