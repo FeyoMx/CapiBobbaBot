@@ -1,0 +1,296 @@
+{
+  "name": "Plantilla de marketing WA envio",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "When clicking ‘Execute workflow’",
+      "position": [
+        -48,
+        48
+      ],
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "id": "c48b791c-4c99-49bb-97c6-e6ce965f9525"
+    },
+    {
+      "parameters": {
+        "phoneNumber": "={{ $json.Numero_Cliente }}",
+        "templateName": "capicombo_video",
+        "headerType": "video",
+        "headerMediaLink": "https://i.imgur.com/YPFKM5b.mp4"
+      },
+      "name": "WhatsApp Template Sender",
+      "id": "5c5b6758-5c90-406e-b9cf-23626df96feb",
+      "type": "n8n-nodes-plantillawhatsapp.plantillaWhatsApp",
+      "position": [
+        848,
+        48
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "whatsAppApi": {
+          "id": "WmWtAp08konWBzPu",
+          "name": "CapiBot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "name": "Procesa uno por uno",
+      "type": "n8n-nodes-base.splitInBatches",
+      "id": "7aaf951a-fff-4887-a0cb-4d7ce9723c52",
+      "typeVersion": 3,
+      "position": [
+        624,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "27606954",
+        "text": "Se han enviado todas las plantillas ",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "name": "Avisa que se enviaron todas las plantillas",
+      "webhookId": "2ed1010f-4290-4dc7-9a5b-49cc8dc61880",
+      "position": [
+        1072,
+        -144
+      ],
+      "id": "749cd9ac-d248-4ec3-86b2-10c4e901bc13",
+      "typeVersion": 1.2,
+      "type": "n8n-nodes-base.telegram",
+      "credentials": {
+        "telegramApi": {
+          "id": "pXgiAdNH5LwxlCKI",
+          "name": "Telegram account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "cachedResultName": "Pedidos CapiBobba",
+          "value": "1qOh0cKQgcVDmwYe8OeiUXUDU6vTJjknVaH8UKI6Ao_A",
+          "__rl": true,
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qOh0cKQgcVDmwYe8OeiUXUDU6vTJjknVaH8UKI6Ao_A/edit?usp=drivesdk",
+          "mode": "list"
+        },
+        "sheetName": {
+          "mode": "list",
+          "value": 1245252596,
+          "cachedResultName": "CLIENTES",
+          "__rl": true,
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qOh0cKQgcVDmwYe8OeiUXUDU6vTJjknVaH8UKI6Ao_A/edit#gid=1245252596"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Numero_Cliente",
+              "lookupValue": "5217712416450"
+            }
+          ]
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "specifyRangeA1",
+              "range": "A1:A62"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "name": "Lee los numeros de los clientes",
+      "id": "6f4b105b-7464-4926-b8b2-c4d7cc1b8599",
+      "position": [
+        400,
+        48
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "JbqYZ9uwPD4BpgyL",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        848,
+        -144
+      ],
+      "id": "d8167cc3-49c5-4814-ab25-99f4550e8502",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"values\": {\n    \"string\": [\n      {\n        \"name\": \"campaignId\",\n        \"value\": \"promo_capicombovideo_18_10_25\"\n      },\n      {\n        \"name\": \"templateName\",\n        \"value\": \"capicombo_video\"\n      }\n    ]\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        176,
+        48
+      ],
+      "id": "4eafd5b2-146f-4f4a-b081-ead036bfb064",
+      "name": "Set Campaign Info"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraer datos de la respuesta de WhatsApp\nconst response = $input.item.json;\n\n// Validar que se envió correctamente\nif (!response.messages || response.messages.length === 0) {\n  throw new Error('No se pudo enviar el mensaje de WhatsApp');\n}\n\n// Extraer message ID y datos del destinatario\nconst messageId = response.messages[0].id;\nconst recipient = response.contacts[0].wa_id;\n\n// Retornar datos para el siguiente nodo\nreturn {\n  messageId: messageId,\n  recipient: recipient,\n  sentAt: Date.now()\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1072,
+        48
+      ],
+      "id": "bfa41078-34f8-4c0d-a3df-20803a027664",
+      "name": "Extract Message ID"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://capibobbabot.onrender.com/api/marketing/register-message",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"messageId\": \"{{ $json.messageId }}\",\n  \"campaignId\": \"{{ $('Set Campaign Info').item.json.values.string[0].value }}\",\n  \"recipient\": \"{{ $json.recipient }}\",\n  \"templateName\": \"{{ $('Set Campaign Info').item.json.values.string[1].value }}\",\n  \"sentAt\": \"{{ $json.sentAt }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1296,
+        120
+      ],
+      "id": "67ddfa8f-307a-4586-a62e-b606d7d3dd92",
+      "name": "Register in CapiBobbaBot",
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Set Campaign Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Template Sender": {
+      "main": [
+        [
+          {
+            "node": "Extract Message ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesa uno por uno": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "WhatsApp Template Sender",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lee los numeros de los clientes": {
+      "main": [
+        [
+          {
+            "node": "Procesa uno por uno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Avisa que se enviaron todas las plantillas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Campaign Info": {
+      "main": [
+        [
+          {
+            "node": "Lee los numeros de los clientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Message ID": {
+      "main": [
+        [
+          {
+            "node": "Register in CapiBobbaBot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Register in CapiBobbaBot": {
+      "main": [
+        [
+          {
+            "node": "Procesa uno por uno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1a22b10d-2cd8-4a53-bca4-d04ba3225f4e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "13ceb1c1b612f9d6c3c493318bdf1c4ba9770c6c831ae1660737158128caeb2a"
+  },
+  "id": "qSKrf1OiNFS6ZbSu",
+  "tags": []
+}
