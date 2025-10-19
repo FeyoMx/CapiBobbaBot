@@ -126,7 +126,7 @@ export function exportOrdersToCSV(orders: Order[], filename: string = 'pedidos.c
     order.id,
     order.customer_name,
     order.customer_phone,
-    order.items.map((item) => `${item.quantity}x ${item.name}`).join('; '),
+    order.items?.map((item) => `${item.quantity}x ${item.name}`).join('; ') || order.summary?.split('\n').slice(0, 2).join('; ') || 'Ver pedido',
     order.total.toString(),
     order.status,
     order.payment_method,

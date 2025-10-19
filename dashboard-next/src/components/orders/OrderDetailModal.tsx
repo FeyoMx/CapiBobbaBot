@@ -153,12 +153,12 @@ export function OrderDetailModal({ order, open, onClose }: OrderDetailModalProps
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Package className="h-4 w-4" />
-                Productos ({order.items.length})
+                Productos ({order.items?.length || 0})
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {order.items.map((item) => (
+                {order.items?.map((item) => (
                   <div
                     key={item.id}
                     className="flex items-center justify-between py-2 border-b last:border-0"

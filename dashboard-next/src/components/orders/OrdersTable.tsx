@@ -96,11 +96,11 @@ export function OrdersTable({ orders, isLoading, onViewOrder, onExportCSV, filte
         cell: ({ row }) => (
           <div>
             <div className="text-sm">
-              {row.original.items.length} item{row.original.items.length !== 1 ? 's' : ''}
+              {row.original.items?.length ? `${row.original.items.length} item${row.original.items.length !== 1 ? 's' : ''}` : 'Pedido'}
             </div>
             <div className="text-xs text-muted-foreground truncate max-w-[200px]">
-              {row.original.items[0]?.name}
-              {row.original.items.length > 1 && ` +${row.original.items.length - 1}`}
+              {row.original.items?.[0]?.name || (row.original.summary ? row.original.summary.split('\n')[0].substring(0, 30) + '...' : 'Ver detalles')}
+              {(row.original.items?.length || 0) > 1 && ` +${(row.original.items?.length || 0) - 1}`}
             </div>
           </div>
         ),

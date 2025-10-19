@@ -135,11 +135,10 @@ export function RecentOrdersTable() {
                     </td>
                     <td className="py-3 px-4">
                       <div className="text-sm">
-                        {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+                        {order.items?.length ? `${order.items.length} item${order.items.length !== 1 ? 's' : ''}` : 'Pedido'}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {order.items[0]?.name}
-                        {order.items.length > 1 && ` +${order.items.length - 1} más`}
+                        {order.items?.[0]?.name || (order.summary ? order.summary.split('\n')[0].substring(0, 40) + '...' : 'Ver detalles')}
                       </div>
                     </td>
                     <td className="py-3 px-4 text-right">

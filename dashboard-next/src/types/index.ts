@@ -80,7 +80,8 @@ export interface Order {
   id: string;
   customer_name: string;
   customer_phone: string;
-  items: OrderItem[];
+  items?: OrderItem[]; // Optional: some orders from Redis may not have structured items
+  summary?: string; // Summary text from order processing
   total: number;
   status: OrderStatus;
   payment_method: 'cash' | 'transfer' | 'pending';
