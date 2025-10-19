@@ -13,6 +13,7 @@ import {
   MessageCircle,
   Menu,
   X,
+  Megaphone,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,11 @@ const navigationItems: NavItem[] = [
     name: 'Analytics',
     href: '/analytics',
     icon: BarChart3,
+  },
+  {
+    name: 'Marketing',
+    href: '/marketing',
+    icon: Megaphone,
   },
   {
     name: 'Seguridad',

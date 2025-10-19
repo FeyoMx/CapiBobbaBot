@@ -251,3 +251,77 @@ export interface SurveyResults {
   nps_score?: number;
   satisfaction_rate?: number;
 }
+
+// ============================================================================
+// Marketing Campaigns
+// ============================================================================
+
+export type CampaignMessageStatus = 'sent' | 'delivered' | 'read' | 'failed';
+
+export interface CampaignMessage {
+  messageId: string;
+  recipient: string;
+  status: CampaignMessageStatus;
+  timestamps: {
+    sent?: string; // ISO string
+    delivered?: string;
+    read?: string;
+  };
+  errorMessage?: string;
+  reaction?: string;
+}
+
+export interface CampaignStats {
+  totalSent: number;
+  delivered: number;
+  read: number;
+  failed: number;
+  reactions: number;
+  deliveryRate: number; // percentage 0-100
+  readRate: number;
+  engagementRate: number;
+}
+
+export interface CampaignMessagesByStatus {
+  sent: number;
+  delivered: number;
+  read: number;
+  failed: number;
+}
+
+export interface Campaign {
+  id: string;
+  name: string;
+  description: string;
+  active: boolean;
+  created: string; // ISO string
+  stats?: CampaignStats;
+}
+
+export interface CampaignDetailsResponse {
+  success: boolean;
+  campaignId: string;
+  stats: CampaignStats;
+  messages: {
+    byStatus: CampaignMessagesByStatus;
+    timeline: Array<{
+      hour: string;
+      sent: number;
+      delivered: number;
+      read: number;
+    }>;
+  };
+}
+
+export interface CampaignMessagesResponse {
+  success: boolean;
+  campaignId: string;
+  messages: CampaignMessage[];
+  total: number;
+}
+
+export interface CampaignsListResponse {
+  success: boolean;
+  campaigns: Campaign[];
+  total: number;
+}

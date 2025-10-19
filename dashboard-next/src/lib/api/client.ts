@@ -13,6 +13,9 @@ import type {
   SurveyResults,
   PaginationParams,
   DateRangeParams,
+  CampaignsListResponse,
+  CampaignDetailsResponse,
+  CampaignMessagesResponse,
 } from '@/types';
 
 // ============================================================================
@@ -262,6 +265,44 @@ class ApiClient {
 
     return response.data.data;
   }
+
+  // ============================================================================
+  // Marketing Campaigns
+  // ============================================================================
+
+  async getCampaigns(): Promise<CampaignsListResponse> {
+    const response = await this.client.get<CampaignsListResponse>('/marketing/campaigns');
+
+    if (!response.data.success) {
+      throw new Error('No se pudieron obtener las campañas');
+    }
+
+    return response.data;
+  }
+
+  async getCampaignStats(campaignId: string): Promise<CampaignDetailsResponse> {
+    const response = await this.client.get<CampaignDetailsResponse>(
+      `/marketing/campaign/${campaignId}/stats`
+    );
+
+    if (!response.data.success) {
+      throw new Error('No se pudieron obtener las estadísticas de la campaña');
+    }
+
+    return response.data;
+  }
+
+  async getCampaignMessages(campaignId: string): Promise<CampaignMessagesResponse> {
+    const response = await this.client.get<CampaignMessagesResponse>(
+      `/marketing/campaign/${campaignId}/messages`
+    );
+
+    if (!response.data.success) {
+      throw new Error('No se pudieron obtener los mensajes de la campaña');
+    }
+
+    return response.data;
+  }
 }
 
 // Export singleton instance
@@ -283,4 +324,7 @@ export const {
   getHealth,
   getSystemMetrics,
   getSurveyResults,
+  getCampaigns,
+  getCampaignStats,
+  getCampaignMessages,
 } = apiClient;
