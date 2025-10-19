@@ -214,14 +214,14 @@ export default function MarketingPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <CampaignMetricCard
                   title="Total Enviados"
-                  value={statsData.stats.totalSent}
+                  value={statsData.stats.stats.totalSent}
                   icon={Send}
                   color="blue"
                 />
                 <CampaignMetricCard
                   title="Tasa de Entrega"
-                  value={statsData.stats.delivered}
-                  percentage={statsData.stats.deliveryRate}
+                  value={statsData.stats.stats.delivered}
+                  percentage={statsData.stats.stats.deliveryRate}
                   icon={CheckCheck}
                   color="green"
                   threshold={{
@@ -232,8 +232,8 @@ export default function MarketingPage() {
                 />
                 <CampaignMetricCard
                   title="Tasa de Lectura"
-                  value={statsData.stats.read}
-                  percentage={statsData.stats.readRate}
+                  value={statsData.stats.stats.read}
+                  percentage={statsData.stats.stats.readRate}
                   icon={Eye}
                   color="orange"
                   threshold={{
@@ -244,8 +244,8 @@ export default function MarketingPage() {
                 />
                 <CampaignMetricCard
                   title="Engagement"
-                  value={statsData.stats.reactions}
-                  percentage={statsData.stats.engagementRate}
+                  value={statsData.stats.reactions.total}
+                  percentage={statsData.stats.stats.engagementRate}
                   icon={Heart}
                   color="pink"
                   threshold={{
@@ -258,8 +258,8 @@ export default function MarketingPage() {
 
               {/* Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {statsData.messages?.byStatus && (
-                  <StatusDistributionChart byStatus={statsData.messages.byStatus} />
+                {statsData.stats.messages?.byStatus && (
+                  <StatusDistributionChart byStatus={statsData.stats.messages.byStatus} />
                 )}
                 {messagesData.messages && messagesData.messages.length > 0 && (
                   <CampaignTimelineChart messages={messagesData.messages} />

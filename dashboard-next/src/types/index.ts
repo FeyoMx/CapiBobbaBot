@@ -298,18 +298,22 @@ export interface Campaign {
   stats?: CampaignStats;
 }
 
+export interface CampaignReactions {
+  total: number;
+  distribution: Record<string, number>;
+  topEmojis: Array<{ emoji: string; count: number; sentiment?: string }>;
+}
+
 export interface CampaignDetailsResponse {
   success: boolean;
-  campaignId: string;
-  stats: CampaignStats;
-  messages: {
-    byStatus: CampaignMessagesByStatus;
-    timeline: Array<{
-      hour: string;
-      sent: number;
-      delivered: number;
-      read: number;
-    }>;
+  stats: {
+    campaign: Campaign;
+    stats: CampaignStats;
+    reactions: CampaignReactions;
+    messages: {
+      total: number;
+      byStatus: CampaignMessagesByStatus;
+    };
   };
 }
 
