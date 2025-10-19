@@ -258,8 +258,12 @@ export default function MarketingPage() {
 
               {/* Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <StatusDistributionChart byStatus={statsData.messages.byStatus} />
-                <CampaignTimelineChart messages={messagesData.messages} />
+                {statsData.messages?.byStatus && (
+                  <StatusDistributionChart byStatus={statsData.messages.byStatus} />
+                )}
+                {messagesData.messages && messagesData.messages.length > 0 && (
+                  <CampaignTimelineChart messages={messagesData.messages} />
+                )}
               </div>
             </div>
           ) : null}
