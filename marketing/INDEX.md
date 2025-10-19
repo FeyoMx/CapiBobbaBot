@@ -30,6 +30,7 @@
 
 | Archivo | Descripción | Para quién | Actualización |
 |---------|-------------|------------|---------------|
+| **[DASHBOARD_IMPLEMENTADO.md](DASHBOARD_IMPLEMENTADO.md)** | ✨ Dashboard React con visualizaciones Recharts | Todos | 2025-10-18 |
 | **[REPORTE_CAMPAÑA_ACTUAL.md](REPORTE_CAMPAÑA_ACTUAL.md)** | Análisis detallado de la campaña activa | Marketing/Gerencia | Diaria |
 
 ### 🔧 Desarrollo e Integración
