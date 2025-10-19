@@ -16,7 +16,7 @@ interface ChartData {
   name: string;
   value: number;
   percentage: string;
-  status: keyof CampaignMessagesByStatus;
+  status: string; // Changed from keyof to string for index signature compatibility
   [key: string]: string | number; // Index signature for recharts compatibility
 }
 
