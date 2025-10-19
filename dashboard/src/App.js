@@ -9,6 +9,7 @@ import RedisStateViewer from './RedisStateViewer';
 // Lazy load heavy components for better performance
 const SurveyResultsDashboard = lazy(() => import('./SurveyResultsDashboard'));
 const SecurityDashboard = lazy(() => import('./SecurityDashboard'));
+const MarketingDashboard = lazy(() => import('./MarketingDashboard'));
 
 function App() {
   return (
@@ -63,6 +64,17 @@ function App() {
             </div>
             <div className="card-content">
               <OrderViewer />
+            </div>
+          </div>
+
+          <div className="component-card">
+            <div className="card-header">
+              <h3><i className="fas fa-bullhorn"></i> Dashboard de Marketing</h3>
+            </div>
+            <div className="card-content">
+              <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}><i className="fas fa-spinner fa-spin"></i> Cargando marketing...</div>}>
+                <MarketingDashboard />
+              </Suspense>
             </div>
           </div>
 

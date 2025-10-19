@@ -1,0 +1,659 @@
+{
+	"info": {
+		"_postman_id": "capibobbabot-marketing-2025",
+		"name": "CapiBobbaBot - Marketing Campaigns",
+		"description": "Colección completa de endpoints para monitorear campañas de marketing de WhatsApp",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "📊 Monitoreo",
+			"item": [
+				{
+					"name": "Dashboard General",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has success field\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('success');",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"// Alertas de tasas",
+									"const jsonData = pm.response.json();",
+									"if (jsonData.stats && jsonData.stats.averages) {",
+									"    const deliveryRate = jsonData.stats.averages.deliveryRate;",
+									"    if (deliveryRate < 75) {",
+									"        console.log(\"⚠️ ALERTA: Tasa de entrega crítica: \" + deliveryRate + \"%\");",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/api/marketing/dashboard-stats",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"marketing",
+								"dashboard-stats"
+							]
+						},
+						"description": "Obtiene un resumen completo de todas las campañas activas y sus métricas globales."
+					},
+					"response": []
+				},
+				{
+					"name": "Listar Todas las Campañas",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response contains campaigns\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('campaigns');",
+									"    pm.expect(jsonData).to.have.property('count');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/api/marketing/campaigns",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"marketing",
+								"campaigns"
+							]
+						},
+						"description": "Lista todas las campañas con sus estadísticas básicas."
+					},
+					"response": []
+				},
+				{
+					"name": "Detalle de Campaña",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response contains campaign details\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('campaign');",
+									"    pm.expect(jsonData.campaign).to.have.property('id');",
+									"    pm.expect(jsonData.campaign).to.have.property('stats');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/api/marketing/campaign/{{CAMPAIGN_ID}}",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"marketing",
+								"campaign",
+								"{{CAMPAIGN_ID}}"
+							]
+						},
+						"description": "Obtiene información detallada de una campaña individual."
+					},
+					"response": []
+				},
+				{
+					"name": "⭐ Estadísticas Completas",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const jsonData = pm.response.json();",
+									"",
+									"pm.test(\"Response has complete stats\", function () {",
+									"    pm.expect(jsonData).to.have.property('stats');",
+									"    pm.expect(jsonData.stats).to.have.property('deliveryRate');",
+									"    pm.expect(jsonData.stats).to.have.property('readRate');",
+									"    pm.expect(jsonData.stats).to.have.property('failureRate');",
+									"});",
+									"",
+									"// Alertas",
+									"if (jsonData.stats && jsonData.stats.stats) {",
+									"    const stats = jsonData.stats.stats;",
+									"    ",
+									"    // Alerta de entrega baja",
+									"    if (stats.deliveryRate < 75) {",
+									"        console.log(\"🔴 CRÍTICO: Tasa de entrega: \" + stats.deliveryRate + \"%\");",
+									"    }",
+									"    ",
+									"    // Alerta de fallas alta",
+									"    if (stats.failureRate > 15) {",
+									"        console.log(\"🔴 CRÍTICO: Tasa de fallas: \" + stats.failureRate + \"%\");",
+									"    }",
+									"    ",
+									"    // Alerta de engagement bajo",
+									"    if (stats.readRate < 10 && stats.totalSent > 50) {",
+									"        console.log(\"⚠️ ALERTA: Tasa de lectura baja: \" + stats.readRate + \"%\");",
+									"    }",
+									"    ",
+									"    // Log de métricas",
+									"    console.log(\"📊 Métricas:\");",
+									"    console.log(\"   Enviados: \" + stats.totalSent);",
+									"    console.log(\"   Entregados: \" + stats.delivered + \" (\" + stats.deliveryRate + \"%)\");",
+									"    console.log(\"   Leídos: \" + stats.read + \" (\" + stats.readRate + \"%)\");",
+									"    console.log(\"   Fallidos: \" + stats.failed + \" (\" + stats.failureRate + \"%)\");",
+									"    console.log(\"   Reacciones: \" + stats.reactions + \" (\" + stats.engagementRate + \"%)\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/api/marketing/campaign/{{CAMPAIGN_ID}}/stats",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"marketing",
+								"campaign",
+								"{{CAMPAIGN_ID}}",
+								"stats"
+							]
+						},
+						"description": "Estadísticas detalladas con tasas de conversión, distribución de estados y análisis de reacciones. **ENDPOINT PRINCIPAL DE MONITOREO**"
+					},
+					"response": []
+				},
+				{
+					"name": "Lista de Mensajes",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response contains messages\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('messages');",
+									"    pm.expect(jsonData).to.have.property('count');",
+									"});",
+									"",
+									"// Contar estados",
+									"const jsonData = pm.response.json();",
+									"if (jsonData.messages) {",
+									"    const statuses = {sent: 0, delivered: 0, read: 0, failed: 0};",
+									"    jsonData.messages.forEach(msg => {",
+									"        if (statuses[msg.status] !== undefined) {",
+									"            statuses[msg.status]++;",
+									"        }",
+									"    });",
+									"    console.log(\"📨 Estados de mensajes:\");",
+									"    console.log(\"   Sent: \" + statuses.sent);",
+									"    console.log(\"   Delivered: \" + statuses.delivered);",
+									"    console.log(\"   Read: \" + statuses.read);",
+									"    console.log(\"   Failed: \" + statuses.failed);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/api/marketing/campaign/{{CAMPAIGN_ID}}/messages",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"marketing",
+								"campaign",
+								"{{CAMPAIGN_ID}}",
+								"messages"
+							]
+						},
+						"description": "Obtiene todos los mensajes enviados en una campaña con sus estados individuales."
+					},
+					"response": []
+				},
+				{
+					"name": "Análisis de Reacciones",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response contains reaction stats\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('stats');",
+									"    pm.expect(jsonData.stats).to.have.property('total');",
+									"    pm.expect(jsonData.stats).to.have.property('bySentiment');",
+									"});",
+									"",
+									"// Log de reacciones",
+									"const jsonData = pm.response.json();",
+									"if (jsonData.stats) {",
+									"    console.log(\"😀 Reacciones totales: \" + jsonData.stats.total);",
+									"    if (jsonData.stats.total > 0) {",
+									"        console.log(\"   Positivas: \" + jsonData.stats.bySentiment.positive);",
+									"        console.log(\"   Negativas: \" + jsonData.stats.bySentiment.negative);",
+									"        console.log(\"   Neutrales: \" + jsonData.stats.bySentiment.neutral);",
+									"        if (jsonData.stats.topEmojis.length > 0) {",
+									"            console.log(\"   Top emoji: \" + jsonData.stats.topEmojis[0].emoji + \" (\" + jsonData.stats.topEmojis[0].count + \" veces)\");",
+									"        }",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{BASE_URL}}/api/marketing/campaign/{{CAMPAIGN_ID}}/reactions",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"marketing",
+								"campaign",
+								"{{CAMPAIGN_ID}}",
+								"reactions"
+							]
+						},
+						"description": "Análisis detallado de reacciones con sentimiento, emojis más usados y patrones."
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints de solo lectura para monitorear el rendimiento de las campañas."
+		},
+		{
+			"name": "🔧 Gestión",
+			"item": [
+				{
+					"name": "Crear Nueva Campaña",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Campaign created successfully\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData).to.have.property('campaign');",
+									"});",
+									"",
+									"console.log(\"✅ Campaña creada exitosamente\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": \"promo_nueva_campaña\",\n  \"name\": \"Nueva Campaña de Prueba\",\n  \"templateName\": \"template_nombre\",\n  \"description\": \"Descripción de la nueva campaña\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/marketing/campaign/create",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"marketing",
+								"campaign",
+								"create"
+							]
+						},
+						"description": "Crea una nueva campaña de marketing. Editar el body con los datos reales antes de enviar."
+					},
+					"response": []
+				},
+				{
+					"name": "Desactivar Campaña",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Campaign status updated\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"console.log(\"⏸️ Campaña desactivada\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"active\": false\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/marketing/campaign/{{CAMPAIGN_ID}}/status",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"marketing",
+								"campaign",
+								"{{CAMPAIGN_ID}}",
+								"status"
+							]
+						},
+						"description": "Desactiva una campaña existente para que no reciba más mensajes."
+					},
+					"response": []
+				},
+				{
+					"name": "Activar Campaña",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Campaign status updated\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"console.log(\"▶️ Campaña activada\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"active\": true\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/marketing/campaign/{{CAMPAIGN_ID}}/status",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"marketing",
+								"campaign",
+								"{{CAMPAIGN_ID}}",
+								"status"
+							]
+						},
+						"description": "Activa una campaña para que pueda recibir nuevos mensajes."
+					},
+					"response": []
+				},
+				{
+					"name": "Registrar Mensaje (n8n)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Message registered\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"console.log(\"📨 Mensaje registrado\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"messageId\": \"wamid.HBgNNTIxNTUyMjQwMzQ3NRUCABIYIDY0ODhFMTdDMjc2OEJCNDY4MUFGMTI4RjY4ODJDNDE3AA==\",\n  \"campaignId\": \"{{CAMPAIGN_ID}}\",\n  \"recipient\": \"5215512345678\",\n  \"templateName\": \"capicombo_video\",\n  \"status\": \"sent\"\n}"
+						},
+						"url": {
+							"raw": "{{BASE_URL}}/api/marketing/register-message",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"api",
+								"marketing",
+								"register-message"
+							]
+						},
+						"description": "Registra un nuevo mensaje enviado. Este endpoint es usado por n8n. Para pruebas manuales, cambiar messageId y recipient."
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints de escritura para gestionar campañas y registrar mensajes."
+		},
+		{
+			"name": "🏥 Sistema",
+			"item": [
+				{
+					"name": "Health Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"System is healthy\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.status).to.eql('healthy');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/health",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"health"
+							]
+						},
+						"description": "Verifica que el servidor esté funcionando correctamente."
+					},
+					"response": []
+				},
+				{
+					"name": "Métricas del Sistema",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{BASE_URL}}/metrics",
+							"host": [
+								"{{BASE_URL}}"
+							],
+							"path": [
+								"metrics"
+							]
+						},
+						"description": "Obtiene métricas generales del sistema (memoria, CPU, uptime, etc.)"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints para verificar el estado del sistema."
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "BASE_URL",
+			"value": "https://capibobbabot.onrender.com",
+			"type": "string"
+		},
+		{
+			"key": "CAMPAIGN_ID",
+			"value": "promo_capicombovideo_18_10_25",
+			"type": "string"
+		}
+	]
+}
