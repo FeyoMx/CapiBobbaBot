@@ -319,9 +319,8 @@ export interface CampaignDetailsResponse {
 
 export interface CampaignMessagesResponse {
   success: boolean;
-  campaignId: string;
+  count: number;
   messages: CampaignMessage[];
-  total: number;
 }
 
 export interface CampaignsListResponse {
