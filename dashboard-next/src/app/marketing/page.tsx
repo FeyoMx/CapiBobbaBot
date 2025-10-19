@@ -12,7 +12,6 @@ import { CampaignMetricCard } from '@/components/marketing/CampaignMetricCard';
 import { CampaignTimelineChart } from '@/components/marketing/CampaignTimelineChart';
 import { StatusDistributionChart } from '@/components/marketing/StatusDistributionChart';
 import { Send, CheckCheck, Eye, Heart } from 'lucide-react';
-import { saveAs } from 'file-saver';
 
 // ============================================================================
 // Marketing Page Component
@@ -72,7 +71,16 @@ export default function MarketingPage() {
     const blob = new Blob([JSON.stringify(exportData, null, 2)], {
       type: 'application/json',
     });
-    saveAs(blob, `campana_${selectedCampaignId}_${Date.now()}.json`);
+
+    // Use native browser API instead of file-saver
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `campana_${selectedCampaignId}_${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleExportCSV = () => {
@@ -90,7 +98,16 @@ export default function MarketingPage() {
 
     const csvContent = [headers, ...rows].map((row) => row.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    saveAs(blob, `mensajes_${selectedCampaignId}_${Date.now()}.csv`);
+
+    // Use native browser API instead of file-saver
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mensajes_${selectedCampaignId}_${Date.now()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleRefresh = () => {
