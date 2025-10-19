@@ -217,7 +217,7 @@ export function OrderDetailModal({ order, open, onClose }: OrderDetailModalProps
               <CardContent className="space-y-2 text-sm">
                 <div>
                   <span className="text-muted-foreground">Creado:</span>{' '}
-                  {format(new Date(order.created_at), 'PPp', { locale: es })}
+                  {format(new Date(order.created_at || order.timestamp || Date.now()), 'PPp', { locale: es })}
                 </div>
                 {order.confirmed_at && (
                   <div>

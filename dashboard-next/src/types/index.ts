@@ -87,8 +87,9 @@ export interface Order {
   payment_method: 'cash' | 'transfer' | 'pending';
   delivery_address?: string;
   notes?: string;
-  created_at: string; // ISO string
-  updated_at: string;
+  created_at?: string; // ISO string - optional for Redis orders
+  updated_at?: string; // Optional for Redis orders
+  timestamp?: number; // Unix timestamp in ms - used by Redis orders
   confirmed_at?: string;
   delivered_at?: string;
 }

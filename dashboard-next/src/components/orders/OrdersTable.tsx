@@ -161,9 +161,9 @@ export function OrdersTable({ orders, isLoading, onViewOrder, onExportCSV, filte
         },
         cell: ({ row }) => (
           <div className="text-sm">
-            <div>{format(new Date(row.original.created_at), 'dd MMM yyyy', { locale: es })}</div>
+            <div>{format(new Date(row.original.created_at || row.original.timestamp || Date.now()), 'dd MMM yyyy', { locale: es })}</div>
             <div className="text-xs text-muted-foreground">
-              {format(new Date(row.original.created_at), 'HH:mm', { locale: es })}
+              {format(new Date(row.original.created_at || row.original.timestamp || Date.now()), 'HH:mm', { locale: es })}
             </div>
           </div>
         ),

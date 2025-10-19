@@ -68,7 +68,7 @@ export function StatusDistributionChart({ byStatus }: StatusDistributionChartPro
       value: count,
       percentage: ((count / total) * 100).toFixed(1),
       status,
-    }));
+    } as ChartData));
 
   if (data.length === 0) {
     return (

@@ -156,10 +156,10 @@ export function RecentOrdersTable() {
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="text-sm">
-                        {format(new Date(order.created_at), 'dd MMM', { locale: es })}
+                        {format(new Date(order.created_at || order.timestamp || Date.now()), 'dd MMM', { locale: es })}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {format(new Date(order.created_at), 'HH:mm', { locale: es })}
+                        {format(new Date(order.created_at || order.timestamp || Date.now()), 'HH:mm', { locale: es })}
                       </div>
                     </td>
                   </tr>

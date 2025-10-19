@@ -130,7 +130,7 @@ export function exportOrdersToCSV(orders: Order[], filename: string = 'pedidos.c
     order.total.toString(),
     order.status,
     order.payment_method,
-    new Date(order.created_at).toLocaleString('es-MX'),
+    new Date(order.created_at || order.timestamp || Date.now()).toLocaleString('es-MX'),
     order.delivery_address || '',
     order.notes || '',
   ]);
