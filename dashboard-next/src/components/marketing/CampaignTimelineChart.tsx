@@ -56,7 +56,11 @@ export function CampaignTimelineChart({ messages }: CampaignTimelineChartProps) 
   const groupedData: Record<string, TimelineData> = messages.reduce((acc, message) => {
     if (!message.timestamps.sent) return acc;
 
-    const timestamp = message.timestamps.sent;
+    // Convert timestamp to number if it's a string
+    const timestamp = typeof message.timestamps.sent === 'string'
+      ? parseInt(message.timestamps.sent, 10)
+      : message.timestamps.sent;
+
     const hour = format(new Date(timestamp), 'HH:00');
 
     if (!acc[hour]) {

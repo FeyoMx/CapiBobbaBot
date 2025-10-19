@@ -263,9 +263,9 @@ export interface CampaignMessage {
   recipient: string;
   status: CampaignMessageStatus;
   timestamps: {
-    sent?: string; // ISO string
-    delivered?: string;
-    read?: string;
+    sent?: string | number; // ISO string or unix timestamp in ms
+    delivered?: string | number;
+    read?: string | number;
   };
   errorMessage?: string;
   reaction?: string;
