@@ -423,7 +423,7 @@ UV_THREADPOOL_SIZE=2
 
 ### Nodo Personalizado de n8n: Encuesta CapiBobba
 
-**Paquete npm**: `n8n-nodes-encuestacapibobba` (versión 0.2.1)
+**Paquete npm**: `n8n-nodes-encuestacapibobba` (versión 0.2.2)
 
 Nodo personalizado desarrollado para enviar encuestas de satisfacción post-compra a través de WhatsApp Business API usando mensajes interactivos.
 
@@ -744,6 +744,11 @@ Grid Principal (2 columnas desktop, 1 móvil)
 ---
 
 ## 📋 Historial de Cambios
+
+### v0.2.2-nodo (2025-10-20) - Fix Crítico: Conflicto de Credenciales en Nodo de Encuestas
+- **Tipo**: Bug Fix (Crítico)
+- **Componente**: `n8n-nodes-encuestacapibobba`
+- **Descripción**: Corrección de un bug donde el nodo redefinía la credencial `whatsAppApi`, causando conflictos con la credencial integrada de n8n. Se eliminó la definición de credencial conflictiva para resolver el problema.
 
 ### v2.14.1 (2025-10-20) - Migración Dashboard a Vercel 🚀
 
