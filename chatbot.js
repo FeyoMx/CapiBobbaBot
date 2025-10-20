@@ -82,7 +82,8 @@ const app = express();
 // Habilita CORS para el dashboard en localhost y producción
 const allowedOrigins = [
   'http://localhost:3001',
-  'https://capibobbabot-dashboard-app.onrender.com'
+  'https://capibobbabot-dashboard-app.onrender.com',
+  'https://capi-bobba-bot.vercel.app'
 ];
 
 app.use(cors({
