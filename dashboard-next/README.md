@@ -273,19 +273,46 @@ npm run test:coverage
 
 ## 🚀 Deployment
 
-### Vercel (Recomendado)
+### Vercel (Recomendado) ✅
+
+**¡Despliega en menos de 10 minutos gratis!**
+
+Ver la [**Guía Completa de Deployment a Vercel**](VERCEL_DEPLOY.md) para instrucciones paso a paso.
+
+**Quick Start:**
+
+1. Crea cuenta en [vercel.com](https://vercel.com) (gratis)
+2. Importa tu repositorio GitHub
+3. Configura Root Directory: `dashboard-next`
+4. Agrega variables de entorno:
+   - `NEXT_PUBLIC_API_URL=https://capibobbabot.onrender.com`
+   - `NEXT_PUBLIC_WS_URL=wss://capibobbabot.onrender.com`
+5. Click "Deploy" y listo! 🚀
+
+**CLI:**
 
 ```bash
-# CLI
+# Instalar Vercel CLI
 npm i -g vercel
+
+# Deploy a producción
 vercel --prod
 ```
 
-O conecta tu repo en [vercel.com](https://vercel.com).
+**Ventajas de Vercel:**
+- ✅ Gratis para proyectos personales
+- ✅ CDN global (70+ regiones)
+- ✅ Deploy automático en push a main
+- ✅ Preview deploys para PRs
+- ✅ Analytics incluido
+- ✅ Zero cold starts
+- ✅ Image optimization automática
 
-### Render
+### Render (Alternativa)
 
 Usa el archivo [render.yaml](render.yaml) incluido para auto-configuración.
+
+⚠️ **Nota:** El servicio de Render puede tener suspensiones por billing. Recomendamos usar Vercel.
 
 ### Docker
 
@@ -294,7 +321,7 @@ docker build -t capibobba-dashboard .
 docker run -p 3001:3001 capibobba-dashboard
 ```
 
-Ver [Guía de Deployment](docs/deployment/DEPLOY.md) completa.
+Ver [Guía de Deployment a Vercel](VERCEL_DEPLOY.md) completa.
 
 ---
 
