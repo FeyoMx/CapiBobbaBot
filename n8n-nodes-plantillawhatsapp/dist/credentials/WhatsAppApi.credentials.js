@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WhatsAppApi = void 0;
 class WhatsAppApi {
     constructor() {
-        this.name = 'whatsAppApi';
+        this.name = 'capiBobbaWhatsAppApi';
         this.displayName = 'WhatsApp API';
         this.documentationUrl = 'https://developers.facebook.com/docs/whatsapp/cloud-api';
         this.properties = [

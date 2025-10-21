@@ -12,7 +12,7 @@ export class PlantillaWhatsApp implements INodeType {
   description: INodeTypeDescription = {
     displayName: 'WhatsApp Template Sender',
     name: 'plantillaWhatsApp',
-    icon: 'file:plantilawhatsapp.png',
+    icon: 'file:plantillawhatsapp.png',
     group: ['transform'],
     version: 1,
     description: 'Sends a WhatsApp template message',
@@ -23,7 +23,7 @@ export class PlantillaWhatsApp implements INodeType {
     outputs: ['main'],
     credentials: [
       {
-        name: 'whatsAppApi',
+        name: 'capiBobbaWhatsAppApi',
         required: true,
       },
     ],

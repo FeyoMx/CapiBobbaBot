@@ -4,7 +4,7 @@ import {
 } from 'n8n-workflow';
 
 export class WhatsAppApi implements ICredentialType {
-  name = 'whatsAppApi';
+  name = 'capiBobbaWhatsAppApi';
   displayName = 'WhatsApp API';
   documentationUrl = 'https://developers.facebook.com/docs/whatsapp/cloud-api';
   properties: INodeProperties[] = [

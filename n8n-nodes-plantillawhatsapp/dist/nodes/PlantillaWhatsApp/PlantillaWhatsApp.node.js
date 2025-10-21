@@ -7,7 +7,7 @@ class PlantillaWhatsApp {
         this.description = {
             displayName: 'WhatsApp Template Sender',
             name: 'plantillaWhatsApp',
-            icon: 'file:plantilawhatsapp.png',
+            icon: 'file:plantillawhatsapp.png',
             group: ['transform'],
             version: 1,
             description: 'Sends a WhatsApp template message',
@@ -18,7 +18,7 @@ class PlantillaWhatsApp {
             outputs: ['main'],
             credentials: [
                 {
-                    name: 'whatsAppApi',
+                    name: 'capiBobbaWhatsAppApi',
                     required: true,
                 },
             ],
