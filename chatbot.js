@@ -780,6 +780,91 @@ app.post('/api/reactions/cleanup', async (req, res) => {
     }
 });
 
+// ===== NUEVOS ENDPOINTS v2.0 =====
+
+// Endpoint para analytics avanzados de reacciones
+app.get('/api/reactions/analytics', async (req, res) => {
+    try {
+        if (!reactionManager) {
+            return res.status(503).json({ error: 'Sistema de reacciones no inicializado' });
+        }
+
+        const analytics = await reactionManager.getAdvancedAnalytics();
+        res.json({
+            success: true,
+            analytics: analytics,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Error obteniendo analytics de reacciones:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Endpoint para métricas de performance del sistema de reacciones
+app.get('/api/reactions/performance', async (req, res) => {
+    try {
+        if (!reactionManager) {
+            return res.status(503).json({ error: 'Sistema de reacciones no inicializado' });
+        }
+
+        const metrics = reactionManager.getPerformanceMetrics();
+        res.json({
+            success: true,
+            metrics: metrics,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Error obteniendo métricas de performance:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Endpoint para iniciar flujo secuencial de reacciones
+app.post('/api/reactions/sequential-flow', async (req, res) => {
+    try {
+        if (!reactionManager) {
+            return res.status(503).json({ error: 'Sistema de reacciones no inicializado' });
+        }
+
+        const { to, messageId, flowKey } = req.body;
+
+        if (!to || !messageId || !flowKey) {
+            return res.status(400).json({ error: 'Faltan parámetros: to, messageId, flowKey' });
+        }
+
+        const started = await reactionManager.startSequentialFlow(to, messageId, flowKey);
+        res.json({
+            success: started,
+            message: started ? `Flujo ${flowKey} iniciado` : 'Error iniciando flujo',
+            flowKey: flowKey
+        });
+    } catch (error) {
+        console.error('Error iniciando flujo secuencial:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+// Endpoint para cancelar flujo secuencial
+app.post('/api/reactions/cancel-flow/:messageId', async (req, res) => {
+    try {
+        if (!reactionManager) {
+            return res.status(503).json({ error: 'Sistema de reacciones no inicializado' });
+        }
+
+        const { messageId } = req.params;
+        const cancelled = reactionManager.cancelSequentialFlow(messageId);
+
+        res.json({
+            success: cancelled,
+            message: cancelled ? 'Flujo cancelado' : 'No hay flujo activo para este mensaje'
+        });
+    } catch (error) {
+        console.error('Error cancelando flujo:', error);
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
 // ==================== MARKETING ENDPOINTS ====================
 
 /**
@@ -4823,16 +4908,19 @@ async function initializeSecurity_system() {
 
 // === INICIALIZACIÓN DEL SISTEMA DE CACHÉ GEMINI ===
 /**
- * Inicializa el sistema de reacciones inteligente
+ * Inicializa el sistema de reacciones inteligente v2.0
  */
 async function initializeReactionManager() {
     try {
-        console.log('🎨 Inicializando sistema de reacciones inteligente...');
+        console.log('🎨 Inicializando sistema de reacciones inteligente v2.0...');
 
+        // Pasar redisClient y metricsCollector para habilitar features avanzadas
         reactionManager = new ReactionManager(
             WHATSAPP_TOKEN,
             PHONE_NUMBER_ID,
-            WHATSAPP_API_VERSION
+            WHATSAPP_API_VERSION,
+            redisClient,        // ✨ Persistencia en Redis
+            metricsCollector    // ✨ Métricas integradas
         );
 
         // Limpiar reacciones antiguas
@@ -4844,11 +4932,15 @@ async function initializeReactionManager() {
             reactionManager.cleanOldReactions();
         });
 
-        console.log('✅ Sistema de reacciones inicializado exitosamente');
+        console.log('✅ Sistema de reacciones v2.0 inicializado exitosamente');
         console.log('   🎯 Reacciones contextuales: Activas');
         console.log('   📊 Reacciones de métricas: Activas');
         console.log('   🔄 Reacciones progresivas: Activas');
         console.log('   🛡️ Reacciones de validación: Activas');
+        console.log('   💾 Persistencia Redis: ' + (redisClient ? 'Activa' : 'Deshabilitada'));
+        console.log('   📈 Métricas avanzadas: ' + (metricsCollector ? 'Activas' : 'Deshabilitadas'));
+        console.log('   🚫 Rate limiting: Activo (10 req/min, 200 req/hora)');
+        console.log('   🎬 Flujos secuenciales: Activos');
 
     } catch (error) {
         console.error('❌ Error inicializando sistema de reacciones:', error);

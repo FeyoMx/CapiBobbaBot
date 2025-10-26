@@ -1,6 +1,6 @@
 {
   "name": "capibobbabot",
-  "version": "2.9.1",
+  "version": "2.15.0",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
