@@ -26,7 +26,7 @@ const initialBusinessConfig = {
   bank_name: 'MERCADO PAGO W',
   bank_account: '722969010305501833',
   bank_account_name: 'Maria Elena Martinez Flores',
-  menu_url: 'https://feyomx.github.io/menucapibobba/',
+  menu_url: 'https://capibobba.store/',
   whatsapp_business_id: 'WHATSAPP_BUSINESS_ID',
   phone_number_id: 'PHONE_NUMBER_ID',
 };

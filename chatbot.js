@@ -2666,7 +2666,7 @@ async function sendMainMenu(to, text) {
  * @param {string} to Número del destinatario.
  */
 async function handleShowMenu(to, text) {
-  await sendTextMessage(to, `¡Claro! Aquí está nuestro delicioso menú: https://feyomx.github.io/menucapibobba/`);
+  await sendTextMessage(to, `¡Claro! Aquí está nuestro delicioso menú: https://capibobba.store/`);
 }
 
 /**
@@ -2752,7 +2752,7 @@ async function handleInitiateOrder(to, text) {
     // Si solo es la intención, guía al usuario.
     const guideText = `¡Genial! Para tomar tu pedido de la forma más rápida y sin errores, por favor, créalo en nuestro menú interactivo y cuando termines, copia y pega el resumen de tu orden aquí.
 
-Aquí tienes el enlace: https://feyomx.github.io/menucapibobba/`;
+Aquí tienes el enlace: https://capibobba.store/`;
     await sendTextMessage(to, guideText);
   }
 }
@@ -3222,7 +3222,7 @@ ESTADO DEL SERVICIO: ${isMaintenanceMode ? 'CERRADO (mantenimiento)' : 'ABIERTO'
 
 INSTRUCCIONES:
 1. Responde de manera amigable y profesional, como un barista experto
-2. Si preguntan sobre productos específicos, menciona el menú web: https://feyomx.github.io/menucapibobba/
+2. Si preguntan sobre productos específicos, menciona el menú web: https://capibobba.store/
 3. Si quieren hacer pedidos y el servicio está abierto, guíalos al menú web para completar su orden
 4. Si el servicio está cerrado, informa amablemente que no estamos tomando pedidos en este momento
 5. Para preguntas sobre envío, confirma que es GRATIS en las zonas mencionadas
@@ -3501,7 +3501,7 @@ async function handlePriceInquiry(to, text) {
 👥 Combo Amigos: 2 Frappes base agua x $130
 🧇 CapiCombo: 1 Bubble Tea + 1 CapiGofre x $100
 
-Para ver el menú completo con todos los precios: https://feyomx.github.io/menucapibobba/
+Para ver el menú completo con todos los precios: https://capibobba.store/
 
 ¿Te gustaría hacer un pedido? 😊`;
 
@@ -3555,7 +3555,7 @@ async function handleInitiateOrder(to, text) {
     const orderInfo = `🛒 **¡Perfecto! Vamos a hacer tu pedido**
 
 Para ver todo nuestro menú y realizar tu pedido:
-👉 https://feyomx.github.io/menucapibobba/
+👉 https://capibobba.store/
 
 **Pasos sencillos:**
 1️⃣ Selecciona tus bebidas favoritas

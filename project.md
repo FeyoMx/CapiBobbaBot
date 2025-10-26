@@ -745,6 +745,31 @@ Grid Principal (2 columnas desktop, 1 móvil)
 
 ## 📋 Historial de Cambios
 
+### v2.9.1 (2025-10-26) - Actualización de URL del Menú 🔗
+
+**Actualización de configuración**: Migración de URL del menú de GitHub Pages a dominio personalizado.
+
+#### 🎯 Cambios realizados
+
+- 🔗 **URL Actualizada**: De `https://feyomx.github.io/menucapibobba/` a `https://capibobba.store/`
+- 📁 **Archivos modificados**:
+  - `business_data.js:56` - URL en howToOrder
+  - `chatbot.js:2669` - handleShowMenu function
+  - `chatbot.js:2755` - Guía de pedido
+  - `chatbot.js:3225` - Instrucciones para Gemini AI
+  - `chatbot.js:3504` - Información de precios
+  - `chatbot.js:3558` - Información de pedido
+  - `dashboard-next/src/app/configuracion/page.tsx:29` - Configuración inicial
+  - `config/business_data.json:35` - Datos de negocio
+  - `project.md:1765` - Documentación
+
+#### ✅ Impacto
+
+- ✨ Mejora de branding con dominio personalizado
+- 🚀 URL más corta y fácil de recordar para clientes
+- 🎨 Mayor profesionalismo en comunicación con usuarios
+- 📊 Consistencia en todas las referencias del menú
+
 ### v0.2.2-nodo (2025-10-20) - Fix Crítico: Conflicto de Credenciales en Nodo de Encuestas
 - **Tipo**: Bug Fix (Crítico)
 - **Componente**: `n8n-nodes-encuestacapibobba`
@@ -1762,7 +1787,7 @@ Excelente
   - Ubicación: "No tenemos local físico, solo servicio a domicilio"
   - Horario: Lunes a Viernes 6PM-10PM, Sábados y Domingos 12PM-10PM
   - Zonas de entrega GRATIS: 20 colonias listadas
-  - URL del menú: https://feyomx.github.io/menucapibobba/
+  - URL del menú: https://capibobba.store/
   - Datos bancarios completos para transferencias
 
 - 🤖 **Modelo Gemini Corregido** (`dashboard-next/src/app/configuracion/page.tsx:33`):
